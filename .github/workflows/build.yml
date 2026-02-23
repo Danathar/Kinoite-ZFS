@@ -65,6 +65,8 @@ jobs:
               "architecture": ["x86_64"]
             }
           ' images.yaml
+          # main+zfs is not in upstream defaults; ensure jq is installed before zfs release parsing.
+          sed -i '/^cd \/tmp$/a dnf install -y jq' build_files/zfs/build-kmod-zfs.sh
 
       - name: Build and publish self-hosted zfs akmods image
         shell: bash
