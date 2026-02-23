@@ -53,6 +53,18 @@ modules:
         fi
 
         rpm-ostree install "${zfs_rpms[@]}"
+
+        # kmod-zfs postinstall only runs depmod when uname -r matches; in image
+        # builds it usually does not, so generate module dependency indexes manually.
+        mapfile -t zfs_module_files < <(find /lib/modules -type f -path '*/extra/zfs/zfs.ko' | sort)
+        if [[ "${#zfs_module_files[@]}" -eq 0 ]]; then
+          echo "zfs.ko not found after installing ZFS RPMs" >&2
+          exit 1
+        fi
+        for module_file in "${zfs_module_files[@]}"; do
+          kernel_release="$(echo "${module_file}" | sed -E 's#^/lib/modules/([^/]+)/.*#\1#')"
+          depmod -a "${kernel_release}"
+        done
         EOF
 
   - type: dnf
