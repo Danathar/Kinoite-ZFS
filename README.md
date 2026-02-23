@@ -28,7 +28,7 @@ To rebase an existing atomic Fedora installation to the latest build:
   systemctl reboot
   ```
 
-The `latest` tag points to the newest build and, with `image-version: latest`, tracks the current default Kinoite base stream (including major version transitions).
+The `latest` tag points to the newest build we publish. Right now the recipe is pinned to Fedora 42 (`image-version: 42`) because ZFS akmods are currently unavailable on the Fedora 43 base stream.
 
 ## ZFS Validation
 
