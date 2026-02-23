@@ -30,6 +30,25 @@ To rebase an existing atomic Fedora installation to the latest build:
 
 The `latest` tag points to the newest build and, with `image-version: latest`, tracks the current default Kinoite base stream (including major version transitions).
 
+## ZFS Validation
+
+After rebasing and rebooting, validate ZFS is available:
+
+```bash
+modinfo zfs | head
+zpool --version
+zfs --version
+```
+
+For VM testing with a secondary disk attached as `/dev/vdb`:
+
+```bash
+sudo zpool create -f testpool /dev/vdb
+sudo zpool status
+sudo zfs create testpool/testds
+sudo zfs list
+```
+
 ## ISO
 
 If build on Fedora Atomic, you can generate an offline ISO with the instructions available [here](https://blue-build.org/learn/universal-blue/#fresh-install-from-an-iso). These ISOs cannot unfortunately be distributed on GitHub for free due to large sizes, so for public projects something else has to be used for hosting.
