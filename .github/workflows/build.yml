@@ -74,6 +74,7 @@ jobs:
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
           AKMODS_TARGET: zfs
+          ZFS_MINOR_VERSION: "2.4"
           CI: "1"
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
