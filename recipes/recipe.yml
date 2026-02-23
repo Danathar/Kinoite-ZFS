@@ -26,7 +26,10 @@ modules:
 
         skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
 
-        mapfile -t layer_files < <(find /tmp/akmods-zfs -maxdepth 1 -type f ! -name manifest.json ! -name version | sort)
+        mapfile -t layer_files < <(
+          jq -r '.layers[]?.digest // empty' /tmp/akmods-zfs/manifest.json \
+            | sed -E 's#^sha256:#/tmp/akmods-zfs/#'
+        )
         if [[ "${#layer_files[@]}" -eq 0 ]]; then
           echo "No layers found in ${AKMODS_IMAGE}" >&2
           exit 1
