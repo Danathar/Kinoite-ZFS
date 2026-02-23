@@ -28,13 +28,27 @@ To rebase an existing atomic Fedora installation to the latest build:
   systemctl reboot
   ```
 
-The `latest` tag points to the newest build we publish. Right now the recipe is pinned to Fedora 42 (`image-version: 42`) because ZFS akmods are currently unavailable on the Fedora 43 base stream.
+The `latest` tag points to the newest build we publish.
+
+## Self-Hosted ZFS akmods
+
+This repo builds a self-hosted `akmods-zfs` image in GHCR first, then uses those RPMs in the Kinoite image build.
+
+- Cache image location:
+  - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+- Build source for cache image:
+  - `ublue-os/akmods` tooling (cloned during workflow run)
+- Consumer in recipe:
+  - `type: containerfile` snippet in `recipes/recipe.yml`
+
+If ZFS build or install fails, check the `Build Self-Hosted ZFS Akmods` job first in `build.yml`.
 
 ## ZFS Validation
 
 After rebasing and rebooting, validate ZFS is available:
 
 ```bash
+rpm -q kmod-zfs
 modinfo zfs | head
 zpool --version
 zfs --version

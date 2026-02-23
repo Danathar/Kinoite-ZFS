@@ -7,7 +7,7 @@ description: This is my personal OS image.
 
 # the base image to build on top of (FROM) and the version tag to use
 base-image: ghcr.io/ublue-os/kinoite-main
-image-version: 42 # pinned while Fedora 43 ZFS akmods are unavailable
+image-version: latest # follow the default Kinoite stream
 
 # module configuration, executed in order
 # you can include multiple instances of the same module
@@ -17,9 +17,40 @@ modules:
       - source: system
         destination: / # copies files/system/* (* means everything inside it) into your image's root folder /
 
-  - type: akmods
-    install:
-      - zfs
+  - type: containerfile
+    snippets:
+      - |
+        RUN bash -euxo pipefail <<'EOF'
+        FEDORA_VERSION="$(rpm -E %fedora)"
+        AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs:main-${FEDORA_VERSION}"
+
+        skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
+
+        mapfile -t layer_files < <(find /tmp/akmods-zfs -maxdepth 1 -type f ! -name manifest.json ! -name version | sort)
+        if [[ "${#layer_files[@]}" -eq 0 ]]; then
+          echo "No layers found in ${AKMODS_IMAGE}" >&2
+          exit 1
+        fi
+        for layer in "${layer_files[@]}"; do
+          tar -xf "${layer}" -C /tmp/
+        done
+
+        mapfile -t zfs_rpms < <(
+          find /tmp/rpms/kmods/zfs -maxdepth 1 -type f -name '*.rpm' \
+            ! -name '*.src.rpm' \
+            ! -name '*-debug*' \
+            ! -name '*-devel*' \
+            ! -name '*-test*' \
+            | sort
+        )
+
+        if [[ "${#zfs_rpms[@]}" -eq 0 ]]; then
+          echo "No ZFS RPMs found in ${AKMODS_IMAGE}" >&2
+          exit 1
+        fi
+
+        rpm-ostree install "${zfs_rpms[@]}"
+        EOF
 
   - type: dnf
     repos:
@@ -29,7 +60,6 @@ modules:
       packages:
         - micro
         - starship
-        - zfs
     remove:
       packages:
         # example: removing firefox (in favor of the flatpak)

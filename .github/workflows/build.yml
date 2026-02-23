@@ -15,8 +15,77 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 jobs:
+  build-zfs-akmods:
+    name: Build Self-Hosted ZFS Akmods
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: ghcr.io/ublue-os/devcontainer:latest
+      options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
+    steps:
+      - name: Detect Fedora major version for Kinoite latest
+        id: fedora
+        shell: bash
+        run: |
+          set -euo pipefail
+          ostree_linux="$(skopeo inspect docker://ghcr.io/ublue-os/kinoite-main:latest --format '{{ index .Labels "ostree.linux" }}')"
+          fedora_version="$(sed -E 's/.*fc([0-9]+).*/\1/' <<< "${ostree_linux}")"
+          if [[ -z "${fedora_version}" ]]; then
+            echo "Failed to detect Fedora version from ostree.linux=${ostree_linux}" >&2
+            exit 1
+          fi
+          echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Clone upstream akmods tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/ublue-os/akmods.git /tmp/akmods
+
+      - name: Configure zfs target in self-hosted namespace
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd /tmp/akmods
+          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          export FEDORA_VERSION IMAGE_ORG
+          yq -i '
+            .images[strenv(FEDORA_VERSION)].main.zfs = {
+              "org": strenv(IMAGE_ORG),
+              "registry": "ghcr.io",
+              "repo": "akmods",
+              "transport": "docker://",
+              "name": "akmods-zfs",
+              "description": "A caching layer for the pre-built zfs akmod RPMs",
+              "architecture": ["x86_64"]
+            }
+          ' images.yaml
+
+      - name: Build and publish self-hosted zfs akmods image
+        shell: bash
+        env:
+          AKMODS_KERNEL: main
+          AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
+          AKMODS_TARGET: zfs
+          CI: "1"
+          REGISTRY_ACTOR: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd /tmp/akmods
+          just build
+          just login
+          just push
+          just manifest
+
   bluebuild:
     name: Build Custom Image
+    needs: build-zfs-akmods
     runs-on: ubuntu-latest
     permissions:
       contents: read
