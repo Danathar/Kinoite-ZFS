@@ -68,7 +68,7 @@ jobs:
           # main+zfs is not in upstream defaults; ensure jq is installed before zfs release parsing.
           sed -i '/^cd \/tmp$/a dnf install -y jq' build_files/zfs/build-kmod-zfs.sh
           # zfs 2.4 source RPM build deps need python3-cffi on Fedora main builds.
-          sed -i '/RPMS_TO_INSTALL+=(/a\    python3-cffi' build_files/prep/build-prep.sh
+          perl -0777 -i -pe 's/RPMS_TO_INSTALL\\+=\\(\\n\\s*akmods/RPMS_TO_INSTALL+=(\\n    python3-cffi\\n    akmods/' build_files/prep/build-prep.sh
 
       - name: Build and publish self-hosted zfs akmods image
         shell: bash
