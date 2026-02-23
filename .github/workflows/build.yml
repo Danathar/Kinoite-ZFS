@@ -10,6 +10,12 @@ on:
 
   pull_request:
   workflow_dispatch: # allow manually triggering builds
+    inputs:
+      rebuild_akmods:
+        description: Force rebuild of self-hosted akmods-zfs
+        required: false
+        default: false
+        type: boolean
 concurrency:
   # only run one build at a time
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -39,13 +45,32 @@ jobs:
           fi
           echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
 
+      - name: Check for existing self-hosted zfs akmods image
+        id: akmods
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+        run: |
+          set -euo pipefail
+          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/akmods-zfs:main-${FEDORA_VERSION}"
+          if skopeo inspect "docker://${AKMODS_IMAGE}" >/dev/null 2>&1; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+            echo "Found existing ${AKMODS_IMAGE}; akmods rebuild can be skipped."
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "No existing ${AKMODS_IMAGE}; akmods rebuild is required."
+          fi
+
       - name: Clone upstream akmods tooling
+        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         run: |
           set -euo pipefail
           git clone --depth 1 https://github.com/ublue-os/akmods.git /tmp/akmods
 
       - name: Configure zfs target in self-hosted namespace
+        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
@@ -71,6 +96,7 @@ jobs:
           perl -0777 -i -pe 's/RPMS_TO_INSTALL\+=\(\n    akmods/RPMS_TO_INSTALL+=(\n    python3-cffi\n    akmods/' build_files/prep/build-prep.sh
 
       - name: Build and publish self-hosted zfs akmods image
+        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
           AKMODS_KERNEL: main
