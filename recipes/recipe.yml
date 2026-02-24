@@ -20,71 +20,10 @@ modules:
         destination: /
 
   - type: containerfile
-    # Use a containerfile snippet for logic that is too custom for stock modules:
-    # fetch self-hosted akmods-zfs image, extract RPMs, install into ostree image.
-    snippets:
-      - |
-        RUN bash -euxo pipefail <<'EOF'
-        # Detect Fedora major from build root so we select the matching akmods tag.
-        FEDORA_VERSION="$(rpm -E %fedora)"
-        AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs:main-${FEDORA_VERSION}"
-
-        # Capture kernel release(s) already present in the base image before adding kmods.
-        # We validate against this exact list after install to avoid publishing stale/mismatched kmods.
-        mapfile -t image_kernels < <(find /lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
-        if [[ "${#image_kernels[@]}" -eq 0 ]]; then
-          echo "No kernel directories found in /lib/modules" >&2
-          exit 1
-        fi
-
-        # Pull akmods cache image as a local `dir:` layout for direct layer extraction.
-        skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
-
-        # Read only manifest layers (not config blobs) and map digest -> local file path.
-        mapfile -t layer_files < <(
-          jq -r '.layers[]?.digest // empty' /tmp/akmods-zfs/manifest.json \
-            | sed -E 's#^sha256:#/tmp/akmods-zfs/#'
-        )
-        if [[ "${#layer_files[@]}" -eq 0 ]]; then
-          echo "No layers found in ${AKMODS_IMAGE}" >&2
-          exit 1
-        fi
-        # Unpack every image layer so `/tmp/rpms/kmods/zfs` becomes available.
-        for layer in "${layer_files[@]}"; do
-          tar -xf "${layer}" -C /tmp/
-        done
-
-        # Select only installable ZFS-related binary RPMs.
-        mapfile -t zfs_rpms < <(
-          find /tmp/rpms/kmods/zfs -maxdepth 1 -type f -name '*.rpm' \
-            ! -name '*.src.rpm' \
-            ! -name '*-debug*' \
-            ! -name '*-devel*' \
-            ! -name '*-test*' \
-            | sort
-        )
-
-        if [[ "${#zfs_rpms[@]}" -eq 0 ]]; then
-          echo "No ZFS RPMs found in ${AKMODS_IMAGE}" >&2
-          exit 1
-        fi
-
-        # Install directly into ostree build root.
-        rpm-ostree install "${zfs_rpms[@]}"
-
-        # Fail closed if the cached kmods do not match the kernel(s) from the base image.
-        # This prevents publishing an image where `kmod-zfs` is installed but `modprobe zfs` fails.
-        for kernel_release in "${image_kernels[@]}"; do
-          module_path="/lib/modules/${kernel_release}/extra/zfs/zfs.ko"
-          if [[ ! -f "${module_path}" ]]; then
-            echo "No ZFS module for base kernel ${kernel_release}. Cached akmods are stale; rebuild akmods." >&2
-            exit 1
-          fi
-          # kmod-zfs postinstall script runs depmod only when uname -r matches target.
-          # During image builds uname is usually the builder kernel, so run depmod manually.
-          depmod -a "${kernel_release}"
-        done
-        EOF
+    # Keep custom ZFS install logic in a dedicated Containerfile snippet directory.
+    # This keeps recipe.yml readable while still using the containerfile module.
+    containerfiles:
+      - zfs-akmods
 
   - type: dnf
     # Example user packages/removals from BlueBuild template.
