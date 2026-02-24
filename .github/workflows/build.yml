@@ -301,17 +301,32 @@ jobs:
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
-          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           set -euo pipefail
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/${AKMODS_REPO}:main-${FEDORA_VERSION}"
+          candidate_akmods_image="ghcr.io/${IMAGE_ORG}/${CANDIDATE_AKMODS_REPO}:main-${FEDORA_VERSION}"
+          stable_akmods_image="ghcr.io/${IMAGE_ORG}/${STABLE_AKMODS_REPO}:main-${FEDORA_VERSION}"
 
-          # Candidate cache is valid only if it already contains kmod-zfs for the exact base kernel.
-          if skopeo inspect "docker://${AKMODS_IMAGE}" >/dev/null 2>&1; then
+          # Primary expectation: candidate cache repo exists.
+          # Compatibility fallback: current upstream tooling can still publish to stable repo/tag.
+          # If candidate cache tag is absent, probe stable tag so manual re-runs can reuse cache
+          # instead of recompiling modules unnecessarily.
+          akmods_image=""
+          if skopeo inspect "docker://${candidate_akmods_image}" >/dev/null 2>&1; then
+            akmods_image="${candidate_akmods_image}"
+            echo "Using candidate cache source ${akmods_image}"
+          elif [[ "${STABLE_AKMODS_REPO}" != "${CANDIDATE_AKMODS_REPO}" ]] && skopeo inspect "docker://${stable_akmods_image}" >/dev/null 2>&1; then
+            akmods_image="${stable_akmods_image}"
+            echo "Candidate cache tag missing; falling back to stable cache source ${akmods_image}"
+          fi
+
+          # Cache is valid only if it already contains kmod-zfs for the exact base kernel.
+          if [[ -n "${akmods_image}" ]]; then
             workdir="$(mktemp -d)"
             trap 'rm -rf "${workdir}"' EXIT
-            skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" "dir:${workdir}/akmods" >/dev/null
+            skopeo copy --retry-times 3 "docker://${akmods_image}" "dir:${workdir}/akmods" >/dev/null
             mapfile -t layer_files < <(
               jq -r '.layers[]?.digest // empty' "${workdir}/akmods/manifest.json" \
                 | sed -E "s#^sha256:#${workdir}/akmods/#"
@@ -321,14 +336,14 @@ jobs:
             done
             if find "${workdir}/rpms/kmods/zfs" -maxdepth 1 -type f -name "kmod-zfs-${KERNEL_RELEASE}-*.rpm" | grep -q .; then
               echo "exists=true" >> "${GITHUB_OUTPUT}"
-              echo "Found matching ${AKMODS_IMAGE} kmod for kernel ${KERNEL_RELEASE}; akmods rebuild can be skipped."
+              echo "Found matching ${akmods_image} kmod for kernel ${KERNEL_RELEASE}; akmods rebuild can be skipped."
             else
               echo "exists=false" >> "${GITHUB_OUTPUT}"
-              echo "Cached ${AKMODS_IMAGE} is present but missing kmod for kernel ${KERNEL_RELEASE}; akmods rebuild is required."
+              echo "Cached ${akmods_image} is present but missing kmod for kernel ${KERNEL_RELEASE}; akmods rebuild is required."
             fi
           else
             echo "exists=false" >> "${GITHUB_OUTPUT}"
-            echo "No existing ${AKMODS_IMAGE}; akmods rebuild is required."
+            echo "No existing candidate/stable akmods cache image for Fedora ${FEDORA_VERSION}; akmods rebuild is required."
           fi
 
       - name: Clone upstream akmods tooling
@@ -537,13 +552,29 @@ jobs:
             --dest-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
             "${candidate_image}" "${audit_image}"
 
-          # Promote matching candidate akmods cache to stable repo/tag.
-          skopeo copy --retry-times 3 \
-            --src-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
-            --dest-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
-            "${candidate_akmods}" "${stable_akmods}"
+          # Prefer candidate akmods cache source; fall back to stable source when upstream akmods
+          # tooling published directly to stable repo/tag.
+          if skopeo inspect --creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" "${candidate_akmods}" >/dev/null 2>&1; then
+            source_akmods="${candidate_akmods}"
+          elif skopeo inspect --creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" "${stable_akmods}" >/dev/null 2>&1; then
+            source_akmods="${stable_akmods}"
+            echo "Candidate akmods tag missing; using stable akmods tag as promotion source."
+          else
+            echo "Neither candidate nor stable akmods tag exists for Fedora ${FEDORA_VERSION}." >&2
+            exit 1
+          fi
+
+          # If source already equals destination, copy is unnecessary and can be skipped safely.
+          if [[ "${source_akmods}" != "${stable_akmods}" ]]; then
+            skopeo copy --retry-times 3 \
+              --src-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+              --dest-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+              "${source_akmods}" "${stable_akmods}"
+          else
+            echo "Akmods source already at stable tag ${stable_akmods}; skipping retag copy."
+          fi
 
           echo "Resolved candidate source ${candidate_image_by_tag} -> ${candidate_image}"
           echo "Promoted ${candidate_image} -> ${stable_image}"
           echo "Published audit tag ${audit_image}"
-          echo "Promoted ${candidate_akmods} -> ${stable_akmods}"
+          echo "Promoted ${source_akmods} -> ${stable_akmods}"
