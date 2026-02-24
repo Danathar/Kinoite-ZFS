@@ -25,7 +25,7 @@ This is intentionally designed for iterative validation before adopting any appr
 1. `recipes/recipe.yml`
    - Defines the final image (`kinoite-zfs`) and installs ZFS RPMs from a self-hosted akmods image.
 2. `.github/workflows/build.yml`
-   - Main pipeline: builds/publishes main akmods and main OS image.
+   - Main pipeline: builds candidate artifacts first and promotes to stable only after candidate success.
 3. `.github/workflows/build-beta.yml`
    - Branch pipeline: builds/publishes branch-isolated akmods and branch-tagged OS image.
 4. `.github/workflows/build-pr.yml`
@@ -35,8 +35,11 @@ This is intentionally designed for iterative validation before adopting any appr
 
 ### Main Artifacts
 
-1. OS image: `ghcr.io/danathar/kinoite-zfs:latest`
-2. Akmods cache image: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+1. Candidate OS image: `ghcr.io/danathar/kinoite-zfs:candidate`
+2. Candidate akmods cache image: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
+3. Stable OS image: `ghcr.io/danathar/kinoite-zfs:latest`
+4. Stable OS audit tag: `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
+5. Stable akmods cache image: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 
 ### Branch Artifacts
 
@@ -56,9 +59,9 @@ The workflows inspect `ghcr.io/ublue-os/kinoite-main:latest` and read `ostree.li
 
 This ensures akmods cache and final image build both align to the same kernel stream.
 
-### 2. Validate Existing Akmods Cache
+### 2. Validate Existing Candidate Akmods Cache
 
-Before rebuilding akmods, CI checks whether the existing cache image already contains:
+Before rebuilding akmods, CI checks whether the existing candidate cache image already contains:
 
 1. `kmod-zfs-<exact-kernel-release>-*.rpm` for the current base kernel.
 
@@ -67,18 +70,18 @@ If missing, akmods rebuild is forced.
 
 This is the core mechanism that prevents shipping stale kmods.
 
-### 3. Build Akmods (When Required)
+### 3. Build Candidate Akmods (When Required)
 
 If cache is missing/stale (or manual rebuild is requested), CI:
 
 1. Fetches a pinned upstream `ublue-os/akmods` commit.
 2. Injects the ZFS image target under this repo owner namespace.
 3. Applies controlled runtime patches needed by current ZFS build flow.
-4. Builds and publishes akmods cache image.
+4. Builds and publishes candidate akmods cache image.
 
-### 4. Build Final Kinoite Image
+### 4. Build Candidate Kinoite Image
 
-`recipes/recipe.yml` then:
+`recipes/recipe.yml` is rewritten in-run to point at candidate tags, then:
 
 1. Pulls the akmods cache image.
 2. Extracts ZFS RPMs from image layers.
@@ -86,7 +89,17 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 4. Verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
 5. Runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
 
-If module files do not match kernel directories, build fails immediately.
+If module files do not match kernel directories, candidate build fails immediately.
+
+### 5. Promote Candidate To Stable
+
+Promotion runs only after successful candidate akmods and candidate image jobs:
+
+1. Retags candidate image to stable `latest`.
+2. Publishes immutable stable audit tag (`stable-<run>-<sha>`).
+3. Retags candidate akmods cache to stable akmods tag.
+
+If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
 
 ## Workflow Behavior
 
@@ -100,9 +113,11 @@ Triggers:
 
 Key behavior:
 
-1. Builds/publishes main akmods cache as needed.
-2. Builds/publishes main image.
-3. Ignores markdown/docs-only changes.
+1. Builds/publishes candidate akmods cache as needed.
+2. Builds/publishes candidate image.
+3. Promotes candidate artifacts to stable tags only on success.
+4. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+5. Ignores markdown/docs-only changes.
 
 ### `.github/workflows/build-beta.yml` (Branch)
 
@@ -140,12 +155,14 @@ When Fedora kernel updates faster than OpenZFS support:
 3. Or final image validation can fail because `zfs.ko` is absent for base kernel.
 
 In all cases, CI fails before publishing a broken final image for that run.
+Candidate-first promotion adds one more safeguard: if candidate fails, stable tags are not advanced.
 
 Important limitation:
 
 1. Previously published tags remain available.
-2. A newly failing run does not retroactively remove old tags.
-3. Consumers should rebase intentionally and validate after kernel transitions.
+2. A failing candidate run does not retroactively remove old stable tags.
+3. Stable remains at last successful promotion until compatibility returns.
+4. Consumers should rebase intentionally and validate after kernel transitions.
 
 ## Living Issue Log
 
@@ -197,17 +214,24 @@ Problem:
 
 Mitigation implemented:
 
-1. Pending.
+1. Implemented candidate-first pipeline in `.github/workflows/build.yml`.
+2. Main workflow now publishes candidate artifacts (`candidate` image + `akmods-zfs-candidate`) before touching stable tags.
+3. Added gated promotion job that retags candidate artifacts to stable only when candidate jobs succeed.
+4. Added manual dispatch input `promote_to_stable` for controlled candidate-only runs.
+
+Where:
+
+1. `.github/workflows/build.yml`
 
 Residual risk:
 
-1. New kernel transitions can temporarily block fresh image publication.
-2. Operators may need to pause updates manually until compatibility returns.
+1. Stable can intentionally lag behind upstream latest during compatibility gaps.
+2. Promotion still assumes candidate build success is sufficient quality signal (no booted runtime smoke test yet).
 
 Planned follow-up:
 
-1. Define a compatibility holdback policy (manual pin, fallback tag, or gated promotion path).
-2. Validate the policy on branch builds before applying to `main`.
+1. Add runtime smoke testing before promotion so candidate success is validated in a booted environment.
+2. Define policy for communicating stable lag windows when candidate repeatedly fails.
 
 ## Issue #3: Build Inputs Are Still Partially Floating (Limited Reproducibility)
 

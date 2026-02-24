@@ -19,21 +19,27 @@ That document is maintained as a living record and will be updated as each harde
 
 ## What Gets Published
 
-- Main image:
+- Candidate image (pre-promotion):
+  - `ghcr.io/danathar/kinoite-zfs:candidate`
+- Candidate akmods cache image (pre-promotion):
+  - `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
+- Stable image (promoted only after candidate success):
   - `ghcr.io/danathar/kinoite-zfs:latest`
-- Main akmods cache image:
+- Stable image audit tag (immutable per promotion):
+  - `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
+- Stable akmods cache image (promoted from candidate cache):
   - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 - Branch test image:
   - `ghcr.io/danathar/kinoite-zfs:beta-<branch>`
 - Branch akmods cache image:
   - `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
 
-Branch artifacts are isolated so branch testing does not overwrite `main` artifacts.
+Candidate and branch artifacts are isolated so test runs do not overwrite stable `latest` artifacts.
 
 ## Workflows
 
 - `.github/workflows/build.yml`
-  - Builds and publishes `main` artifacts.
+  - Builds candidate artifacts first, then promotes them to stable tags on success.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
 - `.github/workflows/build-beta.yml`
   - Builds branch-tagged test artifacts for non-main branches.
