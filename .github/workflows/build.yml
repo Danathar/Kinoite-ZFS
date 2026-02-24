@@ -497,14 +497,28 @@ jobs:
           REGISTRY_TOKEN: ${{ github.token }}
           FEDORA_VERSION: ${{ needs.build-zfs-akmods.outputs.fedora_version }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          CANDIDATE_IMAGE_TAG: ${{ env.CANDIDATE_IMAGE_TAG }}
           CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           set -euo pipefail
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
 
-          candidate_image="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}:${CANDIDATE_IMAGE_TAG}"
+          # BlueBuild always emits a commit+Fedora tag (for example `a1b2c3d-43`) even when
+          # branch/default tag strategies differ between refs.
+          # Resolve promotion source from that deterministic tag, then switch to digest form so
+          # both stable tags point to the exact artifact produced by this run.
+          candidate_source_tag="${GITHUB_SHA::7}-${FEDORA_VERSION}"
+          candidate_image_by_tag="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}:${candidate_source_tag}"
+          candidate_image_digest="$(skopeo inspect \
+            --creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+            --format '{{.Digest}}' \
+            "${candidate_image_by_tag}")"
+          if [[ -z "${candidate_image_digest}" ]]; then
+            echo "Failed to resolve candidate image digest from ${candidate_image_by_tag}" >&2
+            exit 1
+          fi
+          candidate_image="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}@${candidate_image_digest}"
+
           stable_image="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}:latest"
           audit_image="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}:stable-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
 
@@ -529,6 +543,7 @@ jobs:
             --dest-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
             "${candidate_akmods}" "${stable_akmods}"
 
+          echo "Resolved candidate source ${candidate_image_by_tag} -> ${candidate_image}"
           echo "Promoted ${candidate_image} -> ${stable_image}"
           echo "Published audit tag ${audit_image}"
           echo "Promoted ${candidate_akmods} -> ${stable_akmods}"
