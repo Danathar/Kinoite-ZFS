@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: beta/configure-branch-recipe.sh
+# What: Rewrites recipe and ZFS containerfile references for branch builds.
+# Doing: Sets branch image tag in `recipes/recipe.yml` and branch akmods source in `containerfiles/zfs-akmods/Containerfile`.
+# Why: Ensures branch runs do not overwrite main tags/caches while still using the same build logic.
+# Goal: Point branch image build at branch-scoped outputs with full traceability in logs.
 set -euo pipefail
 
 # Normalize owner name for OCI repository path usage.

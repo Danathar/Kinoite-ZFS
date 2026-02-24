@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: akmods/build-and-publish.sh
+# What: Executes the upstream akmods build/publish lifecycle from a prepared /tmp/akmods checkout.
+# Doing: Runs `just build`, `just login`, `just push`, and `just manifest` in order.
+# Why: Centralizes akmods publish behavior so workflows stay orchestration-focused and deterministic.
+# Goal: Produce and publish the ZFS akmods cache image/manifest for the current pipeline context.
 set -euo pipefail
 
 # Upstream akmods tooling expects to run from its repository root in /tmp/akmods.

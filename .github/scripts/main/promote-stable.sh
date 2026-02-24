@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: main/promote-stable.sh
+# What: Promotes the tested candidate image (and optional candidate akmods cache) into stable tags.
+# Doing: Resolves candidate digest, copies to `latest` plus audit tag, and conditionally mirrors candidate akmods.
+# Why: Ensures stable promotion is digest-based, auditable, and avoids rebuilding artifacts already validated.
+# Goal: Publish stable image references that exactly match the candidate tested in this workflow run.
 set -euo pipefail
 
 # Normalize owner for OCI repository references.

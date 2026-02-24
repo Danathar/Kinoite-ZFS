@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: beta/check-branch-akmods-cache.sh
+# What: Validates whether a branch-scoped akmods cache already has a ZFS kmod for the exact kernel release.
+# Doing: Inspects GHCR cache image, extracts layers, searches for `kmod-zfs-<kernel>-*.rpm`, emits `exists` output.
+# Why: Avoids unnecessary akmods rebuilds while preventing stale-cache reuse on kernel changes.
+# Goal: Decide deterministically whether branch workflow should rebuild akmods.
 set -euo pipefail
 
 # Branch builds isolate caches by repository name to avoid touching main caches.

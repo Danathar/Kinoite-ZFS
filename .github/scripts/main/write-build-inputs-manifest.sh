@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: main/write-build-inputs-manifest.sh
+# What: Writes a machine-readable build-input manifest artifact for replay, audit, and debugging.
+# Doing: Collects workflow/run metadata plus resolved pinned inputs and renders `artifacts/build-inputs.json`.
+# Why: Preserves exact provenance for each build so failures can be diagnosed and builds can be replayed safely.
+# Goal: Persist a complete input record that documents what was built, from which pinned sources, and when.
 set -euo pipefail
 
 # Store a per-run manifest used for replay/debugging.

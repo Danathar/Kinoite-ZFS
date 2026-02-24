@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: akmods/configure-zfs-target.sh
+# What: Injects/updates the ZFS target mapping in akmods `images.yaml`.
+# Doing: Computes normalized org name and writes target metadata via `yq` using exported env values.
+# Why: Decouples publish destination logic from workflows and makes target wiring reusable.
+# Goal: Ensure akmods tooling publishes ZFS artifacts to the correct GHCR repo/tag namespace.
 set -euo pipefail
 
 # Modify the cloned akmods source in-place.

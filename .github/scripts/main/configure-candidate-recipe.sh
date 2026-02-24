@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: main/configure-candidate-recipe.sh
+# What: Rewrites recipe and ZFS containerfile references for the candidate image build.
+# Doing: Sets candidate `image-version`, pins `base-image` by digest, and points `AKMODS_IMAGE` to candidate cache.
+# Why: Keeps candidate builds deterministic and isolated from stable tags/caches while preserving traceability.
+# Goal: Produce a candidate build configuration that uses the exact tested base image and matching akmods source.
 set -euo pipefail
 
 # Normalize owner for OCI registry paths.

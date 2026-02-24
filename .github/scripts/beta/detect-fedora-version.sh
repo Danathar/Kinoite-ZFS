@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: beta/detect-fedora-version.sh
+# What: Resolves current Fedora major and kernel release from Kinoite main base image metadata.
+# Doing: Reads `ostree.linux` label via `skopeo inspect`, parses Fedora number, writes step outputs.
+# Why: Aligns branch akmods selection and validation with the real upstream kernel stream.
+# Goal: Provide authoritative kernel/Fedora inputs for branch cache and build decisions.
 set -euo pipefail
 
 # Read kernel release label from current Kinoite main stream.

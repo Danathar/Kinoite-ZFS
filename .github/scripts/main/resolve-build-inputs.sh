@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: main/resolve-build-inputs.sh
+# What: Resolves and validates the build inputs (base image, build container, ZFS, akmods ref) for this run.
+# Doing: Loads lock replay values or defaults, enforces consistency checks, pins image refs to immutable digests.
+# Why: Prevents accidental drift and guarantees downstream jobs use reproducible, explicit build inputs.
+# Goal: Emit authoritative pinned inputs and metadata consumed by candidate-akmods and candidate-image jobs.
 set -euo pipefail
 
 # Inputs are passed from workflow env so this script stays reusable and testable.

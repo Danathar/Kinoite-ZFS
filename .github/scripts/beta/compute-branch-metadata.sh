@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: beta/compute-branch-metadata.sh
+# What: Generates branch-safe image tag and akmods repository names.
+# Doing: Sanitizes `GITHUB_REF_NAME`, enforces length/format constraints, writes outputs for downstream jobs.
+# Why: Keeps branch artifacts isolated and registry-compatible without manual naming rules per branch.
+# Goal: Provide stable, valid branch-scoped naming inputs for build and cache publication.
 set -euo pipefail
 
 # Source branch name from GitHub context.

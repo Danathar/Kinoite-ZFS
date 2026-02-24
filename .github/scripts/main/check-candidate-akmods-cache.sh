@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Script: main/check-candidate-akmods-cache.sh
+# What: Determines whether candidate/stable akmods cache is reusable for the current base kernel.
+# Doing: Probes candidate then fallback stable cache, extracts layers, checks for exact kernel-matching kmod RPM.
+# Why: Skips expensive rebuilds when safe, but blocks stale kmods from entering candidate image builds.
+# Goal: Emit `exists=true|false` for main workflow rebuild gating with strict kernel compatibility checks.
 set -euo pipefail
 
 # Build candidate and stable cache references for the current Fedora major stream.
