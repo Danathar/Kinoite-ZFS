@@ -187,6 +187,78 @@ Planned follow-up:
 
 1. Add update cadence/process for bumping pinned akmods ref after validation.
 
+## Issue #2: Placeholder (Title Pending)
+
+Problem:
+
+1. Pending definition from prior review notes.
+
+Mitigation implemented:
+
+1. Pending.
+
+Residual risk:
+
+1. Pending.
+
+Planned follow-up:
+
+1. Define exact mitigation and validate on branch image before promoting.
+
+## Issue #3: Placeholder (Title Pending)
+
+Problem:
+
+1. Pending definition from prior review notes.
+
+Mitigation implemented:
+
+1. Pending.
+
+Residual risk:
+
+1. Pending.
+
+Planned follow-up:
+
+1. Define exact mitigation and validate on branch image before promoting.
+
+## Issue #4: Placeholder (Title Pending)
+
+Problem:
+
+1. Pending definition from prior review notes.
+
+Mitigation implemented:
+
+1. Pending.
+
+Residual risk:
+
+1. Pending.
+
+Planned follow-up:
+
+1. Define exact mitigation and validate on branch image before promoting.
+
+## Issue #5: Placeholder (Title Pending)
+
+Problem:
+
+1. Pending definition from prior review notes.
+
+Mitigation implemented:
+
+1. Pending.
+
+Residual risk:
+
+1. Pending.
+
+Planned follow-up:
+
+1. Define exact mitigation and validate on branch image before promoting.
+
 ## How To Test In A VM
 
 Assume VM has a secondary blank disk at `/dev/vdb`.
