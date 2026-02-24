@@ -13,6 +13,7 @@ Core goal:
 
 If you want the full technical design and workflow details, read:
 
+- `docs/architecture-overview.md` (high-level architecture: what/why/how)
 - `docs/zfs-kinoite-testing.md`
 
 That document is maintained as a living record and will be updated as each hardening issue is addressed.
