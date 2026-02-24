@@ -1,15 +1,11 @@
-name: Build Main Image
+name: Build Branch Image
 
 on:
-  # Nightly rebuild so we pick up upstream base updates and refreshed akmods caches.
-  schedule:
-    - cron:
-        "00 06 * * *" # 06:00 UTC daily
-
   push:
-    # Main image publishing is only for main branch updates.
-    branches:
+    # Build branch-tagged images for non-main branches only.
+    branches-ignore:
       - main
+      - dependabot/**
     # Skip CI for docs/readme-only changes.
     paths-ignore:
       - README.md
@@ -18,39 +14,84 @@ on:
       - "**/*.md"
 
   workflow_dispatch:
-    # Manual trigger for ad-hoc rebuilds and debugging.
+    # Manual trigger for branch rebuild/testing.
     inputs:
       rebuild_akmods:
-        # Override cache detection and force akmods build/push.
-        description: Force rebuild of self-hosted akmods-zfs
+        description: Force rebuild of branch-scoped self-hosted akmods-zfs
         required: false
         default: false
         type: boolean
 
 concurrency:
-  # Keep a single active run per workflow+ref; cancel stale in-flight runs.
+  # One active run per workflow+branch; newer pushes cancel stale runs.
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
 env:
   # Issue #1 hardening:
-  # Pin the upstream akmods source commit so builds are deterministic and do not
-  # silently change behavior when upstream `main` moves.
+  # Pin the upstream akmods source commit so branch tests remain deterministic
+  # and do not silently pick up behavior changes from upstream `main`.
   AKMODS_UPSTREAM_REPO: https://github.com/ublue-os/akmods.git
   AKMODS_UPSTREAM_REF: 906e565f712f43a598dcd272dc8ca053fcc99116
 
 jobs:
+  prepare-branch-metadata:
+    name: Compute Branch Tags
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.branch.outputs.image_tag }}
+      akmods_repo: ${{ steps.branch.outputs.akmods_repo }}
+    steps:
+      - name: Compute branch-safe image and akmods names
+        id: branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${GITHUB_REF_NAME}"
+
+          # Sanitize branch for OCI tag/repo compatibility:
+          # - lowercase
+          # - replace unsupported chars with '-'
+          # - trim leading/trailing separators
+          safe="$(echo "${branch}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed -E 's#[^a-z0-9._-]+#-#g; s#^-+##; s#-+$##')"
+
+          if [[ -z "${safe}" ]]; then
+            safe="branch"
+          fi
+
+          # Keep tag/repo names bounded to avoid registry/path edge-cases.
+          image_tag="beta-${safe}"
+          image_tag="${image_tag:0:120}"
+          image_tag="${image_tag%-}"
+
+          akmods_repo="akmods-zfs-${safe}"
+          akmods_repo="${akmods_repo:0:120}"
+          akmods_repo="${akmods_repo%-}"
+
+          if [[ -z "${image_tag}" ]]; then
+            image_tag="beta-branch"
+          fi
+          if [[ -z "${akmods_repo}" ]]; then
+            akmods_repo="akmods-zfs-branch"
+          fi
+
+          echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
+          echo "akmods_repo=${akmods_repo}" >> "${GITHUB_OUTPUT}"
+          echo "Branch image tag: ${image_tag}"
+          echo "Branch akmods repo: ${akmods_repo}"
+
   build-zfs-akmods:
-    name: Build Self-Hosted ZFS Akmods (main)
+    name: Build Self-Hosted ZFS Akmods (branch)
+    needs: prepare-branch-metadata
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      # Needed to push ghcr.io/<owner>/akmods-zfs:* images.
+      # Needed to push ghcr.io/<owner>/<branch-akmods-repo>:* images.
       packages: write
     container:
-      # Use ublue's build tooling container for consistent podman/skopeo/just/yq behavior.
       image: ghcr.io/ublue-os/devcontainer:latest
-      # Privileged + mounted container storage are required by the upstream akmods workflow.
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
       - name: Detect Fedora major version for Kinoite latest
@@ -58,9 +99,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # `ostree.linux` exposes the exact kernel release baked into the current Kinoite latest image.
           ostree_linux="$(skopeo inspect docker://ghcr.io/ublue-os/kinoite-main:latest --format '{{ index .Labels "ostree.linux" }}')"
-          # Extract Fedora major (e.g. 43) from kernel string so akmods tags align with the image stream.
           fedora_version="$(sed -E 's/.*fc([0-9]+).*/\1/' <<< "${ostree_linux}")"
           if [[ -z "${fedora_version}" ]]; then
             echo "Failed to detect Fedora version from ostree.linux=${ostree_linux}" >&2
@@ -69,18 +108,20 @@ jobs:
           echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
           echo "kernel_release=${ostree_linux}" >> "${GITHUB_OUTPUT}"
 
-      - name: Check for existing self-hosted zfs akmods image
+      - name: Check for existing branch-scoped self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
+          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
         run: |
           set -euo pipefail
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/akmods-zfs:main-${FEDORA_VERSION}"
+          AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/${AKMODS_REPO}:main-${FEDORA_VERSION}"
 
-          # Cache is considered valid only if it contains kmod-zfs for the current base kernel release.
+          # Branch builds intentionally use a branch-specific akmods repo name.
+          # This keeps branch testing isolated from main cache tags.
           if skopeo inspect "docker://${AKMODS_IMAGE}" >/dev/null 2>&1; then
             workdir="$(mktemp -d)"
             trap 'rm -rf "${workdir}"' EXIT
@@ -105,8 +146,8 @@ jobs:
           fi
 
       - name: Clone upstream akmods tooling
-        # Build when scheduled (refresh), manually forced, or cache missing/stale.
-        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+        # Rebuild when manually forced or when branch cache is missing/stale.
+        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
           AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
@@ -130,32 +171,33 @@ jobs:
           fi
           echo "Using pinned akmods ref: ${resolved_ref}"
 
-      - name: Configure zfs target in self-hosted namespace
-        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+      - name: Configure zfs target in branch-scoped namespace
+        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
         run: |
           set -euo pipefail
           cd /tmp/akmods
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          export FEDORA_VERSION IMAGE_ORG
+          export FEDORA_VERSION IMAGE_ORG AKMODS_REPO
 
-          # Publish `main + zfs` cache image in this repository owner's GHCR namespace.
+          # Publish branch cache under a branch-unique repo name to avoid clobbering main cache images.
           yq -i '
             .images[strenv(FEDORA_VERSION)].main.zfs = {
               "org": strenv(IMAGE_ORG),
               "registry": "ghcr.io",
               "repo": "akmods",
               "transport": "docker://",
-              "name": "akmods-zfs",
-              "description": "A caching layer for the pre-built zfs akmod RPMs",
+              "name": strenv(AKMODS_REPO),
+              "description": "A branch-scoped caching layer for pre-built zfs akmod RPMs",
               "architecture": ["x86_64"]
             }
           ' images.yaml
 
-          # Runtime patch 1: ensure jq exists before zfs kmod build helper runs.
-          # Guardrail: fail immediately if the anchor line changed upstream.
+          # Keep runtime compatibility patches identical to main build path.
+          # Guardrail: fail immediately if upstream moved patch anchors.
           if ! grep -q '^cd /tmp$' build_files/zfs/build-kmod-zfs.sh; then
             echo "Expected anchor 'cd /tmp' not found in build-kmod-zfs.sh" >&2
             exit 1
@@ -166,8 +208,6 @@ jobs:
             exit 1
           fi
 
-          # Runtime patch 2: ensure python cffi exists for current zfs package prep flow.
-          # Guardrail: fail if anchor no longer exists and patch becomes a no-op.
           if ! grep -q '^    akmods$' build_files/prep/build-prep.sh; then
             echo "Expected anchor '    akmods' not found in build-prep.sh" >&2
             exit 1
@@ -178,15 +218,13 @@ jobs:
             exit 1
           fi
 
-      - name: Build and publish self-hosted zfs akmods image
-        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+      - name: Build and publish branch-scoped self-hosted zfs akmods image
+        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
-          # `main` follows Fedora desktop kernel stream used by Kinoite main/latest.
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
           AKMODS_TARGET: zfs
-          # Keep zfs line explicit so upgrades are intentional.
           ZFS_MINOR_VERSION: "2.4"
           CI: "1"
           REGISTRY_ACTOR: ${{ github.actor }}
@@ -200,25 +238,42 @@ jobs:
           just manifest
 
   bluebuild:
-    name: Build Custom Image (main)
-    needs: build-zfs-akmods
+    name: Build Custom Image (branch)
+    needs:
+      - prepare-branch-metadata
+      - build-zfs-akmods
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        recipe:
-          - recipe.yml
     steps:
+      - uses: actions/checkout@v6
+
+      - name: Set branch image tag and branch akmods source in recipe
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ needs.prepare-branch-metadata.outputs.image_tag }}
+          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+        run: |
+          set -euo pipefail
+          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+
+          # Branch image tag prevents overwriting the default `latest` tag on main images.
+          sed -i -E "s/^image-version:.*/image-version: ${IMAGE_TAG}/" recipes/recipe.yml
+
+          # Branch akmods repo prevents branch runs from overwriting main akmods cache images.
+          sed -i -E "s#^[[:space:]]*AKMODS_IMAGE=.*#        AKMODS_IMAGE=\"ghcr.io/${IMAGE_ORG}/${AKMODS_REPO}:main-\\\${FEDORA_VERSION}\"#" recipes/recipe.yml
+
+          # Emit effective recipe values for traceability/debugging in build logs.
+          grep -n '^image-version:' recipes/recipe.yml
+          grep -n 'AKMODS_IMAGE=' recipes/recipe.yml
+
       - name: Build Custom Image
         uses: blue-build/github-action@v1.11.0
         with:
-          recipe: ${{ matrix.recipe }}
+          recipe: recipe.yml
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
-          # Keep enabled: ostree/container builds are storage-heavy.
           maximize_build_space: true

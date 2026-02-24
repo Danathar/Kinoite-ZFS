@@ -1,0 +1,28 @@
+name: Build PR Image
+
+on:
+  pull_request:
+    # Skip PR CI for docs/readme-only changes.
+    paths-ignore:
+      - README.md
+      - "**/README.md"
+      - docs/**
+      - "**/*.md"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build image for PR validation (no push)
+        uses: blue-build/github-action@v1.11.0
+        with:
+          recipe: recipe.yml
+          # PR validation should not publish artifacts.
+          push: false
+          # PR validation should not require signing secrets.
+          build_opts: --no-sign
+          registry_token: ${{ github.token }}
