@@ -100,6 +100,8 @@ jobs:
       # Privileged + mounted container storage are required by upstream akmods build flow.
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
+      - uses: actions/checkout@v6
+
       - name: Resolve build inputs (latest mode or lock replay mode)
         id: inputs
         shell: bash
