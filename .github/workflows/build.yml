@@ -3,33 +3,40 @@ on:
   schedule:
     - cron:
         "00 06 * * *" # build at 06:00 UTC every day
-        # (20 minutes after last ublue images start building)
+        # (20 minutes after ublue images start building, so upstream artifacts exist)
   push:
-    paths-ignore: # don't rebuild if only documentation has changed
+    # Avoid burning CI minutes for docs-only commits.
+    paths-ignore:
       - "**.md"
 
   pull_request:
-  workflow_dispatch: # allow manually triggering builds
+  workflow_dispatch:
+    # Manual trigger used for ad-hoc rebuild/testing.
     inputs:
       rebuild_akmods:
+        # Forces akmods rebuild even when a cached image already exists in GHCR.
         description: Force rebuild of self-hosted akmods-zfs
         required: false
         default: false
         type: boolean
 concurrency:
-  # only run one build at a time
+  # One run per ref/workflow; new pushes cancel stale in-progress runs.
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 jobs:
   build-zfs-akmods:
+    # Skip PR builds because we cannot push package images from untrusted forks.
     name: Build Self-Hosted ZFS Akmods
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+      # Required to push ghcr.io/<owner>/akmods-zfs:* cache images.
       packages: write
     container:
+      # Reuse ublue build tooling container so `just`, podman/skopeo, yq, etc. match upstream expectations.
       image: ghcr.io/ublue-os/devcontainer:latest
+      # Privileged container + mounted container storage is required by upstream akmods build flow.
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
       - name: Detect Fedora major version for Kinoite latest
@@ -37,12 +44,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Kinoite "latest" carries the kernel/release metadata in the `ostree.linux` label.
           ostree_linux="$(skopeo inspect docker://ghcr.io/ublue-os/kinoite-main:latest --format '{{ index .Labels "ostree.linux" }}')"
+          # Extract Fedora major (e.g. 43) so both akmods tag and recipe lookup stay aligned.
           fedora_version="$(sed -E 's/.*fc([0-9]+).*/\1/' <<< "${ostree_linux}")"
           if [[ -z "${fedora_version}" ]]; then
             echo "Failed to detect Fedora version from ostree.linux=${ostree_linux}" >&2
             exit 1
           fi
+          # Emit as step output for downstream steps.
           echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
 
       - name: Check for existing self-hosted zfs akmods image
@@ -52,8 +62,10 @@ jobs:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
         run: |
           set -euo pipefail
+          # GHCR org must be lowercase.
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/akmods-zfs:main-${FEDORA_VERSION}"
+          # Fast existence check so normal image iterations do not recompile akmods.
           if skopeo inspect "docker://${AKMODS_IMAGE}" >/dev/null 2>&1; then
             echo "exists=true" >> "${GITHUB_OUTPUT}"
             echo "Found existing ${AKMODS_IMAGE}; akmods rebuild can be skipped."
@@ -63,10 +75,12 @@ jobs:
           fi
 
       - name: Clone upstream akmods tooling
+        # Rebuild on schedule (refresh), manual override, or cache miss.
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         run: |
           set -euo pipefail
+          # We patch upstream build scripts at runtime below; keep clone shallow for speed.
           git clone --depth 1 https://github.com/ublue-os/akmods.git /tmp/akmods
 
       - name: Configure zfs target in self-hosted namespace
@@ -79,6 +93,7 @@ jobs:
           cd /tmp/akmods
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           export FEDORA_VERSION IMAGE_ORG
+          # Add "main + zfs" output target under this repo owner so images are published to our namespace.
           yq -i '
             .images[strenv(FEDORA_VERSION)].main.zfs = {
               "org": strenv(IMAGE_ORG),
@@ -90,25 +105,30 @@ jobs:
               "architecture": ["x86_64"]
             }
           ' images.yaml
-          # main+zfs is not in upstream defaults; ensure jq is installed before zfs release parsing.
+          # Runtime patch 1: upstream zfs build script expects `jq`, ensure it is installed first.
           sed -i '/^cd \/tmp$/a dnf install -y jq' build_files/zfs/build-kmod-zfs.sh
-          # zfs 2.4 source RPM build deps need python3-cffi on Fedora main builds.
+          # Runtime patch 2: ensure python cffi dependency is present for ZFS 2.4 RPM prep.
+          # We inject before the first `akmods` entry in RPMS_TO_INSTALL list.
           perl -0777 -i -pe 's/RPMS_TO_INSTALL\+=\(\n    akmods/RPMS_TO_INSTALL+=(\n    python3-cffi\n    akmods/' build_files/prep/build-prep.sh
 
       - name: Build and publish self-hosted zfs akmods image
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
+          # `main` tracks Fedora desktop kernel stream used by Kinoite main/latest.
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
           AKMODS_TARGET: zfs
+          # Pin ZFS minor line for current kernel compatibility.
           ZFS_MINOR_VERSION: "2.4"
           CI: "1"
+          # Credentials used by upstream `just login/push` targets.
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           cd /tmp/akmods
+          # Upstream task chain: build rpms -> auth -> push image -> publish manifest.
           just build
           just login
           just push
@@ -116,6 +136,7 @@ jobs:
 
   bluebuild:
     name: Build Custom Image
+    # Always wait for akmods job (even if it was effectively a no-op), so dependency order is explicit.
     needs: build-zfs-akmods
     runs-on: ubuntu-latest
     permissions:
@@ -123,20 +144,23 @@ jobs:
       packages: write
       id-token: write
     strategy:
-      fail-fast: false # stop GH from cancelling all matrix builds if one fails
+      # Keep other matrix entries running if one fails.
+      fail-fast: false
       matrix:
         recipe:
-          # !! Add your recipes here
+          # Add more recipe files here if/when additional images are introduced.
           - recipe.yml
     steps:
-      # the build is fully handled by the reusable github action
+      # Build/push/sign is delegated to BlueBuild's maintained action.
       - name: Build Custom Image
         uses: blue-build/github-action@v1.11
         with:
           recipe: ${{ matrix.recipe }}
+          # Cosign private key secret configured in repo settings.
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          # GitHub token is enough for pushing to this repo's GHCR namespace.
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
 
-          # enabled by default, disable if your image is small and you want faster builds
+          # Keep enabled: this build path is storage heavy (rpm-ostree + container layering).
           maximize_build_space: true

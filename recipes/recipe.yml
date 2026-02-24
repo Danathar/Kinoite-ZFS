@@ -1,31 +1,38 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-# image will be published to ghcr.io/<user>/<name>
+# Published image: ghcr.io/<owner>/<name>
 name: kinoite-zfs
-# description will be included in the image's metadata
+# Included in OCI metadata and shown by container registries.
 description: This is my personal OS image.
 
-# the base image to build on top of (FROM) and the version tag to use
+# Base image stream:
+# - `kinoite-main` follows ublue's regular Kinoite track
+# - `latest` keeps us on default moving stream for that track
 base-image: ghcr.io/ublue-os/kinoite-main
 image-version: latest # follow the default Kinoite stream
 
-# module configuration, executed in order
-# you can include multiple instances of the same module
+# Modules execute in order, mutating the image layer-by-layer.
 modules:
   - type: files
     files:
       - source: system
-        destination: / # copies files/system/* (* means everything inside it) into your image's root folder /
+        # Copies `system/*` into image root.
+        destination: /
 
   - type: containerfile
+    # Use a containerfile snippet for logic that is too custom for stock modules:
+    # fetch self-hosted akmods-zfs image, extract RPMs, install into ostree image.
     snippets:
       - |
         RUN bash -euxo pipefail <<'EOF'
+        # Detect Fedora major from build root so we select the matching akmods tag.
         FEDORA_VERSION="$(rpm -E %fedora)"
         AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs:main-${FEDORA_VERSION}"
 
+        # Pull akmods cache image as a local `dir:` layout for direct layer extraction.
         skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
 
+        # Read only manifest layers (not config blobs) and map digest -> local file path.
         mapfile -t layer_files < <(
           jq -r '.layers[]?.digest // empty' /tmp/akmods-zfs/manifest.json \
             | sed -E 's#^sha256:#/tmp/akmods-zfs/#'
@@ -34,10 +41,12 @@ modules:
           echo "No layers found in ${AKMODS_IMAGE}" >&2
           exit 1
         fi
+        # Unpack every image layer so `/tmp/rpms/kmods/zfs` becomes available.
         for layer in "${layer_files[@]}"; do
           tar -xf "${layer}" -C /tmp/
         done
 
+        # Select only installable ZFS-related binary RPMs.
         mapfile -t zfs_rpms < <(
           find /tmp/rpms/kmods/zfs -maxdepth 1 -type f -name '*.rpm' \
             ! -name '*.src.rpm' \
@@ -52,15 +61,18 @@ modules:
           exit 1
         fi
 
+        # Install directly into ostree build root.
         rpm-ostree install "${zfs_rpms[@]}"
 
-        # kmod-zfs postinstall only runs depmod when uname -r matches; in image
-        # builds it usually does not, so generate module dependency indexes manually.
+        # kmod-zfs postinstall script runs `depmod` only when uname -r matches target.
+        # During image builds uname is usually the builder kernel, so run depmod manually
+        # for any kernel release where we just installed zfs.ko.
         mapfile -t zfs_module_files < <(find /lib/modules -type f -path '*/extra/zfs/zfs.ko' | sort)
         if [[ "${#zfs_module_files[@]}" -eq 0 ]]; then
           echo "zfs.ko not found after installing ZFS RPMs" >&2
           exit 1
         fi
+        # Generate modules.dep/modules.alias for each affected kernel release.
         for module_file in "${zfs_module_files[@]}"; do
           kernel_release="$(echo "${module_file}" | sed -E 's#^/lib/modules/([^/]+)/.*#\1#')"
           depmod -a "${kernel_release}"
@@ -68,6 +80,7 @@ modules:
         EOF
 
   - type: dnf
+    # Example user packages/removals from BlueBuild template.
     repos:
       copr:
         - atim/starship
@@ -80,16 +93,20 @@ modules:
         # example: removing firefox (in favor of the flatpak)
         # "firefox" is the main package, "firefox-langpacks" is a dependency
         - firefox
-        - firefox-langpacks # also remove firefox dependency (not required for all packages, this is a special case)
+        # Explicitly remove langpacks dependency in this specific case.
+        - firefox-langpacks
 
   - type: default-flatpaks
     configurations:
-      - notify: true # Send notification after install/uninstall is finished (true/false)
+      - notify: true
         scope: system
-        # If no repo information is specified, Flathub will be used by default
-        install: # system flatpaks we want all users to have and not remove
+        # Flathub is used by default when repo is omitted.
+        # System scope = present for all users.
+        install:
           - org.mozilla.firefox
           - org.gnome.Loupe
-      - scope: user # Also add Flathub user repo, but no user packages
+      # Also configure user-scope repo without forcing user installs.
+      - scope: user
 
-  - type: signing # this sets up the proper policy & signing files for signed images to work fully
+  # Configure policy/signing files so signed rebases work cleanly.
+  - type: signing
