@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Store a per-run manifest used for replay/debugging.
 mkdir -p artifacts
 
+# Build structured JSON from step/job context and resolved input values.
+# Values are passed via env so this script remains workflow-expression agnostic.
 jq -n \
   --arg schema_version "1" \
   --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -55,4 +58,5 @@ jq -n \
     }
   }' > artifacts/build-inputs.json
 
+# Print manifest content for log visibility and easy copy into lock file updates.
 cat artifacts/build-inputs.json
