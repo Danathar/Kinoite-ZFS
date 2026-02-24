@@ -41,6 +41,7 @@ Candidate and branch artifacts are isolated so test runs do not overwrite stable
 - `.github/workflows/build.yml`
   - Builds candidate artifacts first, then promotes them to stable tags on success.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
+  - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - `.github/workflows/build-beta.yml`
   - Builds branch-tagged test artifacts for non-main branches.
   - Runs on branch pushes and manual dispatch.
@@ -48,6 +49,19 @@ Candidate and branch artifacts are isolated so test runs do not overwrite stable
   - PR validation build only (`push: false`, unsigned).
 
 Markdown/docs-only changes do not trigger image builds.
+
+## Reproducible Replay
+
+Issue #3 mitigation adds lock-based replay support:
+
+1. Each main workflow run publishes a `build-inputs-<run_id>` artifact.
+2. To replay a known run, copy those values into `ci/inputs.lock.json`.
+3. Manually run `Build And Promote Main Image` with:
+   - `use_input_lock=true`
+   - `build_container_image=<value from lock file>`
+   - `promote_to_stable=false` (recommended for validation)
+
+This allows you to rebuild with pinned base image/build container inputs instead of floating `latest` refs.
 
 ## Install And Rebase
 

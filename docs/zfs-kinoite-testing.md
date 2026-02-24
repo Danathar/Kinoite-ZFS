@@ -30,6 +30,8 @@ This is intentionally designed for iterative validation before adopting any appr
    - Branch pipeline: builds/publishes branch-isolated akmods and branch-tagged OS image.
 4. `.github/workflows/build-pr.yml`
    - Pull request validation build with no push/signing.
+5. `ci/inputs.lock.json`
+   - Optional pinned input file used by replay mode for deterministic rebuilds.
 
 ## Artifact Strategy
 
@@ -52,12 +54,19 @@ Branch artifacts are isolated by both tag and repo name to avoid clobbering main
 
 ### 1. Detect Base Kernel Stream
 
-The workflows inspect `ghcr.io/ublue-os/kinoite-main:latest` and read `ostree.linux` to obtain:
+The main workflow resolves build inputs in one of two modes:
+
+1. Default mode: resolve floating refs (for example `kinoite-main:latest`) to immutable digests at run time.
+2. Replay mode: read pinned inputs from `ci/inputs.lock.json` when `use_input_lock=true`.
+
+After resolving the base image ref, it reads `ostree.linux` to obtain:
 
 1. The full kernel release (example: `6.18.12-200.fc43.x86_64`).
 2. Fedora major version (example: `43`).
 
 This ensures akmods cache and final image build both align to the same kernel stream.
+
+The workflow also writes a `build-inputs-<run_id>` artifact containing all resolved inputs (base image digest, builder digest, kernel, ZFS line, and akmods ref) for audit and replay.
 
 ### 2. Validate Existing Candidate Akmods Cache
 
@@ -117,7 +126,9 @@ Key behavior:
 2. Builds/publishes candidate image.
 3. Promotes candidate artifacts to stable tags only on success.
 4. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-5. Ignores markdown/docs-only changes.
+5. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from `ci/inputs.lock.json`.
+6. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
+7. Ignores markdown/docs-only changes.
 
 ### `.github/workflows/build-beta.yml` (Branch)
 
@@ -243,17 +254,27 @@ Problem:
 
 Mitigation implemented:
 
-1. Pending.
+1. Added lock replay inputs to `.github/workflows/build.yml` (`use_input_lock`, `lock_file`, `build_container_image`).
+2. Added deterministic input resolution step that records immutable digests for base image and builder container.
+3. Candidate image recipe now rewrites `base-image:` to digest-pinned base reference for per-run determinism.
+4. Added build input manifest artifact upload (`build-inputs-<run_id>`) for audit and reproducible reruns.
+5. Added repository lock file `ci/inputs.lock.json` for replay mode.
+
+Where:
+
+1. `.github/workflows/build.yml`
+2. `ci/inputs.lock.json`
 
 Residual risk:
 
-1. Reproducing historical failures or validating regressions can be slow and ambiguous.
-2. Unexpected upstream changes can alter behavior between runs.
+1. Default scheduled/push runs still follow moving upstream inputs by design (to catch breakage early).
+2. Replay mode requires operator discipline to keep `ci/inputs.lock.json` aligned with a selected run artifact.
+3. ZFS version is still pinned at minor line unless replay lock sets a different value.
 
 Planned follow-up:
 
-1. Add explicit build metadata capture (resolved digests/versions) to logs and release notes.
-2. Evaluate optional full pin modes for debugging or freeze windows.
+1. Add OCI labels with resolved input metadata to published candidate/stable images.
+2. Add a helper script to auto-sync `ci/inputs.lock.json` from a selected run artifact.
 
 ## Issue #4: Runtime Patching Is Operationally Fragile
 
