@@ -54,21 +54,39 @@ jobs:
           fi
           # Emit as step output for downstream steps.
           echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
+          # Emit full kernel release (e.g. 6.18.12-200.fc43.x86_64) so cache checks can be kernel-aware.
+          echo "kernel_release=${ostree_linux}" >> "${GITHUB_OUTPUT}"
 
       - name: Check for existing self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+          KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
         run: |
           set -euo pipefail
           # GHCR org must be lowercase.
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/akmods-zfs:main-${FEDORA_VERSION}"
-          # Fast existence check so normal image iterations do not recompile akmods.
+          # Cache is usable only if it has a kmod-zfs RPM for the *current* Kinoite kernel release.
           if skopeo inspect "docker://${AKMODS_IMAGE}" >/dev/null 2>&1; then
-            echo "exists=true" >> "${GITHUB_OUTPUT}"
-            echo "Found existing ${AKMODS_IMAGE}; akmods rebuild can be skipped."
+            workdir="$(mktemp -d)"
+            trap 'rm -rf "${workdir}"' EXIT
+            skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" "dir:${workdir}/akmods" >/dev/null
+            mapfile -t layer_files < <(
+              jq -r '.layers[]?.digest // empty' "${workdir}/akmods/manifest.json" \
+                | sed -E "s#^sha256:#${workdir}/akmods/#"
+            )
+            for layer in "${layer_files[@]}"; do
+              tar -xf "${layer}" -C "${workdir}"
+            done
+            if find "${workdir}/rpms/kmods/zfs" -maxdepth 1 -type f -name "kmod-zfs-${KERNEL_RELEASE}-*.rpm" | grep -q .; then
+              echo "exists=true" >> "${GITHUB_OUTPUT}"
+              echo "Found matching ${AKMODS_IMAGE} kmod for kernel ${KERNEL_RELEASE}; akmods rebuild can be skipped."
+            else
+              echo "exists=false" >> "${GITHUB_OUTPUT}"
+              echo "Cached ${AKMODS_IMAGE} is present but missing kmod for kernel ${KERNEL_RELEASE}; akmods rebuild is required."
+            fi
           else
             echo "exists=false" >> "${GITHUB_OUTPUT}"
             echo "No existing ${AKMODS_IMAGE}; akmods rebuild is required."
