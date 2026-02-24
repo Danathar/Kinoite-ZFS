@@ -28,6 +28,12 @@ Goal:
 - `akmods/configure-zfs-target.sh`: Add/update zfs target in `images.yaml`.
 - `akmods/build-and-publish.sh`: Execute `just` build/publish/manifest flow.
 
+Containerfile note:
+
+- `AKMODS_IMAGE` is now defined in `containerfiles/zfs-akmods/Containerfile`.
+- Main/branch recipe-configuration scripts rewrite that line in the Containerfile,
+  while `image-version` and `base-image` remain in `recipes/recipe.yml`.
+
 ## Usage Notes
 
 - Scripts assume required values are passed through workflow `env`.
