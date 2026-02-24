@@ -83,10 +83,9 @@ This is the core mechanism that prevents shipping stale kmods.
 
 If cache is missing/stale (or manual rebuild is requested), CI:
 
-1. Fetches a pinned upstream `ublue-os/akmods` commit.
+1. Fetches a pinned commit from the maintained fork (`Danathar/akmods`).
 2. Injects the ZFS image target under this repo owner namespace.
-3. Applies controlled runtime patches needed by current ZFS build flow.
-4. Builds and publishes candidate akmods cache image.
+3. Builds and publishes candidate akmods cache image.
 
 ### 4. Build Candidate Kinoite Image
 
@@ -190,16 +189,15 @@ For each new issue, add a section with:
 Problem:
 
 1. Building from floating `ublue-os/akmods` `main` can break unexpectedly if upstream scripts change.
-2. Runtime patches can silently stop applying if anchor lines move.
+2. Previously, runtime workflow patches introduced additional drift and fragility.
 
 Mitigation implemented:
 
-1. Pin upstream akmods source to explicit commit:
-   - `906e565f712f43a598dcd272dc8ca053fcc99116`
+1. Pin akmods source to explicit fork commit:
+   - Repo: `https://github.com/Danathar/akmods`
+   - Ref: `9d13b6950811cdaae2e8ab748c85c5da35810ae3`
 2. Fetch exactly that commit and verify resolved SHA matches expected.
-3. Add fail-fast guard checks before and after runtime patch injection:
-   - Verify patch anchor lines exist.
-   - Verify injected lines actually appear.
+3. Use the same pin in both main and branch workflows for deterministic behavior.
 
 Where:
 
@@ -209,11 +207,11 @@ Where:
 Residual risk:
 
 1. Pinned commit can become outdated for future Fedora/ZFS changes.
-2. Manual pin updates are required when intentionally moving to newer upstream akmods logic.
+2. Manual pin updates are still required when moving to newer upstream akmods logic.
 
 Planned follow-up:
 
-1. Add update cadence/process for bumping pinned akmods ref after validation.
+1. Maintain fork update process documented in `docs/akmods-fork-maintenance.md`.
 
 ## Issue #2: No Compatibility Holdback When Fedora Kernel Jumps Ahead
 
@@ -280,23 +278,29 @@ Planned follow-up:
 
 Problem:
 
-1. The workflow currently patches upstream build scripts at runtime (`jq` and `python3-cffi` injection).
-2. Issue #1 added guardrails so patch drift fails fast, but the approach still depends on maintaining downstream patch logic.
-3. Each upstream packaging change can require local patch updates before builds resume.
+1. Runtime script patching (`sed`/`perl`) is fragile and can break when upstream script layout changes.
+2. Each upstream packaging change can force emergency workflow patch updates.
+3. Even with guardrails, this creates avoidable maintenance churn in CI.
 
 Mitigation implemented:
 
-1. Pending beyond Issue #1 guardrails.
+1. Created and pinned a maintained fork source: `https://github.com/Danathar/akmods`.
+2. Added required dependency fixes directly in fork commit `9d13b6950811cdaae2e8ab748c85c5da35810ae3`:
+   - `jq` install in `build_files/zfs/build-kmod-zfs.sh`
+   - `python3-cffi` in `build_files/prep/build-prep.sh`
+3. Updated `.github/workflows/build.yml` and `.github/workflows/build-beta.yml` to pin `AKMODS_UPSTREAM_REPO`/`AKMODS_UPSTREAM_REF` to that fork commit.
+4. Removed runtime patch injection logic from both workflows.
+5. Added operator maintenance guide: `docs/akmods-fork-maintenance.md`.
 
 Residual risk:
 
-1. Maintenance burden remains on this repo.
-2. Future upstream changes can still break builds until local patches are updated.
+1. Fork still requires periodic refresh/rebase against upstream `ublue-os/akmods`.
+2. Pin updates remain an operator responsibility.
 
 Planned follow-up:
 
-1. Reduce local patch surface by upstreaming required changes or using a maintained fork/input with those fixes.
-2. Reassess and remove runtime patches where no longer required.
+1. Upstream forked changes to `ublue-os/akmods` where possible.
+2. When upstream contains the required fixes, repoint pin to upstream commit and retire fork delta.
 
 ## Issue #5: No Automated Runtime Smoke Test Of ZFS In A Booted Image
 

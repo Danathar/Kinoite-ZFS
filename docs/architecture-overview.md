@@ -44,7 +44,7 @@ The main workflow resolves build inputs for each run:
 1. Base image (Kinoite) and its immutable digest.
 2. Build container image and digest.
 3. Kernel/Fedora version metadata.
-4. Pinned upstream akmods source commit.
+4. Pinned akmods fork source commit.
 5. ZFS version line.
 
 These inputs are captured as an artifact (`build-inputs-<run_id>`) for traceability.
@@ -102,4 +102,5 @@ This allows rebuilding with pinned refs instead of floating `latest` sources.
 ## Related Documents
 
 1. Detailed technical runbook and issue log: `docs/zfs-kinoite-testing.md`
-2. Project quickstart and usage: `README.md`
+2. Akmods fork update process: `docs/akmods-fork-maintenance.md`
+3. Project quickstart and usage: `README.md`

@@ -28,11 +28,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Issue #1 hardening:
-  # Pin the upstream akmods source commit so branch tests remain deterministic
-  # and do not silently pick up behavior changes from upstream `main`.
-  AKMODS_UPSTREAM_REPO: https://github.com/ublue-os/akmods.git
-  AKMODS_UPSTREAM_REF: 906e565f712f43a598dcd272dc8ca053fcc99116
+  # Issue #1/#4 hardening:
+  # Pin to our forked akmods commit so branch tests use the same curated source
+  # as main and avoid runtime patching drift.
+  AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git
+  AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
 
 jobs:
   prepare-branch-metadata:
@@ -195,28 +195,6 @@ jobs:
               "architecture": ["x86_64"]
             }
           ' images.yaml
-
-          # Keep runtime compatibility patches identical to main build path.
-          # Guardrail: fail immediately if upstream moved patch anchors.
-          if ! grep -q '^cd /tmp$' build_files/zfs/build-kmod-zfs.sh; then
-            echo "Expected anchor 'cd /tmp' not found in build-kmod-zfs.sh" >&2
-            exit 1
-          fi
-          sed -i '/^cd \/tmp$/a dnf install -y jq' build_files/zfs/build-kmod-zfs.sh
-          if [[ "$(grep -c '^dnf install -y jq$' build_files/zfs/build-kmod-zfs.sh)" -lt 1 ]]; then
-            echo "Failed to inject jq install into build-kmod-zfs.sh" >&2
-            exit 1
-          fi
-
-          if ! grep -q '^    akmods$' build_files/prep/build-prep.sh; then
-            echo "Expected anchor '    akmods' not found in build-prep.sh" >&2
-            exit 1
-          fi
-          perl -0777 -i -pe 's/RPMS_TO_INSTALL\+=\(\n    akmods/RPMS_TO_INSTALL+=(\n    python3-cffi\n    akmods/' build_files/prep/build-prep.sh
-          if [[ "$(grep -c '^    python3-cffi$' build_files/prep/build-prep.sh)" -ne 1 ]]; then
-            echo "Failed to inject python3-cffi into build-prep.sh" >&2
-            exit 1
-          fi
 
       - name: Build and publish branch-scoped self-hosted zfs akmods image
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
