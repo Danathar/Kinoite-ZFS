@@ -46,41 +46,7 @@ jobs:
         id: branch
         shell: bash
         run: |
-          set -euo pipefail
-          branch="${GITHUB_REF_NAME}"
-
-          # Sanitize branch for OCI tag/repo compatibility:
-          # - lowercase
-          # - replace unsupported chars with '-'
-          # - trim leading/trailing separators
-          safe="$(echo "${branch}" \
-            | tr '[:upper:]' '[:lower:]' \
-            | sed -E 's#[^a-z0-9._-]+#-#g; s#^-+##; s#-+$##')"
-
-          if [[ -z "${safe}" ]]; then
-            safe="branch"
-          fi
-
-          # Keep tag/repo names bounded to avoid registry/path edge-cases.
-          image_tag="beta-${safe}"
-          image_tag="${image_tag:0:120}"
-          image_tag="${image_tag%-}"
-
-          akmods_repo="akmods-zfs-${safe}"
-          akmods_repo="${akmods_repo:0:120}"
-          akmods_repo="${akmods_repo%-}"
-
-          if [[ -z "${image_tag}" ]]; then
-            image_tag="beta-branch"
-          fi
-          if [[ -z "${akmods_repo}" ]]; then
-            akmods_repo="akmods-zfs-branch"
-          fi
-
-          echo "image_tag=${image_tag}" >> "${GITHUB_OUTPUT}"
-          echo "akmods_repo=${akmods_repo}" >> "${GITHUB_OUTPUT}"
-          echo "Branch image tag: ${image_tag}"
-          echo "Branch akmods repo: ${akmods_repo}"
+          ./.github/scripts/beta/compute-branch-metadata.sh
 
   build-zfs-akmods:
     name: Build Self-Hosted ZFS Akmods (branch)
@@ -98,15 +64,7 @@ jobs:
         id: fedora
         shell: bash
         run: |
-          set -euo pipefail
-          ostree_linux="$(skopeo inspect docker://ghcr.io/ublue-os/kinoite-main:latest --format '{{ index .Labels "ostree.linux" }}')"
-          fedora_version="$(sed -E 's/.*fc([0-9]+).*/\1/' <<< "${ostree_linux}")"
-          if [[ -z "${fedora_version}" ]]; then
-            echo "Failed to detect Fedora version from ostree.linux=${ostree_linux}" >&2
-            exit 1
-          fi
-          echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
-          echo "kernel_release=${ostree_linux}" >> "${GITHUB_OUTPUT}"
+          ./.github/scripts/beta/detect-fedora-version.sh
 
       - name: Check for existing branch-scoped self-hosted zfs akmods image
         id: akmods
@@ -116,34 +74,7 @@ jobs:
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
         run: |
-          set -euo pipefail
-          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/${AKMODS_REPO}:main-${FEDORA_VERSION}"
-
-          # Branch builds intentionally use a branch-specific akmods repo name.
-          # This keeps branch testing isolated from main cache tags.
-          if skopeo inspect "docker://${AKMODS_IMAGE}" >/dev/null 2>&1; then
-            workdir="$(mktemp -d)"
-            trap 'rm -rf "${workdir}"' EXIT
-            skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" "dir:${workdir}/akmods" >/dev/null
-            mapfile -t layer_files < <(
-              jq -r '.layers[]?.digest // empty' "${workdir}/akmods/manifest.json" \
-                | sed -E "s#^sha256:#${workdir}/akmods/#"
-            )
-            for layer in "${layer_files[@]}"; do
-              tar -xf "${layer}" -C "${workdir}"
-            done
-            if find "${workdir}/rpms/kmods/zfs" -maxdepth 1 -type f -name "kmod-zfs-${KERNEL_RELEASE}-*.rpm" | grep -q .; then
-              echo "exists=true" >> "${GITHUB_OUTPUT}"
-              echo "Found matching ${AKMODS_IMAGE} kmod for kernel ${KERNEL_RELEASE}; akmods rebuild can be skipped."
-            else
-              echo "exists=false" >> "${GITHUB_OUTPUT}"
-              echo "Cached ${AKMODS_IMAGE} is present but missing kmod for kernel ${KERNEL_RELEASE}; akmods rebuild is required."
-            fi
-          else
-            echo "exists=false" >> "${GITHUB_OUTPUT}"
-            echo "No existing ${AKMODS_IMAGE}; akmods rebuild is required."
-          fi
+          ./.github/scripts/beta/check-branch-akmods-cache.sh
 
       - name: Clone upstream akmods tooling
         # Rebuild when manually forced or when branch cache is missing/stale.
@@ -153,23 +84,7 @@ jobs:
           AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
           AKMODS_UPSTREAM_REF: ${{ env.AKMODS_UPSTREAM_REF }}
         run: |
-          set -euo pipefail
-          rm -rf /tmp/akmods
-          mkdir -p /tmp/akmods
-          cd /tmp/akmods
-
-          # Fetch exactly one pinned commit (no floating branch refs).
-          git init .
-          git remote add origin "${AKMODS_UPSTREAM_REPO}"
-          git fetch --depth 1 origin "${AKMODS_UPSTREAM_REF}"
-          git checkout --detach FETCH_HEAD
-
-          resolved_ref="$(git rev-parse HEAD)"
-          if [[ "${resolved_ref}" != "${AKMODS_UPSTREAM_REF}" ]]; then
-            echo "Pinned ref mismatch: expected ${AKMODS_UPSTREAM_REF}, got ${resolved_ref}" >&2
-            exit 1
-          fi
-          echo "Using pinned akmods ref: ${resolved_ref}"
+          ./.github/scripts/akmods/clone-pinned-akmods.sh
 
       - name: Configure zfs target in branch-scoped namespace
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
@@ -177,24 +92,9 @@ jobs:
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          AKMODS_DESCRIPTION: A branch-scoped caching layer for pre-built zfs akmod RPMs
         run: |
-          set -euo pipefail
-          cd /tmp/akmods
-          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          export FEDORA_VERSION IMAGE_ORG AKMODS_REPO
-
-          # Publish branch cache under a branch-unique repo name to avoid clobbering main cache images.
-          yq -i '
-            .images[strenv(FEDORA_VERSION)].main.zfs = {
-              "org": strenv(IMAGE_ORG),
-              "registry": "ghcr.io",
-              "repo": "akmods",
-              "transport": "docker://",
-              "name": strenv(AKMODS_REPO),
-              "description": "A branch-scoped caching layer for pre-built zfs akmod RPMs",
-              "architecture": ["x86_64"]
-            }
-          ' images.yaml
+          ./.github/scripts/akmods/configure-zfs-target.sh
 
       - name: Build and publish branch-scoped self-hosted zfs akmods image
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
@@ -208,12 +108,7 @@ jobs:
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          cd /tmp/akmods
-          just build
-          just login
-          just push
-          just manifest
+          ./.github/scripts/akmods/build-and-publish.sh
 
   bluebuild:
     name: Build Custom Image (branch)
@@ -234,18 +129,7 @@ jobs:
           IMAGE_TAG: ${{ needs.prepare-branch-metadata.outputs.image_tag }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
         run: |
-          set -euo pipefail
-          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-
-          # Branch image tag prevents overwriting the default `latest` tag on main images.
-          sed -i -E "s/^image-version:.*/image-version: ${IMAGE_TAG}/" recipes/recipe.yml
-
-          # Branch akmods repo prevents branch runs from overwriting main akmods cache images.
-          sed -i -E "s#^[[:space:]]*AKMODS_IMAGE=.*#        AKMODS_IMAGE=\"ghcr.io/${IMAGE_ORG}/${AKMODS_REPO}:main-\\\${FEDORA_VERSION}\"#" recipes/recipe.yml
-
-          # Emit effective recipe values for traceability/debugging in build logs.
-          grep -n '^image-version:' recipes/recipe.yml
-          grep -n 'AKMODS_IMAGE=' recipes/recipe.yml
+          ./.github/scripts/beta/configure-branch-recipe.sh
 
       - name: Build Custom Image
         uses: blue-build/github-action@v1.11.0
