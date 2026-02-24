@@ -1,78 +1,333 @@
-name: bluebuild
+name: Build And Promote Main Image
+
 on:
+  # Nightly candidate build so we test against current upstream kernel stream.
   schedule:
     - cron:
-        "00 06 * * *" # build at 06:00 UTC every day
-        # (20 minutes after ublue images start building, so upstream artifacts exist)
-  push:
-    # Avoid burning CI minutes for docs-only commits.
-    paths-ignore:
-      - "**.md"
+        "00 06 * * *" # 06:00 UTC daily
 
-  pull_request:
+  push:
+    # Main pipeline runs only from main branch updates.
+    branches:
+      - main
+    # Skip CI for docs/readme-only changes.
+    paths-ignore:
+      - README.md
+      - "**/README.md"
+      - docs/**
+      - "**/*.md"
+
   workflow_dispatch:
-    # Manual trigger used for ad-hoc rebuild/testing.
+    # Manual trigger for candidate rebuilds, replay runs, and controlled promotions.
     inputs:
       rebuild_akmods:
-        # Forces akmods rebuild even when a cached image already exists in GHCR.
-        description: Force rebuild of self-hosted akmods-zfs
+        # Override cache detection and force candidate akmods rebuild.
+        description: Force rebuild of candidate self-hosted akmods-zfs
         required: false
         default: false
         type: boolean
+      promote_to_stable:
+        # Allow manual candidate-only test runs by setting false.
+        description: Promote candidate artifacts to stable tags after success
+        required: false
+        default: true
+        type: boolean
+      use_input_lock:
+        # Replay mode: read pinned inputs from lock file instead of floating latest refs.
+        description: Use lock file inputs for reproducible replay
+        required: false
+        default: false
+        type: boolean
+      lock_file:
+        # Repo-relative JSON file containing pinned replay inputs.
+        description: Lock file path for replay mode
+        required: false
+        default: ci/inputs.lock.json
+        type: string
+      build_container_image:
+        # Optional override for akmods job container image (supports digest pinning).
+        description: Build container image/ref override (optional)
+        required: false
+        default: ""
+        type: string
+
 concurrency:
-  # One run per ref/workflow; new pushes cancel stale in-progress runs.
+  # Keep a single active run per workflow+ref; cancel stale in-flight runs.
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
+
+env:
+  # Issue #1/#4 hardening: pin to our forked akmods commit that already
+  # contains required ZFS build dependencies.
+  AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git
+  AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
+
+  # Issue #2 mitigation: candidate-first release model.
+  # `latest` is updated only by explicit promotion after candidate succeeds.
+  IMAGE_NAME: kinoite-zfs
+  CANDIDATE_IMAGE_TAG: candidate
+  CANDIDATE_AKMODS_REPO: akmods-zfs-candidate
+  STABLE_AKMODS_REPO: akmods-zfs
+
+  # Issue #3 controls: default floating inputs (used when replay lock is disabled).
+  DEFAULT_BASE_IMAGE: ghcr.io/ublue-os/kinoite-main:latest
+  DEFAULT_BUILD_CONTAINER_IMAGE: ghcr.io/ublue-os/devcontainer:latest
+  DEFAULT_ZFS_MINOR_VERSION: "2.4"
+
 jobs:
   build-zfs-akmods:
-    # Skip PR builds because we cannot push package images from untrusted forks.
-    name: Build Self-Hosted ZFS Akmods
-    if: github.event_name != 'pull_request'
+    name: Build Self-Hosted ZFS Akmods (candidate)
     runs-on: ubuntu-24.04
+    outputs:
+      fedora_version: ${{ steps.inputs.outputs.version }}
+      kernel_release: ${{ steps.inputs.outputs.kernel_release }}
+      base_image_ref: ${{ steps.inputs.outputs.base_image_ref }}
+      base_image_pinned: ${{ steps.inputs.outputs.base_image_pinned }}
+      base_image_digest: ${{ steps.inputs.outputs.base_image_digest }}
+      build_container_ref: ${{ steps.inputs.outputs.build_container_ref }}
+      build_container_pinned: ${{ steps.inputs.outputs.build_container_pinned }}
+      build_container_digest: ${{ steps.inputs.outputs.build_container_digest }}
+      zfs_minor_version: ${{ steps.inputs.outputs.zfs_minor_version }}
+      akmods_upstream_ref: ${{ steps.inputs.outputs.akmods_upstream_ref }}
+      use_input_lock: ${{ steps.inputs.outputs.use_input_lock }}
+      lock_file_path: ${{ steps.inputs.outputs.lock_file_path }}
     permissions:
       contents: read
-      # Required to push ghcr.io/<owner>/akmods-zfs:* cache images.
+      # Needed to push ghcr.io/<owner>/<candidate-akmods-repo>:* images.
       packages: write
     container:
-      # Reuse ublue build tooling container so `just`, podman/skopeo, yq, etc. match upstream expectations.
-      image: ghcr.io/ublue-os/devcontainer:latest
-      # Privileged container + mounted container storage is required by upstream akmods build flow.
+      # Optional manual override supports digest-pinned replay runs.
+      image: ${{ github.event.inputs.build_container_image || 'ghcr.io/ublue-os/devcontainer:latest' }}
+      # Privileged + mounted container storage are required by upstream akmods build flow.
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
-      - name: Detect Fedora major version for Kinoite latest
-        id: fedora
+      - uses: actions/checkout@v6
+
+      - name: Resolve build inputs (latest mode or lock replay mode)
+        id: inputs
         shell: bash
+        env:
+          USE_INPUT_LOCK: ${{ github.event.inputs.use_input_lock || 'false' }}
+          LOCK_FILE: ${{ github.event.inputs.lock_file || 'ci/inputs.lock.json' }}
+          BUILD_CONTAINER_REF: ${{ github.event.inputs.build_container_image || env.DEFAULT_BUILD_CONTAINER_IMAGE }}
+          DEFAULT_BASE_IMAGE: ${{ env.DEFAULT_BASE_IMAGE }}
+          DEFAULT_ZFS_MINOR_VERSION: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
+          DEFAULT_AKMODS_REF: ${{ env.AKMODS_UPSTREAM_REF }}
         run: |
           set -euo pipefail
-          # Kinoite "latest" carries the kernel/release metadata in the `ostree.linux` label.
-          ostree_linux="$(skopeo inspect docker://ghcr.io/ublue-os/kinoite-main:latest --format '{{ index .Labels "ostree.linux" }}')"
-          # Extract Fedora major (e.g. 43) so both akmods tag and recipe lookup stay aligned.
-          fedora_version="$(sed -E 's/.*fc([0-9]+).*/\1/' <<< "${ostree_linux}")"
-          if [[ -z "${fedora_version}" ]]; then
-            echo "Failed to detect Fedora version from ostree.linux=${ostree_linux}" >&2
+
+          use_input_lock="${USE_INPUT_LOCK}"
+          lock_file_path="${LOCK_FILE}"
+          build_container_ref="${BUILD_CONTAINER_REF}"
+
+          if [[ "${use_input_lock}" == "true" ]]; then
+            if [[ ! -f "${lock_file_path}" ]]; then
+              echo "Replay lock file not found: ${lock_file_path}" >&2
+              exit 1
+            fi
+
+            base_image_ref="$(jq -r '.base_image // empty' "${lock_file_path}")"
+            lock_build_container_ref="$(jq -r '.build_container // empty' "${lock_file_path}")"
+            zfs_minor_version="$(jq -r '.zfs_minor_version // empty' "${lock_file_path}")"
+            akmods_upstream_ref="$(jq -r '.akmods_upstream_ref // empty' "${lock_file_path}")"
+
+            if [[ -z "${base_image_ref}" ]]; then
+              echo "Lock file missing required field: base_image" >&2
+              exit 1
+            fi
+            if [[ "${base_image_ref}" == *REPLACE_ME* ]]; then
+              echo "Lock file base_image still contains placeholder value" >&2
+              exit 1
+            fi
+            if [[ -n "${lock_build_container_ref}" && "${lock_build_container_ref}" == *REPLACE_ME* ]]; then
+              echo "Lock file build_container still contains placeholder value" >&2
+              exit 1
+            fi
+
+            if [[ -n "${lock_build_container_ref}" && "${build_container_ref}" != "${lock_build_container_ref}" ]]; then
+              echo "Replay mismatch: build container input (${build_container_ref}) does not match lock file (${lock_build_container_ref})." >&2
+              echo "Set workflow input build_container_image=${lock_build_container_ref} when use_input_lock=true." >&2
+              exit 1
+            fi
+
+            if [[ -z "${zfs_minor_version}" ]]; then
+              zfs_minor_version="${DEFAULT_ZFS_MINOR_VERSION}"
+            fi
+            if [[ -z "${akmods_upstream_ref}" ]]; then
+              akmods_upstream_ref="${DEFAULT_AKMODS_REF}"
+            fi
+          else
+            base_image_ref="${DEFAULT_BASE_IMAGE}"
+            zfs_minor_version="${DEFAULT_ZFS_MINOR_VERSION}"
+            akmods_upstream_ref="${DEFAULT_AKMODS_REF}"
+          fi
+
+          # Resolve immutable base image digest and kernel metadata for this run.
+          base_inspect_json="$(skopeo inspect "docker://${base_image_ref}")"
+          base_image_name="$(jq -r '.Name // empty' <<< "${base_inspect_json}")"
+          base_image_digest="$(jq -r '.Digest // empty' <<< "${base_inspect_json}")"
+          kernel_release="$(jq -r '.Labels["ostree.linux"] // empty' <<< "${base_inspect_json}")"
+
+          if [[ -z "${base_image_name}" || -z "${base_image_digest}" ]]; then
+            echo "Failed to resolve base image digest for ${base_image_ref}" >&2
             exit 1
           fi
-          # Emit as step output for downstream steps.
-          echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
-          # Emit full kernel release (e.g. 6.18.12-200.fc43.x86_64) so cache checks can be kernel-aware.
-          echo "kernel_release=${ostree_linux}" >> "${GITHUB_OUTPUT}"
+          if [[ -z "${kernel_release}" ]]; then
+            echo "Failed to read ostree.linux label from ${base_image_ref}" >&2
+            exit 1
+          fi
 
-      - name: Check for existing self-hosted zfs akmods image
+          fedora_version="$(sed -E 's/.*fc([0-9]+).*/\1/' <<< "${kernel_release}")"
+          if [[ -z "${fedora_version}" ]]; then
+            echo "Failed to extract Fedora version from kernel release ${kernel_release}" >&2
+            exit 1
+          fi
+
+          base_image_pinned="${base_image_name}@${base_image_digest}"
+
+          # Resolve immutable build container digest for audit/replay tracking.
+          container_inspect_json="$(skopeo inspect "docker://${build_container_ref}")"
+          build_container_name="$(jq -r '.Name // empty' <<< "${container_inspect_json}")"
+          build_container_digest="$(jq -r '.Digest // empty' <<< "${container_inspect_json}")"
+
+          if [[ -z "${build_container_name}" || -z "${build_container_digest}" ]]; then
+            echo "Failed to resolve build container digest for ${build_container_ref}" >&2
+            exit 1
+          fi
+
+          build_container_pinned="${build_container_name}@${build_container_digest}"
+
+          echo "version=${fedora_version}" >> "${GITHUB_OUTPUT}"
+          echo "kernel_release=${kernel_release}" >> "${GITHUB_OUTPUT}"
+          echo "base_image_ref=${base_image_ref}" >> "${GITHUB_OUTPUT}"
+          echo "base_image_pinned=${base_image_pinned}" >> "${GITHUB_OUTPUT}"
+          echo "base_image_digest=${base_image_digest}" >> "${GITHUB_OUTPUT}"
+          echo "build_container_ref=${build_container_ref}" >> "${GITHUB_OUTPUT}"
+          echo "build_container_pinned=${build_container_pinned}" >> "${GITHUB_OUTPUT}"
+          echo "build_container_digest=${build_container_digest}" >> "${GITHUB_OUTPUT}"
+          echo "zfs_minor_version=${zfs_minor_version}" >> "${GITHUB_OUTPUT}"
+          echo "akmods_upstream_ref=${akmods_upstream_ref}" >> "${GITHUB_OUTPUT}"
+          echo "use_input_lock=${use_input_lock}" >> "${GITHUB_OUTPUT}"
+          echo "lock_file_path=${lock_file_path}" >> "${GITHUB_OUTPUT}"
+
+          echo "Resolved base image: ${base_image_pinned}"
+          echo "Resolved build container: ${build_container_pinned}"
+          echo "Kernel release: ${kernel_release}"
+          echo "Fedora version: ${fedora_version}"
+          echo "ZFS minor version: ${zfs_minor_version}"
+
+      - name: Write build inputs manifest
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          BASE_IMAGE_REF: ${{ steps.inputs.outputs.base_image_ref }}
+          BASE_IMAGE_PINNED: ${{ steps.inputs.outputs.base_image_pinned }}
+          BASE_IMAGE_DIGEST: ${{ steps.inputs.outputs.base_image_digest }}
+          BUILD_CONTAINER_REF: ${{ steps.inputs.outputs.build_container_ref }}
+          BUILD_CONTAINER_PINNED: ${{ steps.inputs.outputs.build_container_pinned }}
+          BUILD_CONTAINER_DIGEST: ${{ steps.inputs.outputs.build_container_digest }}
+          ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
+          AKMODS_UPSTREAM_REF: ${{ steps.inputs.outputs.akmods_upstream_ref }}
+          USE_INPUT_LOCK: ${{ steps.inputs.outputs.use_input_lock }}
+          LOCK_FILE_PATH: ${{ steps.inputs.outputs.lock_file_path }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+
+          jq -n \
+            --arg schema_version "1" \
+            --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg repository "${GITHUB_REPOSITORY}" \
+            --arg workflow "${GITHUB_WORKFLOW}" \
+            --arg run_id "${GITHUB_RUN_ID}" \
+            --arg run_attempt "${GITHUB_RUN_ATTEMPT}" \
+            --arg run_number "${GITHUB_RUN_NUMBER}" \
+            --arg git_ref "${GITHUB_REF}" \
+            --arg git_sha "${GITHUB_SHA}" \
+            --arg actor "${GITHUB_ACTOR}" \
+            --arg fedora_version "${FEDORA_VERSION}" \
+            --arg kernel_release "${KERNEL_RELEASE}" \
+            --arg base_image_ref "${BASE_IMAGE_REF}" \
+            --arg base_image_pinned "${BASE_IMAGE_PINNED}" \
+            --arg base_image_digest "${BASE_IMAGE_DIGEST}" \
+            --arg build_container_ref "${BUILD_CONTAINER_REF}" \
+            --arg build_container_pinned "${BUILD_CONTAINER_PINNED}" \
+            --arg build_container_digest "${BUILD_CONTAINER_DIGEST}" \
+            --arg zfs_minor_version "${ZFS_MINOR_VERSION}" \
+            --arg akmods_upstream_ref "${AKMODS_UPSTREAM_REF}" \
+            --arg use_input_lock "${USE_INPUT_LOCK}" \
+            --arg lock_file_path "${LOCK_FILE_PATH}" \
+            '{
+              schema_version: ($schema_version | tonumber),
+              generated_at,
+              repository,
+              workflow,
+              run: {
+                id: ($run_id | tonumber),
+                attempt: ($run_attempt | tonumber),
+                number: ($run_number | tonumber),
+                ref: $git_ref,
+                sha: $git_sha,
+                actor: $actor
+              },
+              inputs: {
+                use_input_lock: ($use_input_lock == "true"),
+                lock_file_path,
+                fedora_version,
+                kernel_release,
+                base_image_ref,
+                base_image_pinned,
+                base_image_digest,
+                build_container_ref,
+                build_container_pinned,
+                build_container_digest,
+                zfs_minor_version,
+                akmods_upstream_ref
+              }
+            }' > artifacts/build-inputs.json
+
+          cat artifacts/build-inputs.json
+
+      - name: Upload build inputs manifest
+        uses: actions/upload-artifact@v4
+        with:
+          # One manifest per run; use this file to populate ci/inputs.lock.json for replay.
+          name: build-inputs-${{ github.run_id }}
+          path: artifacts/build-inputs.json
+
+      - name: Check for existing candidate self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
-          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
-          KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           set -euo pipefail
-          # GHCR org must be lowercase.
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          AKMODS_IMAGE="ghcr.io/${IMAGE_ORG}/akmods-zfs:main-${FEDORA_VERSION}"
-          # Cache is usable only if it has a kmod-zfs RPM for the *current* Kinoite kernel release.
-          if skopeo inspect "docker://${AKMODS_IMAGE}" >/dev/null 2>&1; then
+          candidate_akmods_image="ghcr.io/${IMAGE_ORG}/${CANDIDATE_AKMODS_REPO}:main-${FEDORA_VERSION}"
+          stable_akmods_image="ghcr.io/${IMAGE_ORG}/${STABLE_AKMODS_REPO}:main-${FEDORA_VERSION}"
+
+          # Primary expectation: candidate cache repo exists.
+          # Compatibility fallback: current upstream tooling can still publish to stable repo/tag.
+          # If candidate cache tag is absent, probe stable tag so manual re-runs can reuse cache
+          # instead of recompiling modules unnecessarily.
+          akmods_image=""
+          if skopeo inspect "docker://${candidate_akmods_image}" >/dev/null 2>&1; then
+            akmods_image="${candidate_akmods_image}"
+            echo "Using candidate cache source ${akmods_image}"
+          elif [[ "${STABLE_AKMODS_REPO}" != "${CANDIDATE_AKMODS_REPO}" ]] && skopeo inspect "docker://${stable_akmods_image}" >/dev/null 2>&1; then
+            akmods_image="${stable_akmods_image}"
+            echo "Candidate cache tag missing; falling back to stable cache source ${akmods_image}"
+          fi
+
+          # Cache is valid only if it already contains kmod-zfs for the exact base kernel.
+          if [[ -n "${akmods_image}" ]]; then
             workdir="$(mktemp -d)"
             trap 'rm -rf "${workdir}"' EXIT
-            skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" "dir:${workdir}/akmods" >/dev/null
+            skopeo copy --retry-times 3 "docker://${akmods_image}" "dir:${workdir}/akmods" >/dev/null
             mapfile -t layer_files < <(
               jq -r '.layers[]?.digest // empty' "${workdir}/akmods/manifest.json" \
                 | sed -E "s#^sha256:#${workdir}/akmods/#"
@@ -82,103 +337,221 @@ jobs:
             done
             if find "${workdir}/rpms/kmods/zfs" -maxdepth 1 -type f -name "kmod-zfs-${KERNEL_RELEASE}-*.rpm" | grep -q .; then
               echo "exists=true" >> "${GITHUB_OUTPUT}"
-              echo "Found matching ${AKMODS_IMAGE} kmod for kernel ${KERNEL_RELEASE}; akmods rebuild can be skipped."
+              echo "Found matching ${akmods_image} kmod for kernel ${KERNEL_RELEASE}; akmods rebuild can be skipped."
             else
               echo "exists=false" >> "${GITHUB_OUTPUT}"
-              echo "Cached ${AKMODS_IMAGE} is present but missing kmod for kernel ${KERNEL_RELEASE}; akmods rebuild is required."
+              echo "Cached ${akmods_image} is present but missing kmod for kernel ${KERNEL_RELEASE}; akmods rebuild is required."
             fi
           else
             echo "exists=false" >> "${GITHUB_OUTPUT}"
-            echo "No existing ${AKMODS_IMAGE}; akmods rebuild is required."
+            echo "No existing candidate/stable akmods cache image for Fedora ${FEDORA_VERSION}; akmods rebuild is required."
           fi
 
       - name: Clone upstream akmods tooling
-        # Rebuild on schedule (refresh), manual override, or cache miss.
-        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # We patch upstream build scripts at runtime below; keep clone shallow for speed.
-          git clone --depth 1 https://github.com/ublue-os/akmods.git /tmp/akmods
-
-      - name: Configure zfs target in self-hosted namespace
+        # Rebuild when scheduled, manually forced, or candidate cache is missing/stale.
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
-          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+          AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
+          AKMODS_UPSTREAM_REF: ${{ steps.inputs.outputs.akmods_upstream_ref }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/akmods
+          mkdir -p /tmp/akmods
+          cd /tmp/akmods
+
+          # Fetch exactly one pinned commit (no floating branch refs).
+          git init .
+          git remote add origin "${AKMODS_UPSTREAM_REPO}"
+          git fetch --depth 1 origin "${AKMODS_UPSTREAM_REF}"
+          git checkout --detach FETCH_HEAD
+
+          resolved_ref="$(git rev-parse HEAD)"
+          if [[ "${resolved_ref}" != "${AKMODS_UPSTREAM_REF}" ]]; then
+            echo "Pinned ref mismatch: expected ${AKMODS_UPSTREAM_REF}, got ${resolved_ref}" >&2
+            exit 1
+          fi
+          echo "Using pinned akmods ref: ${resolved_ref}"
+
+      - name: Configure candidate zfs target in self-hosted namespace
+        if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
         run: |
           set -euo pipefail
           cd /tmp/akmods
           IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          export FEDORA_VERSION IMAGE_ORG
-          # Add "main + zfs" output target under this repo owner so images are published to our namespace.
+          export FEDORA_VERSION IMAGE_ORG AKMODS_REPO
+
+          # Candidate cache is published to its own repo so stable cache is never overwritten by test runs.
           yq -i '
             .images[strenv(FEDORA_VERSION)].main.zfs = {
               "org": strenv(IMAGE_ORG),
               "registry": "ghcr.io",
               "repo": "akmods",
               "transport": "docker://",
-              "name": "akmods-zfs",
-              "description": "A caching layer for the pre-built zfs akmod RPMs",
+              "name": strenv(AKMODS_REPO),
+              "description": "Candidate caching layer for pre-built zfs akmod RPMs",
               "architecture": ["x86_64"]
             }
           ' images.yaml
-          # Runtime patch 1: upstream zfs build script expects `jq`, ensure it is installed first.
-          sed -i '/^cd \/tmp$/a dnf install -y jq' build_files/zfs/build-kmod-zfs.sh
-          # Runtime patch 2: ensure python cffi dependency is present for ZFS 2.4 RPM prep.
-          # We inject before the first `akmods` entry in RPMS_TO_INSTALL list.
-          perl -0777 -i -pe 's/RPMS_TO_INSTALL\+=\(\n    akmods/RPMS_TO_INSTALL+=(\n    python3-cffi\n    akmods/' build_files/prep/build-prep.sh
 
-      - name: Build and publish self-hosted zfs akmods image
+      - name: Build and publish candidate self-hosted zfs akmods image
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
-          # `main` tracks Fedora desktop kernel stream used by Kinoite main/latest.
+          # `main` follows Fedora desktop kernel stream used by Kinoite main/latest.
           AKMODS_KERNEL: main
-          AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
+          AKMODS_VERSION: ${{ steps.inputs.outputs.version }}
           AKMODS_TARGET: zfs
-          # Pin ZFS minor line for current kernel compatibility.
-          ZFS_MINOR_VERSION: "2.4"
+          # ZFS version is resolved in the input step (default or lock file).
+          ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
           CI: "1"
-          # Credentials used by upstream `just login/push` targets.
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           cd /tmp/akmods
-          # Upstream task chain: build rpms -> auth -> push image -> publish manifest.
           just build
           just login
           just push
           just manifest
 
-  bluebuild:
-    name: Build Custom Image
-    # Always wait for akmods job (even if it was effectively a no-op), so dependency order is explicit.
+  bluebuild-candidate:
+    name: Build Candidate Image
     needs: build-zfs-akmods
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       id-token: write
-    strategy:
-      # Keep other matrix entries running if one fails.
-      fail-fast: false
-      matrix:
-        recipe:
-          # Add more recipe files here if/when additional images are introduced.
-          - recipe.yml
     steps:
-      # Build/push/sign is delegated to BlueBuild's maintained action.
-      - name: Build Custom Image
-        uses: blue-build/github-action@v1.11
+      - uses: actions/checkout@v6
+
+      - name: Set candidate image tag, base image, and candidate akmods source in recipe
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ env.CANDIDATE_IMAGE_TAG }}
+          BASE_IMAGE_PINNED: ${{ needs.build-zfs-akmods.outputs.base_image_pinned }}
+          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+        run: |
+          set -euo pipefail
+          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+
+          # Candidate image tag isolates pre-promotion builds from stable `latest` tag.
+          sed -i -E "s/^image-version:.*/image-version: ${IMAGE_TAG}/" recipes/recipe.yml
+
+          # Pin base image by digest for deterministic per-run build inputs.
+          sed -i -E "s#^base-image:.*#base-image: ${BASE_IMAGE_PINNED}#" recipes/recipe.yml
+
+          # Candidate build must consume candidate akmods cache, not stable cache.
+          sed -i -E "s#^[[:space:]]*AKMODS_IMAGE=.*#        AKMODS_IMAGE=\"ghcr.io/${IMAGE_ORG}/${AKMODS_REPO}:main-\\\${FEDORA_VERSION}\"#" recipes/recipe.yml
+
+          # Emit effective recipe values for traceability/debugging in build logs.
+          grep -n '^base-image:' recipes/recipe.yml
+          grep -n '^image-version:' recipes/recipe.yml
+          grep -n 'AKMODS_IMAGE=' recipes/recipe.yml
+
+      - name: Build Candidate Image
+        uses: blue-build/github-action@v1.11.0
         with:
-          recipe: ${{ matrix.recipe }}
-          # Cosign private key secret configured in repo settings.
+          recipe: recipe.yml
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
-          # GitHub token is enough for pushing to this repo's GHCR namespace.
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
-
-          # Keep enabled: this build path is storage heavy (rpm-ostree + container layering).
           maximize_build_space: true
+
+  promote-stable:
+    name: Promote Candidate To Stable
+    needs:
+      - build-zfs-akmods
+      - bluebuild-candidate
+    # Automatic promotion on push/schedule. Manual runs can skip promotion.
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.promote_to_stable == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Install skopeo
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Promote candidate image and akmods cache to stable tags
+        shell: bash
+        env:
+          REGISTRY_ACTOR: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+          FEDORA_VERSION: ${{ needs.build-zfs-akmods.outputs.fedora_version }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+        run: |
+          set -euo pipefail
+          IMAGE_ORG="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+
+          # BlueBuild always emits a commit+Fedora tag (for example `a1b2c3d-43`) even when
+          # branch/default tag strategies differ between refs.
+          # Resolve promotion source from that deterministic tag, then switch to digest form so
+          # both stable tags point to the exact artifact produced by this run.
+          candidate_source_tag="${GITHUB_SHA::7}-${FEDORA_VERSION}"
+          candidate_image_by_tag="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}:${candidate_source_tag}"
+          candidate_image_digest="$(skopeo inspect \
+            --creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+            --format '{{.Digest}}' \
+            "${candidate_image_by_tag}")"
+          if [[ -z "${candidate_image_digest}" ]]; then
+            echo "Failed to resolve candidate image digest from ${candidate_image_by_tag}" >&2
+            exit 1
+          fi
+          candidate_image="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}@${candidate_image_digest}"
+
+          stable_image="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}:latest"
+          audit_image="docker://ghcr.io/${IMAGE_ORG}/${IMAGE_NAME}:stable-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+
+          candidate_akmods="docker://ghcr.io/${IMAGE_ORG}/${CANDIDATE_AKMODS_REPO}:main-${FEDORA_VERSION}"
+          stable_akmods="docker://ghcr.io/${IMAGE_ORG}/${STABLE_AKMODS_REPO}:main-${FEDORA_VERSION}"
+
+          # Promote OS image only after candidate build has succeeded.
+          skopeo copy --retry-times 3 \
+            --src-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+            --dest-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+            "${candidate_image}" "${stable_image}"
+
+          # Keep an immutable audit tag for rollback/debugging.
+          skopeo copy --retry-times 3 \
+            --src-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+            --dest-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+            "${candidate_image}" "${audit_image}"
+
+          # Prefer candidate akmods cache source; fall back to stable source when upstream akmods
+          # tooling published directly to stable repo/tag.
+          if skopeo inspect --creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" "${candidate_akmods}" >/dev/null 2>&1; then
+            source_akmods="${candidate_akmods}"
+          elif skopeo inspect --creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" "${stable_akmods}" >/dev/null 2>&1; then
+            source_akmods="${stable_akmods}"
+            echo "Candidate akmods tag missing; using stable akmods tag as promotion source."
+          else
+            echo "Neither candidate nor stable akmods tag exists for Fedora ${FEDORA_VERSION}." >&2
+            exit 1
+          fi
+
+          # If source already equals destination, copy is unnecessary and can be skipped safely.
+          if [[ "${source_akmods}" != "${stable_akmods}" ]]; then
+            skopeo copy --retry-times 3 \
+              --src-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+              --dest-creds "${REGISTRY_ACTOR}:${REGISTRY_TOKEN}" \
+              "${source_akmods}" "${stable_akmods}"
+          else
+            echo "Akmods source already at stable tag ${stable_akmods}; skipping retag copy."
+          fi
+
+          echo "Resolved candidate source ${candidate_image_by_tag} -> ${candidate_image}"
+          echo "Promoted ${candidate_image} -> ${stable_image}"
+          echo "Published audit tag ${audit_image}"
+          echo "Promoted ${source_akmods} -> ${stable_akmods}"

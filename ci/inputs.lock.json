@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "description": "Pinned inputs for workflow_dispatch replay mode. Update this file from the latest build-inputs artifact when reproducing or validating a specific run.",
+  "base_image": "ghcr.io/ublue-os/kinoite-main@sha256:5cbac4096e2a05ff4f51778a9276064064e548183de98f5130086d4d01c4e021",
+  "build_container": "ghcr.io/ublue-os/devcontainer@sha256:6fe782777ea0b6b9058a8bf43dadc505687ce63f52a0f084d5bba1c1230fe09e",
+  "zfs_minor_version": "2.4",
+  "akmods_upstream_ref": "906e565f712f43a598dcd272dc8ca053fcc99116"
+}
