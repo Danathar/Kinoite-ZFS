@@ -187,11 +187,13 @@ Planned follow-up:
 
 1. Add update cadence/process for bumping pinned akmods ref after validation.
 
-## Issue #2: Placeholder (Title Pending)
+## Issue #2: No Compatibility Holdback When Fedora Kernel Jumps Ahead
 
 Problem:
 
-1. Pending definition from prior review notes.
+1. Main builds intentionally track `kinoite-main:latest` and therefore track new Fedora kernels quickly.
+2. When Fedora publishes a kernel before OpenZFS/akmods is compatible, builds can fail until upstream support catches up.
+3. There is currently no explicit holdback/freeze mechanism in this repo to keep publishing a known-good compatible stream during that window.
 
 Mitigation implemented:
 
@@ -199,17 +201,21 @@ Mitigation implemented:
 
 Residual risk:
 
-1. Pending.
+1. New kernel transitions can temporarily block fresh image publication.
+2. Operators may need to pause updates manually until compatibility returns.
 
 Planned follow-up:
 
-1. Define exact mitigation and validate on branch image before promoting.
+1. Define a compatibility holdback policy (manual pin, fallback tag, or gated promotion path).
+2. Validate the policy on branch builds before applying to `main`.
 
-## Issue #3: Placeholder (Title Pending)
+## Issue #3: Build Inputs Are Still Partially Floating (Limited Reproducibility)
 
 Problem:
 
-1. Pending definition from prior review notes.
+1. The pipeline intentionally consumes moving sources such as `kinoite-main:latest` and `devcontainer:latest`.
+2. `ZFS_MINOR_VERSION` is pinned only at minor line (`2.4`), not a fully fixed patch release.
+3. Two runs at different times can differ even with the same repository commit, which complicates debugging and forensic rollback.
 
 Mitigation implemented:
 
@@ -217,17 +223,42 @@ Mitigation implemented:
 
 Residual risk:
 
-1. Pending.
+1. Reproducing historical failures or validating regressions can be slow and ambiguous.
+2. Unexpected upstream changes can alter behavior between runs.
 
 Planned follow-up:
 
-1. Define exact mitigation and validate on branch image before promoting.
+1. Add explicit build metadata capture (resolved digests/versions) to logs and release notes.
+2. Evaluate optional full pin modes for debugging or freeze windows.
 
-## Issue #4: Placeholder (Title Pending)
+## Issue #4: Runtime Patching Is Operationally Fragile
 
 Problem:
 
-1. Pending definition from prior review notes.
+1. The workflow currently patches upstream build scripts at runtime (`jq` and `python3-cffi` injection).
+2. Issue #1 added guardrails so patch drift fails fast, but the approach still depends on maintaining downstream patch logic.
+3. Each upstream packaging change can require local patch updates before builds resume.
+
+Mitigation implemented:
+
+1. Pending beyond Issue #1 guardrails.
+
+Residual risk:
+
+1. Maintenance burden remains on this repo.
+2. Future upstream changes can still break builds until local patches are updated.
+
+Planned follow-up:
+
+1. Reduce local patch surface by upstreaming required changes or using a maintained fork/input with those fixes.
+2. Reassess and remove runtime patches where no longer required.
+
+## Issue #5: No Automated Runtime Smoke Test Of ZFS In A Booted Image
+
+Problem:
+
+1. Current CI verifies module artifacts exist and runs `depmod`, but does not boot the produced image and execute runtime checks.
+2. A build can succeed while runtime behavior still fails in edge cases (for example, module load behavior after boot on target kernel/userspace).
 
 Mitigation implemented:
 
@@ -235,29 +266,13 @@ Mitigation implemented:
 
 Residual risk:
 
-1. Pending.
+1. Some failures are discovered only after manual VM rebase/testing.
+2. Validation latency is higher during kernel or OpenZFS transitions.
 
 Planned follow-up:
 
-1. Define exact mitigation and validate on branch image before promoting.
-
-## Issue #5: Placeholder (Title Pending)
-
-Problem:
-
-1. Pending definition from prior review notes.
-
-Mitigation implemented:
-
-1. Pending.
-
-Residual risk:
-
-1. Pending.
-
-Planned follow-up:
-
-1. Define exact mitigation and validate on branch image before promoting.
+1. Add automated post-build smoke tests against a booted test VM/image.
+2. Include `modprobe zfs`, `zpool`, and dataset creation checks in that smoke path.
 
 ## How To Test In A VM
 
