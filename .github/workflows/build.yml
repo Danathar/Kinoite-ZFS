@@ -229,6 +229,8 @@ jobs:
       contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v6
+
       - name: Install skopeo
         shell: bash
         run: |

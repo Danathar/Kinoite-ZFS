@@ -42,6 +42,8 @@ jobs:
       image_tag: ${{ steps.branch.outputs.image_tag }}
       akmods_repo: ${{ steps.branch.outputs.akmods_repo }}
     steps:
+      - uses: actions/checkout@v6
+
       - name: Compute branch-safe image and akmods names
         id: branch
         shell: bash
@@ -60,6 +62,8 @@ jobs:
       image: ghcr.io/ublue-os/devcontainer:latest
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
+      - uses: actions/checkout@v6
+
       - name: Detect Fedora major version for Kinoite latest
         id: fedora
         shell: bash
