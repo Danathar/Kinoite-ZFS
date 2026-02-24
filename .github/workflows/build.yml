@@ -96,7 +96,7 @@ jobs:
       packages: write
     container:
       # Optional manual override supports digest-pinned replay runs.
-      image: ${{ github.event.inputs.build_container_image || env.DEFAULT_BUILD_CONTAINER_IMAGE }}
+      image: ${{ github.event.inputs.build_container_image || 'ghcr.io/ublue-os/devcontainer:latest' }}
       # Privileged + mounted container storage are required by upstream akmods build flow.
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
