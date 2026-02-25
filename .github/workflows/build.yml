@@ -135,7 +135,7 @@ jobs:
           ./.github/scripts/main/write-build-inputs-manifest.sh
 
       - name: Upload build inputs manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           # One manifest per run; use this file to populate ci/inputs.lock.json for replay.
           name: build-inputs-${{ github.run_id }}
