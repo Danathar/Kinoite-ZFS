@@ -20,9 +20,10 @@ if [[ -n "${KERNEL_RELEASE:-}" ]]; then
   kernel_flavor="${AKMODS_KERNEL}"
   build_id="${kernel_flavor}-${AKMODS_VERSION}"
   build_root="${AKMODS_BUILDDIR:-$(pwd)/build}"
-  kcwd="${build_root}/${build_id}/KCWD"
-  kcpath="${kcwd}/rpms"
-  version_json="${build_root}/${build_id}/version.json"
+  version_cache="${build_root}/${build_id}"
+  kcwd="${version_cache}/KCWD"
+  kcpath="${KCPATH:-${kcwd}/rpms}"
+  version_json="${kcpath}/cache.json"
   kernel_major_minor_patch="$(cut -d '.' -f1-3 <<< "${KERNEL_RELEASE}")"
   kernel_name="kernel"
 
