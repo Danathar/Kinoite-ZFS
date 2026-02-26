@@ -199,12 +199,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set candidate image tag, base image, and candidate akmods source in recipe
+      - name: Set candidate image tag, base image, and kernel-matched akmods source in recipe
         shell: bash
         env:
           IMAGE_TAG: ${{ env.CANDIDATE_IMAGE_TAG }}
           BASE_IMAGE_PINNED: ${{ needs.build-zfs-akmods.outputs.base_image_pinned }}
-          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          KERNEL_RELEASE: ${{ needs.build-zfs-akmods.outputs.kernel_release }}
+          # Current akmods upstream tooling publishes to akmods-zfs tags; use that source for candidate compose.
+          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           ./.github/scripts/main/configure-candidate-recipe.sh
 
@@ -216,6 +218,8 @@ jobs:
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: true
+          # Keep recipe/containerfile edits from the prior step; action-internal checkout would reset them.
+          skip_checkout: true
 
   promote-stable:
     name: Promote Candidate To Stable
