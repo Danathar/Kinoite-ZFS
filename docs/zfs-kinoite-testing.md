@@ -37,8 +37,8 @@ This is intentionally designed for iterative validation before adopting any appr
 
 ### Main Artifacts
 
-1. Candidate OS image: `ghcr.io/danathar/kinoite-zfs:candidate`
-2. Candidate akmods cache image: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
+1. Candidate source image tag: `ghcr.io/danathar/kinoite-zfs:<shortsha>-<fedora>`
+2. Candidate akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>-<kernel_release>`
 3. Stable OS image: `ghcr.io/danathar/kinoite-zfs:latest`
 4. Stable OS audit tag: `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
 5. Stable akmods cache image: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
@@ -85,13 +85,14 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 
 1. Fetches a pinned commit from the maintained fork (`Danathar/akmods`).
 2. Injects the ZFS image target under this repo owner namespace.
-3. Builds and publishes candidate akmods cache image.
+3. Seeds upstream akmods cache metadata with the resolved `KERNEL_RELEASE`.
+4. Builds and publishes kernel-matched akmods tags.
 
 ### 4. Build Candidate Kinoite Image
 
-`recipes/recipe.yml` is rewritten in-run to point at candidate tags, then:
+`containerfiles/zfs-akmods/Containerfile` is rewritten in-run to point at a kernel-matched akmods tag, then:
 
-1. Pulls the akmods cache image.
+1. Pulls the akmods cache image for the resolved kernel release.
 2. Extracts ZFS RPMs from image layers.
 3. Installs RPMs via `rpm-ostree install`.
 4. Verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
@@ -105,7 +106,7 @@ Promotion runs only after successful candidate akmods and candidate image jobs:
 
 1. Retags candidate image to stable `latest`.
 2. Publishes immutable stable audit tag (`stable-<run>-<sha>`).
-3. Retags candidate akmods cache to stable akmods tag.
+3. Aligns stable akmods tag (`main-<fedora>`) to the selected source cache image.
 
 If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
 
@@ -121,7 +122,7 @@ Triggers:
 
 Key behavior:
 
-1. Builds/publishes candidate akmods cache as needed.
+1. Builds/publishes kernel-matched akmods cache tags as needed.
 2. Builds/publishes candidate image.
 3. Promotes candidate artifacts to stable tags only on success.
 4. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
@@ -224,7 +225,7 @@ Problem:
 Mitigation implemented:
 
 1. Implemented candidate-first pipeline in `.github/workflows/build.yml`.
-2. Main workflow now publishes candidate artifacts (`candidate` image + `akmods-zfs-candidate`) before touching stable tags.
+2. Main workflow now publishes candidate artifacts before touching stable tags.
 3. Added gated promotion job that retags candidate artifacts to stable only when candidate jobs succeed.
 4. Added manual dispatch input `promote_to_stable` for controlled candidate-only runs.
 
@@ -254,9 +255,10 @@ Mitigation implemented:
 
 1. Added lock replay inputs to `.github/workflows/build.yml` (`use_input_lock`, `lock_file`, `build_container_image`).
 2. Added deterministic input resolution step that records immutable digests for base image and builder container.
-3. Candidate image recipe now rewrites `base-image:` to digest-pinned base reference for per-run determinism.
+3. Candidate image flow now rewrites only `AKMODS_IMAGE` to a kernel-matched tag and validates exact-module presence.
 4. Added build input manifest artifact upload (`build-inputs-<run_id>`) for audit and reproducible reruns.
 5. Added repository lock file `ci/inputs.lock.json` for replay mode.
+6. Akmods build now seeds upstream cache metadata (`cache.json`) from resolved `KERNEL_RELEASE`.
 
 Where:
 

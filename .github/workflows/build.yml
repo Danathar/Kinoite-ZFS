@@ -167,6 +167,7 @@ jobs:
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
           AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           AKMODS_DESCRIPTION: Candidate caching layer for pre-built zfs akmod RPMs
         run: |
@@ -179,6 +180,8 @@ jobs:
           # `main` follows Fedora desktop kernel stream used by Kinoite main/latest.
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.inputs.outputs.version }}
+          # Force akmods build to the same kernel release resolved from the base image inputs.
+          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
           AKMODS_TARGET: zfs
           # ZFS version is resolved in the input step (default or lock file).
           ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
@@ -199,12 +202,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set candidate image tag, base image, and candidate akmods source in recipe
+      - name: Set kernel-matched akmods source in recipe
         shell: bash
         env:
-          IMAGE_TAG: ${{ env.CANDIDATE_IMAGE_TAG }}
-          BASE_IMAGE_PINNED: ${{ needs.build-zfs-akmods.outputs.base_image_pinned }}
-          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          KERNEL_RELEASE: ${{ needs.build-zfs-akmods.outputs.kernel_release }}
+          # Current akmods upstream tooling publishes to akmods-zfs tags; use that source for candidate compose.
+          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           ./.github/scripts/main/configure-candidate-recipe.sh
 
@@ -216,6 +219,8 @@ jobs:
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: true
+          # Keep recipe/containerfile edits from the prior step; action-internal checkout would reset them.
+          skip_checkout: true
 
   promote-stable:
     name: Promote Candidate To Stable
