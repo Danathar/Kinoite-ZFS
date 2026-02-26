@@ -16,8 +16,8 @@ At a high level, the repository is a release pipeline that:
 We build and publish two classes of artifacts:
 
 1. Candidate artifacts (pre-promotion):
-   - `ghcr.io/danathar/kinoite-zfs:candidate`
-   - `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
+   - Run-scoped image source tag produced by BlueBuild (`<shortsha>-<fedora>`)
+   - Kernel-matched akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>-<kernel_release>`
 2. Stable artifacts (promoted only after candidate success):
    - `ghcr.io/danathar/kinoite-zfs:latest`
    - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
@@ -51,20 +51,19 @@ These inputs are captured as an artifact (`build-inputs-<run_id>`) for traceabil
 
 ### 2. Candidate Akmods Build
 
-The pipeline checks if a candidate akmods cache already has a `kmod-zfs` RPM for the exact kernel release.
+The pipeline checks cache sources for a `kmod-zfs` RPM matching the exact kernel release.
 
 1. If yes, it reuses cache.
-2. If no, it rebuilds and publishes candidate akmods.
+2. If no, it rebuilds and publishes kernel-matched akmods tags.
 
 This avoids publishing images with stale kernel modules.
 
 ### 3. Candidate Image Build
 
-The recipe is rewritten at build time to:
+The workflow rewrites only the ZFS `AKMODS_IMAGE` reference in `containerfiles/zfs-akmods/Containerfile` to:
 
-1. Use candidate tags.
-2. Use digest-pinned base image reference.
-3. Pull candidate akmods cache.
+1. Use a kernel-matched akmods tag (`main-<fedora>-<kernel_release>`).
+2. Keep recipe `base-image`/`image-version` unchanged for BlueBuild parsing compatibility.
 
 The build validates ZFS module presence for kernel directories before image publish.
 
@@ -73,8 +72,8 @@ The build validates ZFS module presence for kernel directories before image publ
 Promotion is a separate gated job:
 
 1. Runs only after candidate jobs succeed.
-2. Retags candidate image to stable `latest`.
-3. Retags candidate akmods cache to stable tag.
+2. Retags run-scoped candidate image source to stable `latest`.
+3. Aligns stable akmods tag (`main-<fedora>`) to the selected source image.
 4. Writes an immutable stable audit tag (`stable-<run>-<sha>`).
 
 If candidate fails, promotion is skipped and existing stable tags remain untouched.

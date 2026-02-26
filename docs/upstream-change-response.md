@@ -115,8 +115,9 @@ Likely cause:
 Action:
 
 1. Re-run candidate with `rebuild_akmods=true`.
-2. Verify kernel release in `build-inputs.json` matches kmod package naming.
-3. Keep promotion disabled until candidate passes.
+2. Verify candidate compose references `AKMODS_IMAGE` tag `main-<fedora>-<kernel_release>`.
+3. Verify akmods logs show `Pinned akmods kernel release to <kernel_release>`.
+4. Keep promotion disabled until candidate passes.
 
 ### Pattern C: Promotion Job Fails
 

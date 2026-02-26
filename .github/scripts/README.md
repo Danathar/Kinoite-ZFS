@@ -12,7 +12,7 @@ Goal:
 - `main/resolve-build-inputs.sh`: Resolve lock/default build inputs and emit outputs.
 - `main/write-build-inputs-manifest.sh`: Emit `artifacts/build-inputs.json` for replay/audit.
 - `main/check-candidate-akmods-cache.sh`: Detect usable candidate/stable akmods cache.
-- `main/configure-candidate-recipe.sh`: Rewrite `recipes/recipe.yml` for candidate build inputs.
+- `main/configure-candidate-recipe.sh`: Rewrite kernel-matched `AKMODS_IMAGE` in the ZFS Containerfile.
 - `main/promote-stable.sh`: Promote candidate outputs to stable/audit tags.
 
 ## Branch Pipeline Scripts
