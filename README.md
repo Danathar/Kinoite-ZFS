@@ -8,7 +8,7 @@ If you are new to ZFS:
 
 - ZFS is a filesystem + volume manager focused on data integrity and storage management features (for example checksums, snapshots, and pooled storage).
 - In this repo, the key detail is that ZFS needs kernel modules that must match the running kernel version.
-- Owner opinion (humorous, but also true around here): ZFS is awesome and everyone should use it :)
+- Owner opinion around here: ZFS is awesome and everyone should use it :)
 
 Core goal:
 
