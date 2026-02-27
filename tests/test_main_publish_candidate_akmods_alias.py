@@ -1,9 +1,9 @@
 """
 Script: tests/test_main_publish_candidate_akmods_alias.py
-What: Unit tests for candidate akmods alias tag-candidate selection.
-Doing: Verifies full-kernel preference and architecture-trimmed fallback behavior.
-Why: Prevents tag-resolution regressions in candidate akmods alias publication.
-Goal: Keep candidate alias selection deterministic and compatible with expected tag formats.
+What: Tests for candidate akmods alias tag selection.
+Doing: Checks full-kernel preference and architecture-trimmed fallback behavior.
+Why: Prevents wrong tag-choice behavior in candidate alias publication.
+Goal: Keep candidate alias selection stable and compatible with expected tag formats.
 """
 
 from __future__ import annotations

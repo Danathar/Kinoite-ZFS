@@ -1,7 +1,7 @@
 """
 Script: ci_tools package
-What: Holds Python workflow helpers that replaced the older shell scripts.
-Doing: Groups CLI entrypoints and shared utility code in one importable package.
-Why: Keeps workflow logic readable and testable instead of spreading it across many shell files.
-Goal: Provide a clear, maintainable home for image build and promotion logic.
+What: Shared Python helper package for this repository's GitHub Actions runs.
+Doing: Stores command modules and common helper functions in one place.
+Why: Makes the code easier to read than many separate shell scripts.
+Goal: Give workflows one clear place to import helper logic from.
 """

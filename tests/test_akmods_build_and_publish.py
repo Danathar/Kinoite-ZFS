@@ -1,9 +1,9 @@
 """
 Script: tests/test_akmods_build_and_publish.py
-What: Unit tests for helpers in `ci_tools/akmods_build_and_publish.py`.
-Doing: Verifies kernel-name mapping and kernel cache metadata document generation rules.
-Why: Prevents regressions in akmods build metadata logic.
-Goal: Keep akmods build helper behavior predictable across refactors.
+What: Tests helper functions used by `ci_tools/akmods_build_and_publish.py`.
+Doing: Checks kernel-name mapping and generated kernel-cache metadata values.
+Why: Catches behavior changes that could break akmods build metadata.
+Goal: Keep akmods helper behavior stable over time.
 """
 
 from __future__ import annotations

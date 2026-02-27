@@ -1,8 +1,8 @@
 """
 Script: tests/test_beta_compute_branch_metadata.py
 What: Unit tests for branch metadata helper logic.
-Doing: Verifies branch-name sanitization, fallback behavior, and output length limits.
-Why: Prevents branch-tag formatting regressions that can break registry pushes.
+Doing: Checks branch-name cleanup, fallback behavior, and output length limits.
+Why: Prevents invalid branch tag text from reaching registry steps.
 Goal: Keep branch-scoped naming safe and stable.
 """
 

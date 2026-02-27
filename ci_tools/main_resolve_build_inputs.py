@@ -1,9 +1,9 @@
 """
 Script: ci_tools/main_resolve_build_inputs.py
-What: Selects and validates the exact image inputs for one workflow run.
-Doing: Uses lock-file replay values (when enabled) or defaults, resolves digests/tags, and exports outputs for later jobs.
-Why: Keeps every job in the run aligned to the same base and builder inputs.
-Goal: Export trusted input values that downstream jobs can reuse safely.
+What: Resolves and validates input references for one main workflow run.
+Doing: Uses lock file or defaults, resolves digests/tags, and writes outputs.
+Why: Keeps all jobs in the run on the same inputs.
+Goal: Provide trusted base/build/kernel values for downstream steps.
 """
 
 from __future__ import annotations

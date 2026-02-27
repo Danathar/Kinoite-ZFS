@@ -1,9 +1,9 @@
 """
 Script: ci_tools/main_promote_stable.py
-What: Promotes the tested candidate image and candidate akmods cache into stable tags.
-Doing: Resolves candidate digest, copies to `latest` and audit tag, then aligns stable akmods tag with candidate source.
-Why: Keeps stable tags tied to the exact candidate that already passed checks.
-Goal: Update stable tags safely without rebuilding.
+What: Promotes candidate image and akmods tags to stable tags.
+Doing: Resolves candidate digest, copies to `latest`/audit tags, and aligns stable akmods tag.
+Why: Stable tags should only move from tested candidate output.
+Goal: Update stable tags without rebuilding.
 """
 
 from __future__ import annotations

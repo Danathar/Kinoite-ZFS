@@ -1,9 +1,9 @@
 """
 Script: ci_tools/main_check_candidate_akmods_cache.py
-What: Determines whether an existing akmods cache can be reused for the current kernel.
-Doing: Probes cache tags, unpacks image layers, checks for exact kernel-matching `kmod-zfs` RPM, then emits `exists=true|false`.
-Why: Skips expensive rebuilds when safe, but blocks stale module reuse when kernels change.
-Goal: Gate main-workflow akmods rebuild decisions with strict kernel compatibility checks.
+What: Checks whether akmods cache can be reused for the current kernel.
+Doing: Pulls cache image, unpacks layers, checks for matching `kmod-zfs` RPM, then writes `exists=true|false`.
+Why: Skip rebuild when safe, but rebuild when modules are stale.
+Goal: Control main-workflow rebuild decisions.
 """
 
 from __future__ import annotations

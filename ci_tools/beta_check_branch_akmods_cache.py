@@ -1,9 +1,9 @@
 """
 Script: ci_tools/beta_check_branch_akmods_cache.py
-What: Checks whether the shared akmods cache contains a ZFS kmod RPM for the exact kernel release.
-Doing: Inspects the cache image, unpacks layers, searches for `kmod-zfs-<kernel>-*.rpm`, then writes `exists=true|false`.
-Why: Avoids unnecessary rebuilds while blocking stale module reuse on kernel changes.
-Goal: Decide deterministically whether the branch workflow must rebuild akmods.
+What: Checks whether existing akmods cache has an RPM for the current kernel.
+Doing: Pulls the cache image, unpacks layers, searches for `kmod-zfs-<kernel>-*.rpm`, then writes `exists=true|false`.
+Why: Reuse cache when safe, but rebuild when cache is old for this kernel.
+Goal: Decide whether branch workflow must rebuild akmods.
 """
 
 from __future__ import annotations

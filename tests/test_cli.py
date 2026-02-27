@@ -1,9 +1,9 @@
 """
 Script: tests/test_cli.py
-What: Unit tests for the shared `ci_tools` CLI dispatcher.
-Doing: Checks command map coverage, parser behavior, and run-command execution paths.
-Why: Ensures workflow command names stay wired to the correct Python modules.
-Goal: Protect the main command-entry surface used by GitHub Actions steps.
+What: Tests for the shared `ci_tools` command dispatcher.
+Doing: Checks command-map entries, parser behavior, and command-run paths.
+Why: Makes sure workflow command names still point to the right modules.
+Goal: Protect the main command entry surface used by workflow steps.
 """
 
 from __future__ import annotations

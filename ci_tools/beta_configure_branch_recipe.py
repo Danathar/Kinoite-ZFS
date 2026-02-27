@@ -1,9 +1,9 @@
 """
 Script: ci_tools/beta_configure_branch_recipe.py
-What: Rewrites recipe and containerfile values for branch builds.
-Doing: Sets branch image tag in `recipes/recipe.yml` and branch akmods source in `containerfiles/zfs-akmods/Containerfile`.
-Why: Ensures branch runs stay isolated from stable tags while using the same build logic.
-Goal: Point branch image builds at branch-scoped outputs with clear traceability in logs.
+What: Rewrites recipe and containerfile values for branch image builds.
+Doing: Sets the branch image tag and the branch akmods source tag.
+Why: Keeps branch test runs separate from stable tags.
+Goal: Build branch images from branch-scoped references.
 """
 
 from __future__ import annotations

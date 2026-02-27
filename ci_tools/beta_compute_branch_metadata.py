@@ -1,9 +1,9 @@
 """
 Script: ci_tools/beta_compute_branch_metadata.py
-What: Generates branch-safe image/tag naming metadata.
-Doing: Sanitizes `GITHUB_REF_NAME`, enforces length/format limits, and writes outputs for downstream jobs.
-Why: Keeps branch artifacts isolated and registry-compatible without manual naming rules.
-Goal: Provide stable branch-scoped naming inputs for build and cache publication.
+What: Creates branch-safe tag text from the branch name.
+Doing: Lowercases the name, replaces unsupported characters, limits length, and writes outputs.
+Why: Prevents invalid tag names and accidental tag collisions.
+Goal: Provide safe branch tag prefixes for branch builds.
 """
 
 from __future__ import annotations

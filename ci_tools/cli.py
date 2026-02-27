@@ -1,9 +1,9 @@
 """
 Script: ci_tools/cli.py
-What: Provides one CLI entrypoint for workflow helper commands.
-Doing: Maps command names to module `main()` functions and runs the selected command.
-Why: Keeps workflow YAML simple and avoids many wrapper scripts.
-Goal: Offer one stable command surface for GitHub Actions steps.
+What: Command entrypoint used by workflow steps.
+Doing: Maps command text to module `main()` functions and runs the selected command.
+Why: Workflows can call one simple command pattern.
+Goal: Keep step-to-code mapping clear and easy to maintain.
 """
 
 from __future__ import annotations

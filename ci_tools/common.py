@@ -1,9 +1,9 @@
 """
 Script: ci_tools/common.py
-What: Shared helper utilities used by all `ci_tools` modules.
-Doing: Handles env reads, command execution, image inspection/copy helpers, parsing, and GitHub output writes.
-Why: Avoids duplicated logic and keeps behavior consistent across workflow helper scripts.
-Goal: Provide safe, reusable building blocks for all workflow modules.
+What: Shared helper functions used by all `ci_tools` modules.
+Doing: Wraps env reads, command execution, image inspect/copy calls, parsing, and output writes.
+Why: Avoids duplicated helper code.
+Goal: Keep behavior consistent across all helper modules.
 """
 
 from __future__ import annotations

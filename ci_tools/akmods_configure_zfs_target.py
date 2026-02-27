@@ -1,9 +1,9 @@
 """
 Script: ci_tools/akmods_configure_zfs_target.py
-What: Injects or updates the ZFS target mapping in akmods `images.yaml`.
-Doing: Computes a normalized owner name and writes target metadata with `yq`.
-Why: Decouples publish-destination wiring from workflow YAML and keeps it reusable.
-Goal: Ensure akmods publishes ZFS artifacts to the correct GHCR repo/tag namespace.
+What: Updates the ZFS target entry in `/tmp/akmods/images.yaml`.
+Doing: Writes owner/repo/tag values with `yq`.
+Why: Makes the publish destination explicit and easy to audit.
+Goal: Point akmods output to the correct GHCR image path.
 """
 
 from __future__ import annotations
