@@ -9,10 +9,11 @@ This keeps workflow logic readable and avoids extra wrapper layers.
 
 ## Quick Terms
 
-- `normalize`: make text consistent. In this repo, when we normalize owner/org names, we convert them to lowercase for registry paths.
-- `image ref`: text that points to a container image, like `name:tag` (moving) or `name@sha256:digest` (exact).
-- `skopeo`: a command-line tool that inspects or copies container images without running them.
-- `GITHUB_OUTPUT`: a file path provided by GitHub Actions; writing `name=value` lines there creates step outputs for later steps.
+- `normalize`: make text consistent. In this repo, normalize owner/org means lowercase it so image paths are stable.
+- `image ref`: text that points to a container image, like `name:tag` (can move) or `name@sha256:digest` (exact snapshot).
+- `tag`: a label on an image, like `latest` or `main-43`.
+- `skopeo`: command-line tool that reads/copies container images without starting a container.
+- `GITHUB_OUTPUT`: a file path GitHub Actions gives each step; writing `name=value` lines there creates outputs for later steps.
 
 ## Step Mapping Table
 
