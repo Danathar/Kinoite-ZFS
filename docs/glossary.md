@@ -10,6 +10,7 @@ This page defines terms used across this repository's docs and workflow comments
 - `branch-scoped`: a tag/name that includes the branch identifier (for example `br-my-branch-43`) so branch test artifacts stay isolated.
 - `metadata`: descriptive data attached to an object (for example image labels or workflow run details).
 - `artifact`: a file/package/output saved by a workflow run so you can inspect or reuse it later.
+- `manifest`: a structured data file that records what a run produced or which exact inputs it used.
 - `workflow`: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
 - `workflow run`: one execution of a GitHub Actions workflow from start to finish (one run has its own run ID and logs).
