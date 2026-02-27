@@ -89,6 +89,7 @@ jobs:
         # Important: source-code repo visibility and container package visibility
         # are separate settings. A public code repo can still have package tags
         # that require authentication in some build contexts.
+        # "Branch-scoped" means the destination tag includes the branch name.
         # We copy from shared source tag to a branch-scoped tag in candidate repo
         # so compose can pull reliably without touching stable tags.
         shell: bash

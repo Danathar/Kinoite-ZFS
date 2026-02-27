@@ -27,6 +27,7 @@ def main() -> None:
 
     # Source tag comes from upstream akmods naming (`main-<fedora>`).
     # Destination tag is branch-scoped and public (`br-<branch>-<fedora>`).
+    # Branch-scoped means the tag includes the branch identifier.
     source_ref = f"docker://ghcr.io/{image_org}/{source_akmods_repo}:main-{fedora_version}"
     dest_ref = f"docker://ghcr.io/{image_org}/{dest_akmods_repo}:{dest_tag_prefix}-{fedora_version}"
 

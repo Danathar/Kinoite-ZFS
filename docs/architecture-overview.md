@@ -42,6 +42,7 @@ This repo's pipeline is designed around that exact problem.
 13. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
 14. Compose (or compose step): the image build stage that combines base image plus configured modules/packages into the final image output.
 15. Package visibility (registry): who can read a container package/tag; this can differ from source repo visibility.
+16. Branch-scoped: tag/name includes the branch identifier so branch test artifacts do not collide with stable/main tags.
 
 ## Beginner Primer: Akmods On Atomic Images
 

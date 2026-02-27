@@ -25,6 +25,7 @@ def clamp_tag(value: str, fallback: str) -> str:
 
 def build_branch_metadata(branch_name: str) -> str:
     # Return one branch-scoped tag prefix in the shared candidate cache repo.
+    # "Branch-scoped" means the tag includes the branch identifier.
     # Branch compose uses this prefix (`br-<branch>`) so test runs stay isolated.
     # Compose step here means the branch image build stage.
     safe_branch = sanitize_branch_name(branch_name)

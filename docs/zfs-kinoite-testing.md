@@ -25,6 +25,7 @@ This is intentionally designed for iterative validation before adopting any appr
 8. Fedora/kernel stream: the moving sequence of new kernel releases over time.
 9. Compose (or compose step): the image build stage that combines the base image plus selected modules/packages into the final image output.
 10. Package visibility (registry): who can read a container package/tag. This is separate from source repo visibility.
+11. Branch-scoped: tag/name includes the branch identifier (for example `br-my-branch-43`) so branch test artifacts stay isolated.
 
 ## Command Notes
 

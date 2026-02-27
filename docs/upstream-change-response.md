@@ -24,6 +24,7 @@ Quick terms:
 11. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
 12. Compose (or compose step): the image build stage that combines base image plus selected modules/packages into the final image output.
 13. Package visibility (registry): who can read a container package/tag; this can differ from source repo visibility.
+14. Branch-scoped: tag/name includes the branch identifier so branch test artifacts remain isolated.
 
 Command quick reference:
 

@@ -72,6 +72,7 @@ Quick terms used in this repo:
 - `CI`: the GitHub Actions workflows in `.github/workflows`.
 - `candidate`: test image/tag built first.
 - `stable`: user-facing tags (`latest` and `main-<fedora>`).
+- `branch-scoped`: a tag/name that includes the branch identifier (for example `br-my-branch-43`) so branch test artifacts stay isolated.
 - `metadata`: descriptive data attached to an object (for example image labels or workflow run details).
 - `workflow`: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
