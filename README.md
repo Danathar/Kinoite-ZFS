@@ -34,10 +34,6 @@ If something upstream changes and breaks compatibility, candidate fails and stab
 
 ## Current Ecosystem Issue (Aurora/Kinoite/Silverblue Context)
 
-Based on the Aurora discussion here:
-- https://github.com/ublue-os/aurora/issues/1765
-- https://github.com/ublue-os/aurora/issues/1765#issuecomment-3967188245
-
 The core issue is not "immutability is broken." The main issue is version timing:
 
 1. Fedora-family systems move kernels forward quickly.
