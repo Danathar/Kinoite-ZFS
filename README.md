@@ -118,6 +118,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
 - [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
   - Copies shared akmods source tags into candidate akmods tags before candidate compose (candidate image build step) and promotion.
+  - Re-signs the promoted stable image digest after copy, because signatures are repository-specific and do not automatically move from `kinoite-zfs-candidate` to `kinoite-zfs`.
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
   - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.

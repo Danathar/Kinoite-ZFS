@@ -281,6 +281,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y skopeo
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.8.1
+
       - name: Promote candidate image and akmods cache to stable tags
         shell: bash
         env:
@@ -293,3 +296,50 @@ jobs:
           STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           python3 -m ci_tools.cli main-promote-stable
+
+      - name: Sign promoted stable image digest
+        shell: bash
+        env:
+          IMAGE_ORG: ${{ github.repository_owner }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          REGISTRY_ACTOR: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          set -euo pipefail
+          # Candidate image is signed in the candidate repository during build.
+          # Promotion copies that image into the stable repository. Cosign
+          # signatures are stored per repository + digest, so they are not
+          # automatically available in the new repository path after copy.
+          # Re-signing here keeps `bootc`/`rpm-ostree` signature policy checks
+          # working when users switch to stable tags like `:latest`.
+          if [[ -z "${COSIGN_PRIVATE_KEY:-}" ]]; then
+            echo "::error::SIGNING_SECRET is empty; cannot sign promoted stable image."
+            exit 1
+          fi
+          image_org="$(printf '%s' "${IMAGE_ORG}" | tr '[:upper:]' '[:lower:]')"
+          stable_digest="$(
+            skopeo inspect --format '{{.Digest}}' \
+              "docker://ghcr.io/${image_org}/${IMAGE_NAME}:latest"
+          )"
+          if [[ -z "${stable_digest}" || "${stable_digest}" == "null" ]]; then
+            echo "::error::Failed to resolve digest for ghcr.io/${image_org}/${IMAGE_NAME}:latest"
+            exit 1
+          fi
+          stable_ref="ghcr.io/${image_org}/${IMAGE_NAME}@${stable_digest}"
+
+          COSIGN_PASSWORD="" cosign sign --yes \
+            --key env://COSIGN_PRIVATE_KEY \
+            --registry-username "${REGISTRY_ACTOR}" \
+            --registry-password "${REGISTRY_TOKEN}" \
+            "${stable_ref}"
+
+          # Verify immediately so the workflow fails if signature upload/lookup
+          # does not work.
+          cosign verify \
+            --key cosign.pub \
+            --registry-username "${REGISTRY_ACTOR}" \
+            --registry-password "${REGISTRY_TOKEN}" \
+            "${stable_ref}" >/dev/null
+
+          echo "Signed promoted stable digest: ${stable_ref}"
