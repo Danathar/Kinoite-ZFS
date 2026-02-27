@@ -1,3 +1,11 @@
+"""
+Script: ci_tools/akmods_build_and_publish.py
+What: Runs the akmods build and publish lifecycle from `/tmp/akmods`.
+Doing: Optionally pins kernel metadata, then runs `just build`, `just login`, `just push`, and `just manifest`.
+Why: Keeps publish behavior in one place instead of duplicating shell commands in workflows.
+Goal: Produce and publish the ZFS akmods cache image and manifest for the current run.
+"""
+
 from __future__ import annotations
 
 import json

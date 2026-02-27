@@ -1,3 +1,11 @@
+"""
+Script: ci_tools/akmods_clone_pinned.py
+What: Fetches a pinned commit of akmods tooling into `/tmp/akmods`.
+Doing: Recreates `/tmp/akmods`, fetches only `AKMODS_UPSTREAM_REF`, checks out detached HEAD, and verifies the SHA.
+Why: Prevents floating-upstream drift and guarantees the run uses the intended source.
+Goal: Prepare a deterministic akmods source tree for later configure/build steps.
+"""
+
 from __future__ import annotations
 
 import shutil

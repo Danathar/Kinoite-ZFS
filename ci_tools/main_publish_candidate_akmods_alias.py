@@ -1,3 +1,11 @@
+"""
+Script: ci_tools/main_publish_candidate_akmods_alias.py
+What: Publishes candidate akmods alias tags from shared source tags.
+Doing: Copies Fedora-wide and kernel-matched source tags into candidate repo tags used by compose and promotion.
+Why: Candidate flow expects candidate-repo tag paths, while build output may start in shared source paths.
+Goal: Keep candidate builds pinned to validated akmods content with explicit failure if required source tags are missing.
+"""
+
 from __future__ import annotations
 
 from ci_tools.common import CiToolError, normalize_owner, require_env, skopeo_copy

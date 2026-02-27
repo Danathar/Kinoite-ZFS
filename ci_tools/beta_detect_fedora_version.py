@@ -1,3 +1,11 @@
+"""
+Script: ci_tools/beta_detect_fedora_version.py
+What: Resolves Fedora major version and kernel release from Kinoite base image metadata.
+Doing: Reads `ostree.linux` label with `skopeo inspect`, parses Fedora number, and writes step outputs.
+Why: Keeps branch akmods selection aligned with the actual upstream kernel stream.
+Goal: Provide authoritative kernel/Fedora inputs for branch cache and build decisions.
+"""
+
 from __future__ import annotations
 
 from ci_tools.common import (

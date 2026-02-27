@@ -1,3 +1,11 @@
+"""
+Script: tests/test_main_resolve_build_inputs.py
+What: Unit tests for main input-resolution tag selection logic.
+Doing: Verifies immutable-tag reuse, candidate-tag derivation, and failure-path behavior.
+Why: Protects the core logic that pins run inputs and avoids moving-tag drift.
+Goal: Keep main input resolution deterministic and explainable.
+"""
+
 from __future__ import annotations
 
 import unittest

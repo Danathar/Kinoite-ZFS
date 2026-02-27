@@ -1,3 +1,11 @@
+"""
+Script: ci_tools/beta_publish_branch_akmods_alias.py
+What: Publishes a branch-scoped akmods alias tag in the candidate repository.
+Doing: Copies shared source tag `main-<fedora>` to branch alias tag `br-<branch>-<fedora>`.
+Why: Gives branch compose a predictable/public source tag without mutating shared cache tags.
+Goal: Keep branch builds isolated while reusing validated akmods content.
+"""
+
 from __future__ import annotations
 
 from ci_tools.common import normalize_owner, require_env, skopeo_copy

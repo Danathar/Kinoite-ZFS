@@ -1,3 +1,11 @@
+"""
+Script: ci_tools/main_configure_candidate_recipe.py
+What: Rewrites recipe and ZFS containerfile values before candidate image build.
+Doing: Pins `base-image`/`image-version` to this run's resolved base tag and sets `AKMODS_IMAGE` to the matching kernel tag.
+Why: Keeps base image and akmods source aligned even if moving tags update during the workflow.
+Goal: Build the candidate image from one consistent input set.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

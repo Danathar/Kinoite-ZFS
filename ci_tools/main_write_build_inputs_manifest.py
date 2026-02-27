@@ -1,3 +1,11 @@
+"""
+Script: ci_tools/main_write_build_inputs_manifest.py
+What: Writes a JSON record of the exact inputs used for this run.
+Doing: Collects workflow/run metadata and resolved image refs, then writes `artifacts/build-inputs.json`.
+Why: Makes failed runs easier to investigate and rerun with the same inputs.
+Goal: Save a clear per-run input snapshot manifest.
+"""
+
 from __future__ import annotations
 
 import json
