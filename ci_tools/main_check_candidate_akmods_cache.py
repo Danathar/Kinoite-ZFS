@@ -19,6 +19,8 @@ def _load_layer_files(akmods_dir: Path) -> list[Path]:
     # Convert each digest to its local filename in the `dir:` layout.
     manifest_path = akmods_dir / "manifest.json"
     manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    # Each layer has a digest like "sha256:abcd...". In dir: layout, filename
+    # is just the hash part, so we map digest -> local file path.
     layer_digests = [
         str(layer.get("digest") or "") for layer in manifest_data.get("layers", []) if layer.get("digest")
     ]
@@ -43,6 +45,7 @@ def main() -> None:
     candidate_repo = require_env("CANDIDATE_AKMODS_REPO")
     stable_repo = require_env("STABLE_AKMODS_REPO")
 
+    # Candidate and stable cache image references for this Fedora major stream.
     candidate_image = f"ghcr.io/{image_org}/{candidate_repo}:main-{fedora_version}"
     stable_image = f"ghcr.io/{image_org}/{stable_repo}:main-{fedora_version}"
 
@@ -56,6 +59,7 @@ def main() -> None:
         print(f"Candidate cache tag missing; falling back to stable cache source {selected_image}")
 
     if not selected_image:
+        # No cache image exists, so downstream build should rebuild akmods.
         write_github_outputs({"exists": "false"})
         print(
             "No existing candidate/stable akmods cache image for "
@@ -70,6 +74,7 @@ def main() -> None:
         skopeo_copy(f"docker://{selected_image}", f"dir:{akmods_dir}")
 
         layer_files = _load_layer_files(akmods_dir)
+        # Extract all filesystem layers into one temp tree for file checks.
         unpack_layer_tarballs(layer_files, root)
 
         if _has_kernel_matching_rpm(root, kernel_release):

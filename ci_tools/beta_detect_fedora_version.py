@@ -11,6 +11,7 @@ from ci_tools.common import (
 def main() -> None:
     # Read the current upstream Kinoite stream metadata from GHCR.
     inspect_json = skopeo_inspect_json("docker://ghcr.io/ublue-os/kinoite-main:latest")
+    # `Labels` is a metadata object (dictionary) on the image manifest.
     labels = inspect_json.get("Labels") or {}
     kernel_release = str(labels.get("ostree.linux") or "")
     if not kernel_release:

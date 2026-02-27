@@ -35,12 +35,22 @@ def build_kernel_cache_document(
     build_root: Path,
     kcpath_override: str,
 ) -> tuple[dict[str, str], Path]:
-    """Build the cache JSON payload and destination path used by akmods tooling."""
+    """
+    Build the cache JSON payload and destination path used by akmods tooling.
+
+    Return value is a tuple:
+    1. `payload` (dict): JSON fields that upstream scripts read.
+    2. `cache_json_path` (Path): where that JSON should be written.
+    """
+    # Upstream cache layout groups data by "<kernel_flavor>-<fedora_version>".
     build_id = f"{kernel_flavor}-{akmods_version}"
+    # KCWD/KCPATH names are expected by upstream akmods scripts.
     kcwd = build_root / build_id / "KCWD"
     kcpath = Path(kcpath_override) if kcpath_override else (kcwd / "rpms")
     cache_json_path = kcpath / "cache.json"
 
+    # This object becomes cache.json.
+    # Keeping it as a dict makes the structure explicit and easy to test.
     payload = {
         "kernel_build_tag": "",
         "kernel_flavor": kernel_flavor,
@@ -63,10 +73,12 @@ def write_kernel_cache_file() -> None:
     kernel_flavor = require_env("AKMODS_KERNEL")
     akmods_version = require_env("AKMODS_VERSION")
 
+    # Allow override paths from env, but keep a stable default layout.
     build_root_default = str(AKMODS_WORKTREE / "build")
     build_root = Path(optional_env("AKMODS_BUILDDIR", build_root_default))
     kcpath_override = optional_env("KCPATH")
 
+    # Build both the JSON object and output file path from one helper function.
     payload, cache_json_path = build_kernel_cache_document(
         kernel_release=kernel_release,
         kernel_flavor=kernel_flavor,
@@ -83,6 +95,7 @@ def write_kernel_cache_file() -> None:
 
 
 def main() -> None:
+    # All akmods commands run from /tmp/akmods after the clone step.
     if not AKMODS_WORKTREE.exists():
         raise CiToolError(f"Expected akmods checkout at {AKMODS_WORKTREE}")
 

@@ -21,12 +21,16 @@ def main() -> None:
     if not IMAGES_YAML.exists():
         raise CiToolError(f"Expected akmods images file at {IMAGES_YAML}")
 
-    # `yq` expression uses environment variables via `strenv(...)`.
+    # `yq` uses `strenv(NAME)` to read values from environment variables.
+    # We set them explicitly here so the expression below is easy to read.
     os.environ["FEDORA_VERSION"] = fedora_version
     os.environ["IMAGE_ORG"] = image_org
     os.environ["AKMODS_REPO"] = akmods_repo
     os.environ["AKMODS_DESCRIPTION"] = akmods_description
 
+    # This updates one target block in images.yaml:
+    # images.<fedora>.main.zfs = {...}
+    # The goal is to tell akmods exactly where to publish the ZFS cache image.
     yq_expression = """
       .images[strenv(FEDORA_VERSION)].main.zfs = {
         "org": strenv(IMAGE_ORG),
@@ -38,6 +42,7 @@ def main() -> None:
         "architecture": ["x86_64"]
       }
     """
+    # -i means "edit file in place".
     run_cmd(["yq", "-i", yq_expression, str(IMAGES_YAML)], capture_output=False)
 
     # Print final block so logs show the effective output destination.

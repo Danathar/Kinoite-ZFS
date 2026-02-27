@@ -24,6 +24,9 @@ def clamp_tag(value: str, fallback: str) -> str:
 
 
 def build_branch_metadata(branch_name: str) -> tuple[str, str]:
+    # Return two values as a tuple:
+    # 1) image tag for BlueBuild output
+    # 2) branch-specific akmods repository name
     # Generate branch-specific names so test builds do not overwrite main artifacts.
     safe_branch = sanitize_branch_name(branch_name)
     image_tag = clamp_tag(f"beta-{safe_branch}", "beta-branch")
@@ -36,6 +39,7 @@ def main() -> None:
     branch_name = require_env("GITHUB_REF_NAME")
     image_tag, akmods_repo = build_branch_metadata(branch_name)
 
+    # Export both values so downstream jobs can reference them.
     write_github_outputs({"image_tag": image_tag, "akmods_repo": akmods_repo})
     print(f"Branch image tag: {image_tag}")
     print(f"Branch akmods repo: {akmods_repo}")

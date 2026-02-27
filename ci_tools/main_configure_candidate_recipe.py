@@ -35,6 +35,7 @@ def main() -> None:
     )
     replace_line_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=", akmods_line)
 
+    # Print changed lines so logs clearly show the final effective values.
     print_lines_starting_with(RECIPE_FILE, "base-image:")
     print_lines_starting_with(RECIPE_FILE, "image-version:")
     print_lines_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=")

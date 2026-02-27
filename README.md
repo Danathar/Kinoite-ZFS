@@ -11,6 +11,27 @@ Core goal:
 - Install those ZFS RPMs directly into the final image.
 - Catch kernel/module mismatches during CI, before rebasing a host.
 
+## If You Are New To Akmods And Atomic Images
+
+`akmod` (automatic kernel module) packages are a way to provide out-of-tree
+kernel modules, like ZFS, for a specific kernel release.
+
+Why this matters here:
+
+1. Kinoite/Aurora-style systems are image-based and mostly immutable.
+2. You usually do not want ad-hoc module build steps happening directly on every client machine.
+3. Instead, we build and validate matching ZFS kernel modules in our pipeline, then bake those RPMs into the final image.
+
+In plain terms, this project is doing:
+
+1. Read current upstream kernel version from Kinoite base image metadata.
+2. Build (or reuse) ZFS akmods that exactly match that kernel.
+3. Build a candidate custom image that installs those ZFS RPMs.
+4. Promote to stable tags only if candidate build/test checks succeed.
+
+So the safety model is: test first, then promote.
+If something upstream changes and breaks compatibility, candidate fails and stable does not move.
+
 Quick terms used in this repo:
 
 - `CI`: the GitHub Actions workflows in `.github/workflows`.

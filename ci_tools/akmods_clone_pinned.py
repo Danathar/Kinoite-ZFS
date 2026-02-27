@@ -18,10 +18,13 @@ def main() -> None:
     shutil.rmtree(AKMODS_WORKTREE, ignore_errors=True)
     AKMODS_WORKTREE.mkdir(parents=True, exist_ok=True)
 
-    # Fetch only the requested pinned ref (commit SHA).
+    # Create a minimal local repository at /tmp/akmods.
+    # We intentionally fetch only one commit so this stays fast and deterministic.
     run_cmd(["git", "init", "."], cwd=str(AKMODS_WORKTREE))
     run_cmd(["git", "remote", "add", "origin", upstream_repo], cwd=str(AKMODS_WORKTREE))
     run_cmd(["git", "fetch", "--depth", "1", "origin", upstream_ref], cwd=str(AKMODS_WORKTREE))
+
+    # Detached checkout keeps this worktree pinned to one exact commit (not a branch tip).
     run_cmd(["git", "checkout", "--detach", "FETCH_HEAD"], cwd=str(AKMODS_WORKTREE))
 
     # Defense-in-depth: fail if Git resolved to anything other than the expected SHA.

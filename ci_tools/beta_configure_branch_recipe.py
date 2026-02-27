@@ -24,6 +24,7 @@ def main() -> None:
     # Branch builds use a branch-specific image tag.
     replace_line_starting_with(RECIPE_FILE, "image-version:", f"image-version: {image_tag}")
     # Point to this branch's akmods repository to avoid touching main caches.
+    # This line is inserted into the Containerfile and expanded later at build time.
     akmods_line = (
         "AKMODS_IMAGE=\""
         f"ghcr.io/{image_org}/{akmods_repo}:main-${{FEDORA_VERSION}}"

@@ -13,6 +13,13 @@ This project provides a controlled way to run ZFS on Kinoite while reducing the 
 5. Build inputs: base image, kernel, builder image, and pinned source commit used for one run.
 6. Lock replay: rerun using saved inputs from a previous run.
 
+## Beginner Primer: Akmods On Atomic Images
+
+1. `akmods` means "automatic kernel module packaging/build flow" used for modules not shipped in the base kernel tree.
+2. On image-based systems (Kinoite/Aurora), we want module compatibility solved in the build pipeline, not by ad-hoc client-side fixes.
+3. This repo builds and validates kernel-matching ZFS module RPMs first, then installs them into the image build.
+4. Candidate-first promotion means stable users only get images from runs that already passed those checks.
+
 At a high level, this repository has a build workflow that:
 
 1. Tracks the current Fedora/Kinoite kernel stream.

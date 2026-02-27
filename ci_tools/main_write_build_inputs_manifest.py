@@ -16,6 +16,8 @@ def main() -> None:
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Record run metadata and fully resolved build inputs for replay/debug.
+    # `document` is the full JSON object written to artifacts/build-inputs.json.
+    # Keeping it in one object makes it easy to inspect and replay later.
     document = {
         "schema_version": 1,
         "generated_at": generated_at,

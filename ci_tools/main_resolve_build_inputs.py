@@ -42,7 +42,7 @@ def choose_base_image_tag(
     - Otherwise derive candidate tags from version label and choose the one
       that resolves to the expected digest.
     """
-    # If a date-stamped tag was already passed in, keep it.
+    # If we already got a date-stamped tag, treat it as stable for this run.
     if source_tag and DATE_STAMPED_TAG_RE.search(source_tag):
         return source_tag, [source_tag]
 
@@ -52,14 +52,16 @@ def choose_base_image_tag(
             f"org.opencontainers.image.version={version_label}"
         )
 
-    # The label format is `<fedora>.<yyyymmdd>[.n]`, so we keep only the suffix.
+    # Example label: 43.20260227.1
+    # We only need the suffix part (20260227.1) to build candidate tags.
     version_suffix = version_label.split(".", 1)[1]
     candidate_tags: list[str] = []
     if source_tag:
         candidate_tags.append(f"{source_tag}-{version_suffix}")
     candidate_tags.extend([f"latest-{version_suffix}", f"{fedora_version}-{version_suffix}"])
 
-    # Choose the first candidate tag that points to the same digest.
+    # Try each candidate tag and keep the first one that resolves to the same digest.
+    # Digest match is the key safety check: tag text can move, digest does not.
     for candidate_tag in candidate_tags:
         candidate_digest = digest_lookup(candidate_tag)
         if candidate_digest == expected_digest:
@@ -72,6 +74,7 @@ def choose_base_image_tag(
 
 
 def _load_lock_file(lock_file_path: str) -> dict:
+    # Lock file is a plain JSON object saved from a previous run.
     lock_path = Path(lock_file_path)
     if not lock_path.exists():
         raise CiToolError(f"Replay lock file not found: {lock_file_path}")
@@ -87,6 +90,7 @@ def main() -> None:
 
     if use_input_lock:
         # Replay mode: load values from `ci/inputs.lock.json` (or another lock file).
+        # This is how we rebuild with the exact same inputs as an older run.
         lock_data = _load_lock_file(lock_file_path)
         base_image_ref = str(lock_data.get("base_image") or "")
         lock_build_container_ref = str(lock_data.get("build_container") or "")
@@ -108,6 +112,7 @@ def main() -> None:
                 f"build_container_image={lock_build_container_ref} when use_input_lock=true."
             )
 
+        # Lock files can leave some fields empty; default them when missing.
         if not zfs_minor_version:
             zfs_minor_version = require_env("DEFAULT_ZFS_MINOR_VERSION")
         if not akmods_upstream_ref:
@@ -118,7 +123,8 @@ def main() -> None:
         zfs_minor_version = require_env("DEFAULT_ZFS_MINOR_VERSION")
         akmods_upstream_ref = require_env("DEFAULT_AKMODS_REF")
 
-    # Resolve the base image and read labels we need for kernel/Fedora alignment.
+    # Read base image metadata from registry.
+    # Labels carry kernel information and stream version information.
     base_inspect_json = skopeo_inspect_json(f"docker://{base_image_ref}")
     base_image_name = str(base_inspect_json.get("Name") or "")
     base_image_digest = str(base_inspect_json.get("Digest") or "")
@@ -135,7 +141,9 @@ def main() -> None:
     base_image_pinned = f"{base_image_name}@{base_image_digest}"
     source_tag = extract_source_tag(base_image_ref)
 
-    # Helper used by tag selection: convert `name:tag` into digest.
+    # Helper function:
+    # input tag -> lookup digest in registry.
+    # Return empty string when lookup fails so tag selection can continue.
     def lookup_digest(candidate_tag: str) -> str:
         candidate_ref = f"docker://{base_image_name}:{candidate_tag}"
         try:
@@ -167,6 +175,7 @@ def main() -> None:
 
     build_container_pinned = f"{build_container_name}@{build_container_digest}"
 
+    # Export resolved values for downstream workflow steps.
     write_github_outputs(
         {
             "version": fedora_version,
@@ -193,7 +202,7 @@ def main() -> None:
     print(f"Fedora version: {fedora_version}")
     print(f"ZFS minor version: {zfs_minor_version}")
 
-    # Helpful when debugging tag derivation behavior.
+    # Helpful for debugging: shows exactly which tags were considered.
     if candidate_tags:
         print(f"Base-tag candidates checked: {' '.join(candidate_tags)}")
 

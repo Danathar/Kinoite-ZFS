@@ -41,6 +41,7 @@ def main() -> None:
     kernel_release = require_env("KERNEL_RELEASE")
     akmods_repo = require_env("AKMODS_REPO")
 
+    # Branch-specific cache image for this Fedora major version.
     akmods_image = f"ghcr.io/{image_org}/{akmods_repo}:main-{fedora_version}"
     if not skopeo_exists(f"docker://{akmods_image}"):
         write_github_outputs({"exists": "false"})
@@ -54,6 +55,7 @@ def main() -> None:
         skopeo_copy(f"docker://{akmods_image}", f"dir:{akmods_dir}")
 
         layer_files = _load_layer_files(akmods_dir)
+        # Merge layer contents in temp dir so we can search for exact RPM files.
         unpack_layer_tarballs(layer_files, root)
 
         if _has_kernel_matching_rpm(root, kernel_release):
