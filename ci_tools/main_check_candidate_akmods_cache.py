@@ -55,6 +55,8 @@ def main() -> None:
     source_image = f"ghcr.io/{image_org}/{source_repo}:main-{fedora_version}"
     if not skopeo_exists(f"docker://{source_image}"):
         # Source cache image is missing, so downstream build must rebuild it.
+        # We write `exists=false` to GitHub step outputs so workflow `if:` rules
+        # can react without parsing log text.
         write_github_outputs({"exists": "false"})
         print(f"No existing source akmods cache image for Fedora {fedora_version}; rebuild is required.")
         return
@@ -70,12 +72,14 @@ def main() -> None:
         unpack_layer_tarballs(layer_files, root)
 
         if _has_kernel_matching_rpm(root, kernel_release):
+            # `exists=true` means this cache can be safely reused.
             write_github_outputs({"exists": "true"})
             print(
                 f"Found matching {source_image} kmod for kernel {kernel_release}; "
                 "akmods rebuild can be skipped."
             )
         else:
+            # `exists=false` here means the cache exists but is stale (wrong kernel).
             write_github_outputs({"exists": "false"})
             print(
                 f"Cached {source_image} is present but missing kmod for kernel {kernel_release}; "

@@ -37,6 +37,8 @@ def main() -> None:
     akmods_public_tag_prefix = build_branch_metadata(branch_name)
 
     # Export values so downstream jobs can reference them.
+    # This output is consumed in workflow YAML as:
+    # needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix
     write_github_outputs(
         {
             "akmods_public_tag_prefix": akmods_public_tag_prefix,

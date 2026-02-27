@@ -20,6 +20,8 @@ def kernel_source_tag_candidates(*, fedora_version: str, kernel_release: str) ->
 
 def main() -> None:
     # Inputs from workflow env.
+    # - source repo: where akmods build actually published tags
+    # - destination repo: candidate repo used by candidate compose/promotion
     fedora_version = require_env("FEDORA_VERSION")
     kernel_release = require_env("KERNEL_RELEASE")
     source_akmods_repo = require_env("SOURCE_AKMODS_REPO")
@@ -34,12 +36,17 @@ def main() -> None:
     image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
 
     # Always alias the Fedora-wide cache tag.
+    # "Alias tag" here means:
+    # we copy one image reference to another tag so both tags point to the same
+    # image content (same digest), without rebuilding.
     shared_source_ref = f"docker://ghcr.io/{image_org}/{source_akmods_repo}:main-{fedora_version}"
     candidate_dest_ref = f"docker://ghcr.io/{image_org}/{dest_akmods_repo}:main-{fedora_version}"
     skopeo_copy(shared_source_ref, candidate_dest_ref, creds=creds)
     print(f"Published candidate alias: {shared_source_ref} -> {candidate_dest_ref}")
 
-    # Alias a kernel-matched tag used by compose.
+    # Alias the kernel-matched tag used by compose.
+    # This keeps candidate compose pinned to the same kernel-specific kmods that
+    # were validated, while still reading from the candidate repo path.
     destination_kernel_ref = (
         f"docker://ghcr.io/{image_org}/{dest_akmods_repo}:main-{fedora_version}-{kernel_release}"
     )
@@ -48,6 +55,9 @@ def main() -> None:
         kernel_release=kernel_release,
     )
 
+    # Try candidates in order and stop on first success.
+    # Keep a readable list of failure messages so we can show exactly what was
+    # attempted if none of the possible source tags exist.
     copy_errors: list[str] = []
     for source_kernel_tag in source_kernel_tags:
         source_kernel_ref = f"docker://ghcr.io/{image_org}/{source_akmods_repo}:{source_kernel_tag}"
