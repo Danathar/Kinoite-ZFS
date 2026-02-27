@@ -134,10 +134,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set branch image tag and branch akmods source in recipe
+      - name: Set branch akmods source in recipe
         shell: bash
         env:
-          IMAGE_TAG: ${{ needs.prepare-branch-metadata.outputs.image_tag }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
         run: |
           python3 -m ci_tools.cli beta-configure-branch-recipe

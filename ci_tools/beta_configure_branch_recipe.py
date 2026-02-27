@@ -18,11 +18,15 @@ def main() -> None:
     # Inputs prepared earlier in the branch workflow.
     # Normalize owner means: convert to lowercase for consistent registry paths.
     image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
-    image_tag = require_env("IMAGE_TAG")
     akmods_repo = require_env("AKMODS_REPO")
 
-    # Branch builds use a branch-specific image tag.
-    replace_line_starting_with(RECIPE_FILE, "image-version:", f"image-version: {image_tag}")
+    # Keep branch builds on a real upstream base tag.
+    # Important: recipe `image-version` selects the base-image tag to pull
+    # (`base-image:image-version`), so this must be a tag that exists in
+    # `ghcr.io/ublue-os/kinoite-main` (for example `latest`).
+    # Branch-specific publish tags are handled by BlueBuild's branch tagging,
+    # not by setting `image-version` to the branch name.
+    replace_line_starting_with(RECIPE_FILE, "image-version:", "image-version: latest")
     # Point to this branch's akmods repository to avoid touching main caches.
     # This line is inserted into the Containerfile and expanded later at build time.
     akmods_line = (

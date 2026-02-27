@@ -27,7 +27,7 @@ This keeps workflow logic readable and avoids extra wrapper layers.
 | Compute branch-safe image and akmods names | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
 | Detect Fedora major version for Kinoite latest | `beta-detect-fedora-version` | `ci_tools.beta_detect_fedora_version` |
 | Check for existing branch-scoped self-hosted zfs akmods image | `beta-check-branch-akmods-cache` | `ci_tools.beta_check_branch_akmods_cache` |
-| Set branch image tag and branch akmods source in recipe | `beta-configure-branch-recipe` | `ci_tools.beta_configure_branch_recipe` |
+| Set branch akmods source in recipe | `beta-configure-branch-recipe` | `ci_tools.beta_configure_branch_recipe` |
 | Clone upstream akmods tooling | `akmods-clone-pinned` | `ci_tools.akmods_clone_pinned` |
 | Configure zfs target in branch/candidate namespace | `akmods-configure-zfs-target` | `ci_tools.akmods_configure_zfs_target` |
 | Build and publish self-hosted zfs akmods image | `akmods-build-and-publish` | `ci_tools.akmods_build_and_publish` |
