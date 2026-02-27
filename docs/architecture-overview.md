@@ -66,7 +66,7 @@ We publish two output groups:
    - `ghcr.io/danathar/kinoite-zfs:latest`
    - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 
-Branch builds are isolated (`br-<branch>-<fedora>` tags and branch-specific akmods repos) so experiments do not overwrite stable images.
+Branch builds are isolated (`br-<branch>-<fedora>` tags on branch image outputs plus branch-scoped akmods alias tags in candidate repo) so experiments do not overwrite stable images.
 
 ## Why We Are Doing It
 

@@ -1,6 +1,3 @@
-ARG AKMODS_REGISTRY_ACTOR=""
-ARG AKMODS_REGISTRY_TOKEN=""
-
 RUN bash -euxo pipefail <<'EOF_INNER'
 # Detect Fedora major from build root so we select the matching akmods tag.
 FEDORA_VERSION="$(rpm -E %fedora)"
@@ -15,20 +12,7 @@ if [[ "${#image_kernels[@]}" -eq 0 ]]; then
 fi
 
 # Pull akmods cache image as a local `dir:` layout for direct layer extraction.
-# Branch-specific akmods repos can be private, so use credentials when provided.
-registry_actor="${AKMODS_REGISTRY_ACTOR:-${BB_USERNAME:-${GITHUB_ACTOR:-}}}"
-registry_token="${AKMODS_REGISTRY_TOKEN:-${BB_PASSWORD:-${GH_TOKEN:-${GITHUB_TOKEN:-}}}}"
-if [[ -n "${registry_actor}" && -n "${registry_token}" ]]; then
-  echo "Using authenticated pull for akmods cache image."
-  skopeo copy \
-    --retry-times 3 \
-    --src-creds "${registry_actor}:${registry_token}" \
-    "docker://${AKMODS_IMAGE}" \
-    dir:/tmp/akmods-zfs
-else
-  echo "No registry credentials detected in build environment; pulling akmods anonymously."
-  skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
-fi
+skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
 
 # Read only manifest layers (not config blobs) and map digest -> local file path.
 mapfile -t layer_files < <(

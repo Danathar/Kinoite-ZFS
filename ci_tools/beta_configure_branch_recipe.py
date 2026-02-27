@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ci_tools.common import (
     normalize_owner,
+    optional_env,
     print_lines_starting_with,
     replace_line_starting_with,
     require_env,
@@ -19,6 +20,7 @@ def main() -> None:
     # Normalize owner means: convert to lowercase for consistent registry paths.
     image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
     akmods_repo = require_env("AKMODS_REPO")
+    akmods_tag_prefix = optional_env("AKMODS_TAG_PREFIX", "main")
 
     # Keep branch builds on a real upstream base tag.
     # Important: recipe `image-version` selects the base-image tag to pull
@@ -31,7 +33,7 @@ def main() -> None:
     # This line is inserted into the Containerfile and expanded later at build time.
     akmods_line = (
         "AKMODS_IMAGE=\""
-        f"ghcr.io/{image_org}/{akmods_repo}:main-${{FEDORA_VERSION}}"
+        f"ghcr.io/{image_org}/{akmods_repo}:{akmods_tag_prefix}-${{FEDORA_VERSION}}"
         "\""
     )
     replace_line_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=", akmods_line)

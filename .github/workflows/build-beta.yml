@@ -42,6 +42,7 @@ jobs:
     outputs:
       image_tag: ${{ steps.branch.outputs.image_tag }}
       akmods_repo: ${{ steps.branch.outputs.akmods_repo }}
+      akmods_public_tag_prefix: ${{ steps.branch.outputs.akmods_public_tag_prefix }}
     steps:
       - uses: actions/checkout@v6
 
@@ -121,6 +122,21 @@ jobs:
         run: |
           python3 -m ci_tools.cli akmods-build-and-publish
 
+      - name: Publish branch cache alias in candidate repo
+        # Compose runs in a separate build environment that may not be able to
+        # read private branch repos directly. We copy to a branch-scoped tag in
+        # the public candidate repo so compose can pull reliably.
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+          SOURCE_AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          DEST_AKMODS_REPO: akmods-zfs-candidate
+          DEST_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
+          REGISTRY_ACTOR: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m ci_tools.cli beta-publish-branch-akmods-alias
+
   bluebuild:
     name: Build Custom Image (branch)
     needs:
@@ -137,7 +153,8 @@ jobs:
       - name: Set branch akmods source in recipe
         shell: bash
         env:
-          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          AKMODS_REPO: akmods-zfs-candidate
+          AKMODS_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
         run: |
           python3 -m ci_tools.cli beta-configure-branch-recipe
 
