@@ -26,8 +26,8 @@ In plain terms, this project is doing:
 
 1. Read current upstream kernel version from labels stored in Kinoite base image metadata (extra descriptive data attached to the image).
 2. Build (or reuse) ZFS akmods that exactly match that kernel.
-3. Build a candidate custom image that installs those ZFS RPMs.
-4. Promote to stable tags only if candidate build/test checks succeed.
+3. Build a candidate custom image (`candidate` = test image built first) that installs those ZFS RPMs.
+4. Promote to stable tags (`stable` = normal user-facing tags) only if candidate build/test checks succeed.
 
 So the safety model is: test first, then promote.
 If something upstream changes and breaks compatibility, candidate fails and stable does not move.
@@ -55,7 +55,7 @@ What this repo does to handle that gap:
 3. Rebuild modules when they do not match.
 4. Build candidate images first and only promote to stable when candidate succeeds.
 
-This does not eliminate upstream timing gaps, but it prevents silently shipping mismatched kernel/module combinations in this image stream.
+This pipeline (ordered jobs/steps in one workflow run) does not eliminate upstream timing gaps, but it prevents silently shipping mismatched kernel/module combinations in this image stream.
 
 Quick terms used in this repo:
 
