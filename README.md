@@ -16,6 +16,7 @@ Core goal:
 - Build matching ZFS akmods against that kernel.
 - Install those ZFS RPMs directly into the final image.
 - Catch kernel/module mismatches during CI, before rebasing a host.
+- Keep the workflow reusable as a template so users can adapt it to other Universal Blue or Fedora Atomic images if they want ZFS support there.
 
 ## If You Are New To Akmods And Atomic Images
 
@@ -58,6 +59,12 @@ What this repo does to handle that gap:
 4. Build candidate images first and only promote to stable when candidate succeeds.
 
 This pipeline (ordered jobs/steps in one workflow run) does not eliminate upstream timing gaps, but it prevents silently shipping mismatched kernel/module combinations in this image stream.
+
+As of February 27, 2026:
+
+1. There are active discussions about possible future ZFS scope changes in some Universal Blue images (for example Aurora issue [#1765](https://github.com/ublue-os/aurora/issues/1765)).
+2. The linked issue is currently open and framed as consideration/planning discussion, not a finalized global removal action.
+3. A practical goal of this repository is continuity: if upstream image defaults change, this workflow can still be used as a starting template for self-maintained ZFS-enabled images.
 
 Quick terms used in this repo:
 

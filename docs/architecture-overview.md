@@ -4,6 +4,11 @@
 
 This project provides a controlled way to run ZFS on Kinoite while reducing the risk of breakage from upstream kernel changes.
 
+It is also intended to be reusable:
+
+1. Current implementation targets Kinoite-based images.
+2. The workflow structure can be adapted for other Universal Blue or Fedora Atomic image streams when users want to keep ZFS support.
+
 ## Real-World Context
 
 Discussion reference:
