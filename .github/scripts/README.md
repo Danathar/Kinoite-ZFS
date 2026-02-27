@@ -27,13 +27,13 @@ This keeps workflow logic readable, testable, and easier to maintain.
 - [`.github/scripts/beta/check-branch-akmods-cache.sh`](./beta/check-branch-akmods-cache.sh) -> `python3 -m ci_tools.beta_check_branch_akmods_cache`
 - [`.github/scripts/beta/configure-branch-recipe.sh`](./beta/configure-branch-recipe.sh) -> `python3 -m ci_tools.beta_configure_branch_recipe`
 
-## Shared Akmods Scripts
+## Shared Akmods Entry Points
 
-These are still shell scripts because they run build tooling directly:
+These also use thin shell wrappers that call Python modules:
 
-- [`akmods/clone-pinned-akmods.sh`](./akmods/clone-pinned-akmods.sh)
-- [`akmods/configure-zfs-target.sh`](./akmods/configure-zfs-target.sh)
-- [`akmods/build-and-publish.sh`](./akmods/build-and-publish.sh)
+- [`akmods/clone-pinned-akmods.sh`](./akmods/clone-pinned-akmods.sh) -> `python3 -m ci_tools.akmods_clone_pinned`
+- [`akmods/configure-zfs-target.sh`](./akmods/configure-zfs-target.sh) -> `python3 -m ci_tools.akmods_configure_zfs_target`
+- [`akmods/build-and-publish.sh`](./akmods/build-and-publish.sh) -> `python3 -m ci_tools.akmods_build_and_publish`
 
 ## Containerfile Note
 

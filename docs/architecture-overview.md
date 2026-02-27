@@ -116,7 +116,7 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 
 ## Implementation Note: Workflow Scripts
 
-Workflow entry-point scripts under `.github/scripts/main` and `.github/scripts/beta` are thin shell wrappers.
+Workflow entry-point scripts under `.github/scripts/main`, `.github/scripts/beta`, and `.github/scripts/akmods` are thin shell wrappers.
 The behavior lives in Python modules under `ci_tools/`.
 
 Why this setup:
