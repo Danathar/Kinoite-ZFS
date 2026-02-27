@@ -16,13 +16,17 @@ fi
 
 # Pull akmods cache image as a local `dir:` layout for direct layer extraction.
 # Branch-specific akmods repos can be private, so use credentials when provided.
-if [[ -n "${AKMODS_REGISTRY_ACTOR}" && -n "${AKMODS_REGISTRY_TOKEN}" ]]; then
+registry_actor="${AKMODS_REGISTRY_ACTOR:-${BB_USERNAME:-${GITHUB_ACTOR:-}}}"
+registry_token="${AKMODS_REGISTRY_TOKEN:-${BB_PASSWORD:-${GH_TOKEN:-${GITHUB_TOKEN:-}}}}"
+if [[ -n "${registry_actor}" && -n "${registry_token}" ]]; then
+  echo "Using authenticated pull for akmods cache image."
   skopeo copy \
     --retry-times 3 \
-    --src-creds "${AKMODS_REGISTRY_ACTOR}:${AKMODS_REGISTRY_TOKEN}" \
+    --src-creds "${registry_actor}:${registry_token}" \
     "docker://${AKMODS_IMAGE}" \
     dir:/tmp/akmods-zfs
 else
+  echo "No registry credentials detected in build environment; pulling akmods anonymously."
   skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
 fi
 

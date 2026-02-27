@@ -177,7 +177,7 @@ Key behavior:
 1. Computes branch-safe image tag and branch-specific akmods repo name.
 2. Builds/publishes branch-isolated akmods cache as needed.
 3. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume branch-scoped akmods source.
-4. Passes temporary GHCR credentials into compose so branch-private akmods repos can be pulled by `skopeo`.
+4. Compose supports authenticated pulls for branch-private akmods repos when credentials are available in the build environment.
 5. Builds/publishes branch-tagged image.
 6. Ignores markdown/docs-only changes.
 
