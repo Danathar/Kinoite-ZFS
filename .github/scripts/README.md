@@ -21,10 +21,11 @@ This keeps workflow logic readable and avoids extra wrapper layers.
 |---|---|---|
 | Resolve build inputs (latest mode or lock replay mode) | `main-resolve-build-inputs` | `ci_tools.main_resolve_build_inputs` |
 | Write build inputs manifest | `main-write-build-inputs-manifest` | `ci_tools.main_write_build_inputs_manifest` |
-| Check for existing candidate self-hosted zfs akmods image | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
+| Check for existing self-hosted zfs akmods source image tag | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
+| Publish candidate akmods alias tags from shared source | `main-publish-candidate-akmods-alias` | `ci_tools.main_publish_candidate_akmods_alias` |
 | Set kernel-matched akmods source and pin base tag in recipe | `main-configure-candidate-recipe` | `ci_tools.main_configure_candidate_recipe` |
 | Promote candidate image and akmods cache to stable tags | `main-promote-stable` | `ci_tools.main_promote_stable` |
-| Compute branch-safe image and akmods names | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
+| Compute branch-safe public alias tag prefix | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
 | Detect Fedora major version for Kinoite latest | `beta-detect-fedora-version` | `ci_tools.beta_detect_fedora_version` |
 | Check for existing shared self-hosted zfs akmods image tag | `beta-check-branch-akmods-cache` | `ci_tools.beta_check_branch_akmods_cache` |
 | Publish branch akmods alias tag in candidate repo | `beta-publish-branch-akmods-alias` | `ci_tools.beta_publish_branch_akmods_alias` |

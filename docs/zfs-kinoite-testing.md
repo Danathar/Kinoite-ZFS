@@ -88,9 +88,9 @@ This ensures akmods cache and final image build both align to the same kernel st
 
 The workflow also writes a `build-inputs-<run_id>` artifact containing all resolved inputs (base image digest, builder digest, kernel, ZFS line, and akmods ref) for audit and replay.
 
-### 2. Validate Existing Candidate Akmods Cache
+### 2. Validate Existing Shared Akmods Source Cache
 
-Before rebuilding akmods, CI checks whether the existing candidate cache image already contains:
+Before rebuilding akmods, CI checks whether the shared source cache image already contains:
 
 1. `kmod-zfs-<exact-kernel-release>-*.rpm` for the current base kernel.
 
@@ -107,7 +107,8 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 2. Pulls OpenZFS release source from upstream OpenZFS GitHub releases (`https://github.com/openzfs/zfs/releases`) through the akmods build scripts.
 3. Injects the ZFS image target under this repo owner namespace (the owner/org part of the image path, like `danathar` in `ghcr.io/danathar/...`).
 4. Seeds upstream akmods cache metadata with the resolved `KERNEL_RELEASE`.
-5. Builds and publishes kernel-matched akmods tags.
+5. Builds and publishes kernel-matched shared akmods tags.
+6. Copies those shared tags into candidate alias tags before candidate compose/promotion.
 
 ### 4. Build Candidate Kinoite Image
 
@@ -158,13 +159,14 @@ Triggers:
 
 Key behavior:
 
-1. Builds/publishes kernel-matched akmods cache tags as needed.
-2. Builds/publishes candidate image.
-3. Promotes candidate artifacts to stable tags only on success.
-4. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-5. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-6. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
-7. Ignores markdown/docs-only changes.
+1. Validates and (when needed) rebuilds shared kernel-matched akmods cache tags.
+2. Copies shared akmods tags into candidate akmods alias tags.
+3. Builds/publishes candidate image.
+4. Promotes candidate artifacts to stable tags only on success.
+5. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+6. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+7. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
+8. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
 
@@ -175,9 +177,9 @@ Triggers:
 
 Key behavior:
 
-1. Computes branch-safe image tag.
+1. Computes branch-safe public alias tag prefix.
 2. Checks for shared akmods source tag `akmods-zfs:main-<fedora>`.
-3. Rebuilds shared akmods source only as a fallback if that source tag is missing.
+3. Fails closed if that source tag is missing/stale (branch runs do not rebuild shared cache tags).
 4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
 5. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume that branch-scoped alias tag.
 6. Builds/publishes branch-tagged image.

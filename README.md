@@ -142,6 +142,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
 
 - [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
+  - Copies shared akmods source tags into candidate akmods tags before candidate compose and promotion.
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
   - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
@@ -149,7 +150,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
   - Copies shared akmods source tags into branch-scoped public alias tags in `akmods-zfs-candidate` for compose.
-  - Rebuilds shared akmods tags only as a fallback path when the expected source tag is missing.
+  - Fails closed if shared akmods source tags are missing/stale (so test branches do not mutate shared cache tags).
   - Runs on branch pushes and manual dispatch.
 - [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)
   - PR validation build only (`push: false`, unsigned).

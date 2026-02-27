@@ -15,12 +15,8 @@ class BranchMetadataTests(unittest.TestCase):
 
     def test_clamps_long_names(self) -> None:
         long_branch = "a" * 300
-        image_tag, akmods_repo, akmods_public_tag_prefix = build_branch_metadata(long_branch)
-        self.assertLessEqual(len(image_tag), 120)
-        self.assertLessEqual(len(akmods_repo), 120)
+        akmods_public_tag_prefix = build_branch_metadata(long_branch)
         self.assertLessEqual(len(akmods_public_tag_prefix), 120)
-        self.assertTrue(image_tag.startswith("beta-"))
-        self.assertTrue(akmods_repo.startswith("akmods-zfs-"))
         self.assertTrue(akmods_public_tag_prefix.startswith("br-"))
 
 

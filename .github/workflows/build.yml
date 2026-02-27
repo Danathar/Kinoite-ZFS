@@ -145,13 +145,16 @@ jobs:
           name: build-inputs-${{ github.run_id }}
           path: artifacts/build-inputs.json
 
-      - name: Check for existing candidate self-hosted zfs akmods image
+      - name: Check for existing shared self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
-          CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
+          # We check that shared source tag here, then copy it into candidate
+          # alias tags before compose.
+          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           python3 -m ci_tools.cli main-check-candidate-akmods-cache
 
@@ -165,7 +168,7 @@ jobs:
         run: |
           python3 -m ci_tools.cli akmods-clone-pinned
 
-      - name: Configure candidate zfs target in self-hosted namespace
+      - name: Configure shared zfs target in self-hosted namespace (fallback rebuild path)
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         # Namespace here means the owner/org segment in GHCR image paths
         # (for example `danathar` in `ghcr.io/danathar/...`).
@@ -173,12 +176,12 @@ jobs:
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
-          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
-          AKMODS_DESCRIPTION: Candidate caching layer for pre-built zfs akmod RPMs
+          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          AKMODS_DESCRIPTION: Shared caching layer for pre-built zfs akmod RPMs
         run: |
           python3 -m ci_tools.cli akmods-configure-zfs-target
 
-      - name: Build and publish candidate self-hosted zfs akmods image
+      - name: Build and publish shared self-hosted zfs akmods image (fallback)
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
@@ -198,6 +201,21 @@ jobs:
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
           python3 -m ci_tools.cli akmods-build-and-publish
+
+      - name: Publish candidate akmods alias tags
+        # Candidate compose/promotion read from `akmods-zfs-candidate`.
+        # We copy shared source tags into candidate tags every run so the
+        # candidate boundary stays explicit even when upstream push names are fixed.
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          SOURCE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          DEST_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          REGISTRY_ACTOR: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m ci_tools.cli main-publish-candidate-akmods-alias
 
   bluebuild-candidate:
     name: Build Candidate Image

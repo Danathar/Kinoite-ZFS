@@ -14,39 +14,23 @@ on:
       - "**/*.md"
 
   workflow_dispatch:
-    # Manual trigger for branch rebuild/testing.
-    inputs:
-      rebuild_akmods:
-        description: Force rebuild of branch-scoped self-hosted akmods-zfs
-        required: false
-        default: false
-        type: boolean
+    # Manual trigger for branch build/testing.
 
 concurrency:
   # One active run per workflow+branch; newer pushes cancel stale runs.
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
-env:
-  # Issue #1/#4 hardening (safety tightening):
-  # "Hardening" here means adding safeguards that reduce breakage risk.
-  # Pin to our forked akmods commit so branch tests use the same curated source
-  # as main and avoid runtime patching drift.
-  AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git
-  AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
-
 jobs:
   prepare-branch-metadata:
     name: Compute Branch Tags
     runs-on: ubuntu-latest
     outputs:
-      image_tag: ${{ steps.branch.outputs.image_tag }}
-      akmods_repo: ${{ steps.branch.outputs.akmods_repo }}
       akmods_public_tag_prefix: ${{ steps.branch.outputs.akmods_public_tag_prefix }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Compute branch-safe image and akmods names
+      - name: Compute branch-safe public alias tag prefix
         id: branch
         shell: bash
         run: |
@@ -58,7 +42,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      # Needed to push ghcr.io/<owner>/<branch-akmods-repo>:* images.
+      # Needed to copy/publish branch alias tags in ghcr.io/<owner>/akmods-zfs-candidate:*.
       packages: write
     container:
       image: ghcr.io/ublue-os/devcontainer:latest
@@ -79,51 +63,24 @@ jobs:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
           # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
-          # We check that shared source tag here so branch runs do not rebuild
-          # unnecessarily and then fail looking for a non-existent branch repo tag.
+          # Branch workflow intentionally treats this as read-only input.
           AKMODS_REPO: akmods-zfs
         run: |
           python3 -m ci_tools.cli beta-check-branch-akmods-cache
 
-      - name: Clone upstream akmods tooling
-        # Rebuild when manually forced or when branch cache is missing/stale.
-        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
-        shell: bash
-        env:
-          AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
-          AKMODS_UPSTREAM_REF: ${{ env.AKMODS_UPSTREAM_REF }}
-        run: |
-          python3 -m ci_tools.cli akmods-clone-pinned
-
-      - name: Configure zfs target in shared namespace (fallback rebuild path)
-        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
-        # Namespace here means the owner/org segment in GHCR image paths
-        # (for example `danathar` in `ghcr.io/danathar/...`).
+      - name: Stop when shared akmods source is missing or stale
+        # Branch workflow is intentionally read-only for shared akmods tags.
+        # If the shared source cache is missing/stale, fail closed and rebuild it
+        # from the main workflow instead of mutating shared tags from a test branch.
+        if: steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
-          AKMODS_REPO: akmods-zfs
-          AKMODS_DESCRIPTION: Shared caching layer for pre-built zfs akmod RPMs
         run: |
-          python3 -m ci_tools.cli akmods-configure-zfs-target
-
-      - name: Build and publish shared self-hosted zfs akmods image (fallback)
-        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
-        shell: bash
-        env:
-          AKMODS_KERNEL: main
-          AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
-          KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
-          AKMODS_TARGET: zfs
-          ZFS_MINOR_VERSION: "2.4"
-          # Upstream akmods scripts pull OpenZFS release source from:
-          # https://github.com/openzfs/zfs/releases
-          CI: "1"
-          REGISTRY_ACTOR: ${{ github.actor }}
-          REGISTRY_TOKEN: ${{ github.token }}
-        run: |
-          python3 -m ci_tools.cli akmods-build-and-publish
+          echo "Shared akmods source tag akmods-zfs:main-${FEDORA_VERSION} is missing or stale for kernel ${KERNEL_RELEASE}." >&2
+          echo "Run main workflow (Build And Promote Main Image) with rebuild_akmods=true, then rerun this branch workflow." >&2
+          exit 1
 
       - name: Publish branch cache alias in candidate repo
         # Compose runs in a separate build environment that may not be able to

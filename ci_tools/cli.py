@@ -23,6 +23,9 @@ def command_map() -> dict[str, Callable[[], None]]:
     from ci_tools.beta_publish_branch_akmods_alias import main as beta_publish_branch_akmods_alias
     from ci_tools.main_check_candidate_akmods_cache import main as main_check_candidate_akmods_cache
     from ci_tools.main_configure_candidate_recipe import main as main_configure_candidate_recipe
+    from ci_tools.main_publish_candidate_akmods_alias import (
+        main as main_publish_candidate_akmods_alias,
+    )
     from ci_tools.main_promote_stable import main as main_promote_stable
     from ci_tools.main_resolve_build_inputs import main as main_resolve_build_inputs
     from ci_tools.main_write_build_inputs_manifest import main as main_write_build_inputs_manifest
@@ -32,6 +35,7 @@ def command_map() -> dict[str, Callable[[], None]]:
         "main-write-build-inputs-manifest": main_write_build_inputs_manifest,
         "main-check-candidate-akmods-cache": main_check_candidate_akmods_cache,
         "main-configure-candidate-recipe": main_configure_candidate_recipe,
+        "main-publish-candidate-akmods-alias": main_publish_candidate_akmods_alias,
         "main-promote-stable": main_promote_stable,
         "beta-compute-branch-metadata": beta_compute_branch_metadata,
         "beta-detect-fedora-version": beta_detect_fedora_version,
