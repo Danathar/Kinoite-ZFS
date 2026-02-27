@@ -15,13 +15,15 @@ Core goal:
 - Track the current Kinoite/Fedora kernel stream (stream = the moving sequence of kernel versions published over time, newest to oldest).
 - Build matching ZFS akmods against that kernel.
 - Install those ZFS RPMs directly into the final image.
-- Catch kernel/module mismatches during CI (automated GitHub Actions workflow runs), before rebasing a host.
+- Catch kernel/module mismatches during CI (automated GitHub Actions workflow runs), before rebasing a host (`rebasing` here means switching an existing atomic host to a newly built container image).
 - Keep the workflow (the GitHub Actions automation file that defines jobs and steps) reusable as a template so users can adapt it to other Universal Blue or Fedora Atomic images if they want ZFS support there.
 
 ## If You Are New To Akmods And Atomic Images
 
 `akmod` (automatic kernel module) packages are a way to provide out-of-tree
-kernel modules, like ZFS, for a specific kernel release.
+kernel modules (`out-of-tree` means the module is developed outside the Linux
+kernel source tree and shipped separately), like ZFS, for a specific kernel
+release.
 
 Why this matters here:
 
