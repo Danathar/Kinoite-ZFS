@@ -1,16 +1,16 @@
 name: Build And Promote Main Image
 
 on:
-  # Nightly candidate build so we test against current upstream kernel stream.
+  # Nightly run to check if the newest upstream kernel still builds with ZFS.
   schedule:
     - cron:
         "00 06 * * *" # 06:00 UTC daily
 
   push:
-    # Main pipeline runs only from main branch updates.
+    # Run this workflow only for updates to `main`.
     branches:
       - main
-    # Skip CI for docs/readme-only changes.
+    # Skip this workflow for docs-only changes.
     paths-ignore:
       - README.md
       - "**/README.md"
@@ -18,58 +18,56 @@ on:
       - "**/*.md"
 
   workflow_dispatch:
-    # Manual trigger for candidate rebuilds, replay runs, and controlled promotions.
+    # Manual run for rebuilds, troubleshooting, and optional publish-to-stable.
     inputs:
       rebuild_akmods:
-        # Override cache detection and force candidate akmods rebuild.
+        # Ignore cache checks and always rebuild akmods.
         description: Force rebuild of candidate self-hosted akmods-zfs
         required: false
         default: false
         type: boolean
       promote_to_stable:
-        # Allow manual candidate-only test runs by setting false.
+        # Set false to test candidate build without moving `latest`.
         description: Promote candidate artifacts to stable tags after success
         required: false
         default: true
         type: boolean
       use_input_lock:
-        # Replay mode: read pinned inputs from lock file instead of floating latest refs.
-        description: Use lock file inputs for reproducible replay
+        # Use values from `ci/inputs.lock.json` instead of moving `latest` tags.
+        description: Use lock file inputs so you can rerun with the same base inputs
         required: false
         default: false
         type: boolean
       lock_file:
-        # Repo-relative JSON file containing pinned replay inputs.
+        # Repo-relative JSON file with pinned input values.
         description: Lock file path for replay mode
         required: false
         default: ci/inputs.lock.json
         type: string
       build_container_image:
-        # Optional override for akmods job container image (supports digest pinning).
+        # Optional override for the builder image.
         description: Build container image/ref override (optional)
         required: false
         default: ""
         type: string
 
 concurrency:
-  # Keep a single active run per workflow+ref; cancel stale in-flight runs.
+  # Keep only one run per branch/workflow; cancel older in-progress runs.
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
 env:
-  # Issue #1/#4 hardening: pin to our forked akmods commit that already
-  # contains required ZFS build dependencies.
+  # Use a pinned akmods fork commit that includes required ZFS build deps.
   AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git
   AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
 
-  # Issue #2 mitigation: candidate-first release model.
-  # `latest` is updated only by explicit promotion after candidate succeeds.
+  # Candidate-first flow: update `latest` only after candidate succeeds.
   IMAGE_NAME: kinoite-zfs
   CANDIDATE_IMAGE_TAG: candidate
   CANDIDATE_AKMODS_REPO: akmods-zfs-candidate
   STABLE_AKMODS_REPO: akmods-zfs
 
-  # Issue #3 controls: default floating inputs (used when replay lock is disabled).
+  # Default moving inputs used when lock mode is off.
   DEFAULT_BASE_IMAGE: ghcr.io/ublue-os/kinoite-main:latest
   DEFAULT_BUILD_CONTAINER_IMAGE: ghcr.io/ublue-os/devcontainer:latest
   DEFAULT_ZFS_MINOR_VERSION: "2.4"
@@ -95,12 +93,12 @@ jobs:
       lock_file_path: ${{ steps.inputs.outputs.lock_file_path }}
     permissions:
       contents: read
-      # Needed to push ghcr.io/<owner>/<candidate-akmods-repo>:* images.
+      # Needed to push candidate akmods images.
       packages: write
     container:
-      # Optional manual override supports digest-pinned replay runs.
+      # Can be overridden by manual input.
       image: ${{ github.event.inputs.build_container_image || 'ghcr.io/ublue-os/devcontainer:latest' }}
-      # Privileged + mounted container storage are required by upstream akmods build flow.
+      # Required for current akmods build tooling.
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
       - uses: actions/checkout@v6
@@ -141,7 +139,7 @@ jobs:
       - name: Upload build inputs manifest
         uses: actions/upload-artifact@v6
         with:
-          # One manifest per run; use this file to populate ci/inputs.lock.json for replay.
+          # One input snapshot per run. You can copy it into `ci/inputs.lock.json`.
           name: build-inputs-${{ github.run_id }}
           path: artifacts/build-inputs.json
 
@@ -157,7 +155,7 @@ jobs:
           ./.github/scripts/main/check-candidate-akmods-cache.sh
 
       - name: Clone upstream akmods tooling
-        # Rebuild when scheduled, manually forced, or candidate cache is missing/stale.
+        # Rebuild when scheduled, manually forced, or cache is missing/outdated.
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
@@ -181,13 +179,13 @@ jobs:
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
-          # `main` follows Fedora desktop kernel stream used by Kinoite main/latest.
+          # `main` follows the Fedora desktop kernel stream used by Kinoite main/latest.
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.inputs.outputs.version }}
-          # Force akmods build to the same kernel release resolved from the base image inputs.
+          # Build akmods for the exact kernel chosen in input resolution.
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
           AKMODS_TARGET: zfs
-          # ZFS version is resolved in the input step (default or lock file).
+          # ZFS version comes from input resolution (default or lock file).
           ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
           CI: "1"
           REGISTRY_ACTOR: ${{ github.actor }}
@@ -197,6 +195,9 @@ jobs:
 
   bluebuild-candidate:
     name: Build Candidate Image
+    # Safety gate:
+    # This job must pass before stable tags are allowed to move.
+    # If candidate build fails, users stay on last known-good `latest`.
     needs: build-zfs-akmods
     runs-on: ubuntu-latest
     permissions:
@@ -212,7 +213,7 @@ jobs:
           KERNEL_RELEASE: ${{ needs.build-zfs-akmods.outputs.kernel_release }}
           BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
-          # Current akmods upstream tooling publishes to akmods-zfs tags; use that source for candidate compose.
+          # Candidate image build pulls from these akmods tags.
           AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           ./.github/scripts/main/configure-candidate-recipe.sh
@@ -225,15 +226,18 @@ jobs:
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: true
-          # Keep recipe/containerfile edits from the prior step; action-internal checkout would reset them.
+          # Keep file edits from the previous step. Action checkout would reset them.
           skip_checkout: true
 
   promote-stable:
     name: Promote Candidate To Stable
+    # Safety model:
+    # Promotion is a separate job that runs only after both candidate jobs succeed.
+    # That keeps broken candidate outputs from replacing stable tags.
     needs:
       - build-zfs-akmods
       - bluebuild-candidate
-    # Automatic promotion on push/schedule. Manual runs can skip promotion.
+    # Push/schedule runs promote automatically. Manual runs can skip promotion.
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.promote_to_stable == 'true'
     runs-on: ubuntu-latest
     permissions:

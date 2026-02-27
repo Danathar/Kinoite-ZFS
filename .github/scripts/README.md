@@ -1,11 +1,11 @@
 # Workflow Script Layout
 
-These scripts hold CI shell logic that was previously embedded inline in workflow YAML.
+These scripts hold workflow shell logic that used to live directly inside workflow YAML.
 
 Goal:
 
-- Keep workflow files orchestration-focused (`on`, `needs`, `if`, permissions, action wiring).
-- Keep shell behavior versioned, testable, and easier to review in focused files.
+- Keep workflow files focused on job wiring (`on`, `needs`, `if`, permissions, actions).
+- Keep shell behavior in script files that are easier to read and review.
 
 ## Main Pipeline Scripts
 

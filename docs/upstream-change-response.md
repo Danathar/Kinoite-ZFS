@@ -9,6 +9,15 @@ This document is for operators and users who need to answer two questions quickl
 1. Is stable still safe to use?
 2. What exact action should we take next?
 
+Quick terms:
+
+1. Candidate: test build created first.
+2. Stable: user-facing tags (`latest` and `main-<fedora>`).
+3. Workflow metadata: run details like run ID, branch/ref, commit SHA, and triggering user.
+4. Image ref: image pointer (`name:tag` or `name@sha256:digest`).
+5. Build-inputs artifact: JSON file with exact run inputs.
+6. Lock replay: rerun using saved inputs from a previous run.
+
 ## Scope
 
 This guide covers failures in:

@@ -2,8 +2,8 @@
 # Script: main/promote-stable.sh
 # What: Promotes the tested candidate image (and optional candidate akmods cache) into stable tags.
 # Doing: Resolves candidate digest, copies to `latest` plus audit tag, and conditionally mirrors candidate akmods.
-# Why: Ensures stable promotion is digest-based, auditable, and avoids rebuilding artifacts already validated.
-# Goal: Publish stable image references that exactly match the candidate tested in this workflow run.
+# Why: Keeps stable tags tied to the exact candidate that already passed checks.
+# Goal: Update stable tags safely without rebuilding.
 set -euo pipefail
 
 # Normalize owner for OCI repository references.
@@ -18,7 +18,8 @@ candidate_image_digest="$(skopeo inspect \
   --format '{{.Digest}}' \
   "${candidate_image_by_tag}")"
 
-# Hard fail if candidate image is missing to avoid promoting stale images.
+# Hard fail if candidate image is missing.
+# Safety: never "guess" or reuse older tags during promotion.
 if [[ -z "${candidate_image_digest}" ]]; then
   echo "Failed to resolve candidate image digest from ${candidate_image_by_tag}" >&2
   exit 1

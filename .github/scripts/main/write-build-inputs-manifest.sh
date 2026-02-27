@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Script: main/write-build-inputs-manifest.sh
-# What: Writes a machine-readable build-input manifest artifact for replay, audit, and debugging.
-# Doing: Collects workflow/run metadata plus resolved pinned inputs and renders `artifacts/build-inputs.json`.
-# Why: Preserves exact provenance for each build so failures can be diagnosed and builds can be replayed safely.
-# Goal: Persist a complete input record that documents what was built, from which pinned sources, and when.
+# What: Writes a JSON record of the exact inputs used for this run.
+# Doing: Collects workflow/run metadata and resolved image refs, then writes `artifacts/build-inputs.json`.
+# Why: Makes failed runs easier to investigate and rerun with the same inputs.
+# Goal: Save a clear per-run input snapshot.
 set -euo pipefail
 
-# Store a per-run manifest used for replay/debugging.
+# Store a per-run input snapshot file.
 mkdir -p artifacts
 
-# Build structured JSON from step/job context and resolved input values.
-# Values are passed via env so this script remains workflow-expression agnostic.
+# Build JSON from workflow context and resolved input values.
+# Values come through env so the script can stay plain shell.
 jq -n \
   --arg schema_version "1" \
   --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -67,5 +67,5 @@ jq -n \
     }
   }' > artifacts/build-inputs.json
 
-# Print manifest content for log visibility and easy copy into lock file updates.
+# Print the file so it is visible in logs and easy to copy into `ci/inputs.lock.json`.
 cat artifacts/build-inputs.json

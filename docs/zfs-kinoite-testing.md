@@ -13,6 +13,14 @@ The objective is to validate that we can safely:
 
 This is intentionally designed for iterative validation before adopting any approach on production-like systems.
 
+## Terminology
+
+1. CI: the GitHub Actions workflows in this repo.
+2. Candidate: a test build/tag created before stable tags are updated.
+3. Stable: the tags users normally consume (`latest` and `main-<fedora>`).
+4. Build inputs artifact: JSON file saved per run that records exact inputs.
+5. Replay/lock mode: manual run mode that uses saved inputs from `ci/inputs.lock.json`.
+
 ## Constraints And Context
 
 1. Kinoite uses immutable/ostree workflows, so custom kernel module integration must happen during image build.
@@ -110,6 +118,20 @@ Promotion runs only after successful candidate akmods and candidate image jobs:
 3. Aligns stable akmods tag (`main-<fedora>`) to the selected source cache image.
 
 If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
+
+### Why This Is Safer
+
+This two-step model (candidate build, then promotion) protects stable users:
+
+1. Candidate is where new upstream changes are exercised first.
+2. Promotion is the only step allowed to move stable tags.
+3. If candidate fails for any reason, stable tags do not move.
+
+In practice, this means:
+
+1. A bad nightly build does not overwrite `latest`.
+2. The system keeps serving the last known-good stable image.
+3. You get fast feedback on breakage without forcing users onto broken outputs.
 
 ## Workflow Behavior
 

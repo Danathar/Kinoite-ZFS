@@ -11,6 +11,15 @@ Core goal:
 - Install those ZFS RPMs directly into the final image.
 - Catch kernel/module mismatches during CI, before rebasing a host.
 
+Quick terms used in this repo:
+
+- `CI`: the GitHub Actions workflows in `.github/workflows`.
+- `candidate`: test image/tag built first.
+- `stable`: user-facing tags (`latest` and `main-<fedora>`).
+- `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
+- `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
+- `image ref`: text that points to a container image, usually `name:tag` (moving) or `name@sha256:digest` (exact).
+
 If you want the full technical design and workflow details, read:
 
 - `docs/architecture-overview.md` (high-level architecture: what/why/how)
@@ -38,6 +47,15 @@ That document is maintained as a living record and will be updated as each harde
   - `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
 
 Candidate and branch artifacts are isolated so test runs do not overwrite stable `latest` artifacts.
+
+## Why Candidate First
+
+This repo uses a two-step safety model:
+
+1. Build/test candidate outputs first.
+2. Promote to stable tags only if candidate succeeds.
+
+If candidate fails, stable tags are not updated. That protects users from overnight upstream breakage and keeps stable on the last known-good build.
 
 ## Workflows
 

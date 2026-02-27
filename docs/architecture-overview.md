@@ -4,36 +4,59 @@
 
 This project provides a controlled way to run ZFS on Kinoite while reducing the risk of breakage from upstream kernel changes.
 
-At a high level, the repository is a release pipeline that:
+## Quick Terms
+
+1. Candidate: a test build. It is built first and checked before anything is marked stable.
+2. Stable: the tags users should normally consume (`latest` and `main-<fedora>`).
+3. Workflow metadata: run details like run ID, branch/ref, commit SHA, and triggering user.
+4. Image ref: a container image pointer, usually `name:tag` (moving) or `name@sha256:digest` (exact).
+5. Build inputs: base image, kernel, builder image, and pinned source commit used for one run.
+6. Lock replay: rerun using saved inputs from a previous run.
+
+At a high level, this repository has a build workflow that:
 
 1. Tracks the current Fedora/Kinoite kernel stream.
 2. Builds ZFS kernel modules (`kmod-zfs`) for that kernel.
 3. Integrates those modules into a custom Kinoite image.
-4. Publishes only validated outputs to stable tags.
+4. Publishes to stable tags only after checks pass.
 
 ## What We Are Doing
 
-We build and publish two classes of artifacts:
+We publish two output groups:
 
-1. Candidate artifacts (pre-promotion):
+1. Candidate outputs (test stage):
    - Run-scoped image source tag produced by BlueBuild (`<shortsha>-<fedora>`)
    - Kernel-matched akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>-<kernel_release>`
-2. Stable artifacts (promoted only after candidate success):
+2. Stable outputs (updated only after candidate success):
    - `ghcr.io/danathar/kinoite-zfs:latest`
    - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 
-Branch builds are isolated (`beta-*` tags and branch-specific akmods repos) so experimentation does not overwrite stable images.
+Branch builds are isolated (`beta-*` tags and branch-specific akmods repos) so experiments do not overwrite stable images.
 
 ## Why We Are Doing It
 
-ZFS support can lag behind new Fedora kernels. Without controls, a fast-moving kernel stream can create broken images or operational outages.
+ZFS support can lag behind new Fedora kernels. Without controls, a fast-moving kernel stream can produce broken images.
 
 This architecture addresses that risk by:
 
 1. Testing compatibility in candidate first.
 2. Keeping stable tags unchanged when candidate fails.
-3. Recording exact build inputs for audit and reproducible replay.
-4. Preserving a clear promotion boundary between testing and production consumption.
+3. Recording exact build inputs so runs can be investigated and repeated.
+4. Keeping a clear separation between test builds and stable user-facing tags.
+
+### Why Candidate-First Helps Safety
+
+Candidate-first + promotion is a safety gate:
+
+1. The workflow builds and tests candidate outputs first.
+2. Only if that test build succeeds does the promotion job update stable tags.
+3. If candidate fails, stable tags are left as-is.
+
+Why this matters for this project:
+
+1. Kernel and ZFS compatibility can break suddenly when upstream updates.
+2. A failed candidate run blocks a broken image from replacing `latest`.
+3. Users who consume stable tags stay on the last known-good build until a new good build is ready.
 
 ## How It Works
 
@@ -48,16 +71,16 @@ The main workflow resolves build inputs for each run:
 5. Pinned akmods fork source commit.
 6. ZFS version line.
 
-These inputs are captured as an artifact (`build-inputs-<run_id>`) for traceability.
+These inputs are saved as a file (`build-inputs-<run_id>`) so you can inspect what that run used.
 
 ### 2. Candidate Akmods Build
 
-The pipeline checks cache sources for a `kmod-zfs` RPM matching the exact kernel release.
+The workflow checks cached akmods images for a `kmod-zfs` RPM that matches the exact kernel release.
 
 1. If yes, it reuses cache.
 2. If no, it rebuilds and publishes kernel-matched akmods tags.
 
-This avoids publishing images with stale kernel modules.
+This avoids publishing images with outdated kernel modules.
 
 ### 3. Candidate Image Build
 
@@ -77,13 +100,13 @@ Promotion is a separate gated job:
 3. Aligns stable akmods tag (`main-<fedora>`) to the selected source image.
 4. Writes an immutable stable audit tag (`stable-<run>-<sha>`).
 
-If candidate fails, promotion is skipped and existing stable tags remain untouched.
+If candidate fails, stable tags are not changed.
 
 ### 5. Replay Mode
 
-For deterministic reproduction, manual dispatch supports lock-based replay using `ci/inputs.lock.json`.
+For repeatable troubleshooting, manual runs support lock replay using `ci/inputs.lock.json`.
 
-This allows rebuilding with pinned refs instead of floating `latest` sources.
+This lets you rebuild with saved values instead of moving `latest` tags.
 
 ## Operational Model
 
@@ -95,8 +118,8 @@ This allows rebuilding with pinned refs instead of floating `latest` sources.
 
 1. Safety first: never advance stable on candidate failure.
 2. Isolation: separate candidate, branch, and stable artifacts.
-3. Observability: capture immutable input metadata every run.
-4. Reproducibility: support lock-based replay for incident/debug workflows.
+3. Visibility: save exact input metadata every run.
+4. Repeatability: support lock replay for troubleshooting.
 5. Incremental hardening: address risks issue-by-issue and document each mitigation.
 
 ## Related Documents
