@@ -43,6 +43,7 @@ Candidate and branch artifacts are isolated so test runs do not overwrite stable
 
 - `.github/workflows/build.yml`
   - Builds candidate artifacts first, then promotes them to stable tags on success.
+  - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - `.github/workflows/build-beta.yml`

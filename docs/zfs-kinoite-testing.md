@@ -56,7 +56,7 @@ Branch artifacts are isolated by both tag and repo name to avoid clobbering main
 
 The main workflow resolves build inputs in one of two modes:
 
-1. Default mode: resolve floating refs (for example `kinoite-main:latest`) to immutable digests at run time.
+1. Default mode: resolve floating refs (for example `kinoite-main:latest`) to immutable digests and immutable stream tags at run time.
 2. Replay mode: read pinned inputs from `ci/inputs.lock.json` when `use_input_lock=true`.
 
 After resolving the base image ref, it reads `ostree.linux` to obtain:
@@ -64,7 +64,7 @@ After resolving the base image ref, it reads `ostree.linux` to obtain:
 1. The full kernel release (example: `6.18.12-200.fc43.x86_64`).
 2. Fedora major version (example: `43`).
 
-This ensures akmods cache and final image build both align to the same kernel stream.
+This ensures akmods cache and final image build both align to the same kernel stream, even if `latest` advances during the workflow run.
 
 The workflow also writes a `build-inputs-<run_id>` artifact containing all resolved inputs (base image digest, builder digest, kernel, ZFS line, and akmods ref) for audit and replay.
 
@@ -90,13 +90,14 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 
 ### 4. Build Candidate Kinoite Image
 
-`containerfiles/zfs-akmods/Containerfile` is rewritten in-run to point at a kernel-matched akmods tag, then:
+`recipes/recipe.yml` and `containerfiles/zfs-akmods/Containerfile` are rewritten in-run to pin base + akmods inputs, then:
 
-1. Pulls the akmods cache image for the resolved kernel release.
-2. Extracts ZFS RPMs from image layers.
-3. Installs RPMs via `rpm-ostree install`.
-4. Verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
-5. Runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
+1. Pins `base-image`/`image-version` to the resolved immutable base tag from input resolution.
+2. Pulls the akmods cache image for the resolved kernel release.
+3. Extracts ZFS RPMs from image layers.
+4. Installs RPMs via `rpm-ostree install`.
+5. Verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
+6. Runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
 
 If module files do not match kernel directories, candidate build fails immediately.
 
@@ -255,7 +256,7 @@ Mitigation implemented:
 
 1. Added lock replay inputs to `.github/workflows/build.yml` (`use_input_lock`, `lock_file`, `build_container_image`).
 2. Added deterministic input resolution step that records immutable digests for base image and builder container.
-3. Candidate image flow now rewrites only `AKMODS_IMAGE` to a kernel-matched tag and validates exact-module presence.
+3. Candidate image flow now pins `base-image`/`image-version` to a resolved immutable base tag, rewrites `AKMODS_IMAGE` to a kernel-matched tag, and validates exact-module presence.
 4. Added build input manifest artifact upload (`build-inputs-<run_id>`) for audit and reproducible reruns.
 5. Added repository lock file `ci/inputs.lock.json` for replay mode.
 6. Akmods build now seeds upstream cache metadata (`cache.json`) from resolved `KERNEL_RELEASE`.

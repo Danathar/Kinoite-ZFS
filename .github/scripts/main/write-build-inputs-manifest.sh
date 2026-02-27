@@ -25,6 +25,8 @@ jq -n \
   --arg fedora_version "${FEDORA_VERSION}" \
   --arg kernel_release "${KERNEL_RELEASE}" \
   --arg base_image_ref "${BASE_IMAGE_REF}" \
+  --arg base_image_name "${BASE_IMAGE_NAME}" \
+  --arg base_image_tag "${BASE_IMAGE_TAG}" \
   --arg base_image_pinned "${BASE_IMAGE_PINNED}" \
   --arg base_image_digest "${BASE_IMAGE_DIGEST}" \
   --arg build_container_ref "${BUILD_CONTAINER_REF}" \
@@ -36,9 +38,9 @@ jq -n \
   --arg lock_file_path "${LOCK_FILE_PATH}" \
   '{
     schema_version: ($schema_version | tonumber),
-    generated_at,
-    repository,
-    workflow,
+    generated_at: $generated_at,
+    repository: $repository,
+    workflow: $workflow,
     run: {
       id: ($run_id | tonumber),
       attempt: ($run_attempt | tonumber),
@@ -49,17 +51,19 @@ jq -n \
     },
     inputs: {
       use_input_lock: ($use_input_lock == "true"),
-      lock_file_path,
-      fedora_version,
-      kernel_release,
-      base_image_ref,
-      base_image_pinned,
-      base_image_digest,
-      build_container_ref,
-      build_container_pinned,
-      build_container_digest,
-      zfs_minor_version,
-      akmods_upstream_ref
+      lock_file_path: $lock_file_path,
+      fedora_version: $fedora_version,
+      kernel_release: $kernel_release,
+      base_image_ref: $base_image_ref,
+      base_image_name: $base_image_name,
+      base_image_tag: $base_image_tag,
+      base_image_pinned: $base_image_pinned,
+      base_image_digest: $base_image_digest,
+      build_container_ref: $build_container_ref,
+      build_container_pinned: $build_container_pinned,
+      build_container_digest: $build_container_digest,
+      zfs_minor_version: $zfs_minor_version,
+      akmods_upstream_ref: $akmods_upstream_ref
     }
   }' > artifacts/build-inputs.json
 

@@ -67,6 +67,7 @@ base_inspect_json="$(skopeo inspect "docker://${base_image_ref}")"
 base_image_name="$(jq -r '.Name // empty' <<< "${base_inspect_json}")"
 base_image_digest="$(jq -r '.Digest // empty' <<< "${base_inspect_json}")"
 kernel_release="$(jq -r '.Labels["ostree.linux"] // empty' <<< "${base_inspect_json}")"
+base_image_version_label="$(jq -r '.Labels["org.opencontainers.image.version"] // empty' <<< "${base_inspect_json}")"
 
 # Ensure base image resolution succeeded and exposed required kernel label.
 if [[ -z "${base_image_name}" || -z "${base_image_digest}" ]]; then
@@ -88,6 +89,53 @@ fi
 # Build immutable base reference (<name>@<digest>) for deterministic downstream usage.
 base_image_pinned="${base_image_name}@${base_image_digest}"
 
+# Derive an immutable base tag that resolves to the same digest as `base_image_pinned`.
+# This is required because BlueBuild consumes `base-image` + `image-version` (name:tag),
+# not digest references, when generating the Containerfile.
+base_ref_source_tag=""
+if [[ "${base_image_ref}" =~ ^[^@]+:([^/@]+)$ ]]; then
+  base_ref_source_tag="${BASH_REMATCH[1]}"
+fi
+
+# If input already uses a date-stamped tag, keep it.
+if [[ -n "${base_ref_source_tag}" && "${base_ref_source_tag}" =~ -[0-9]{8}(\.[0-9]+)?$ ]]; then
+  base_image_tag="${base_ref_source_tag}"
+else
+  if [[ ! "${base_image_version_label}" =~ ^[0-9]+\.[0-9]{8}(\.[0-9]+)?$ ]]; then
+    echo "Failed to derive immutable base tag from org.opencontainers.image.version=${base_image_version_label} for ${base_image_ref}" >&2
+    exit 1
+  fi
+
+  version_suffix="${base_image_version_label#*.}"
+  candidate_tags=()
+  if [[ -n "${base_ref_source_tag}" ]]; then
+    candidate_tags+=("${base_ref_source_tag}-${version_suffix}")
+  fi
+  candidate_tags+=("latest-${version_suffix}" "${fedora_version}-${version_suffix}")
+
+  base_image_tag=""
+  for candidate_tag in "${candidate_tags[@]}"; do
+    candidate_digest="$(skopeo inspect "docker://${base_image_name}:${candidate_tag}" | jq -r '.Digest // empty' 2>/dev/null || true)"
+    if [[ "${candidate_digest}" == "${base_image_digest}" ]]; then
+      base_image_tag="${candidate_tag}"
+      break
+    fi
+  done
+
+  if [[ -z "${base_image_tag}" ]]; then
+    echo "Failed to map ${base_image_pinned} to an immutable tag." >&2
+    echo "Tried candidate tags: ${candidate_tags[*]}" >&2
+    exit 1
+  fi
+fi
+
+# Verify the selected tag resolves to the same digest as the originally resolved base input.
+selected_tag_digest="$(skopeo inspect "docker://${base_image_name}:${base_image_tag}" | jq -r '.Digest // empty')"
+if [[ "${selected_tag_digest}" != "${base_image_digest}" ]]; then
+  echo "Resolved tag ${base_image_name}:${base_image_tag} does not match digest ${base_image_digest}" >&2
+  exit 1
+fi
+
 # Resolve build container metadata to immutable digest for replay/audit records.
 container_inspect_json="$(skopeo inspect "docker://${build_container_ref}")"
 build_container_name="$(jq -r '.Name // empty' <<< "${container_inspect_json}")"
@@ -106,6 +154,8 @@ build_container_pinned="${build_container_name}@${build_container_digest}"
   echo "version=${fedora_version}"
   echo "kernel_release=${kernel_release}"
   echo "base_image_ref=${base_image_ref}"
+  echo "base_image_name=${base_image_name}"
+  echo "base_image_tag=${base_image_tag}"
   echo "base_image_pinned=${base_image_pinned}"
   echo "base_image_digest=${base_image_digest}"
   echo "build_container_ref=${build_container_ref}"
@@ -119,6 +169,7 @@ build_container_pinned="${build_container_name}@${build_container_digest}"
 
 # Human-readable summary in logs for quick triage.
 echo "Resolved base image: ${base_image_pinned}"
+echo "Resolved base image tag: ${base_image_name}:${base_image_tag}"
 echo "Resolved build container: ${build_container_pinned}"
 echo "Kernel release: ${kernel_release}"
 echo "Fedora version: ${fedora_version}"

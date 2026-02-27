@@ -42,10 +42,11 @@ This architecture addresses that risk by:
 The main workflow resolves build inputs for each run:
 
 1. Base image (Kinoite) and its immutable digest.
-2. Build container image and digest.
-3. Kernel/Fedora version metadata.
-4. Pinned akmods fork source commit.
-5. ZFS version line.
+2. Base image immutable stream tag (for BlueBuild `image-version` pinning).
+3. Build container image and digest.
+4. Kernel/Fedora version metadata.
+5. Pinned akmods fork source commit.
+6. ZFS version line.
 
 These inputs are captured as an artifact (`build-inputs-<run_id>`) for traceability.
 
@@ -60,10 +61,10 @@ This avoids publishing images with stale kernel modules.
 
 ### 3. Candidate Image Build
 
-The workflow rewrites only the ZFS `AKMODS_IMAGE` reference in `containerfiles/zfs-akmods/Containerfile` to:
+The workflow rewrites recipe/containerfile inputs before candidate compose to:
 
-1. Use a kernel-matched akmods tag (`main-<fedora>-<kernel_release>`).
-2. Keep recipe `base-image`/`image-version` unchanged for BlueBuild parsing compatibility.
+1. Pin `base-image` + `image-version` to the resolved immutable base tag for this run.
+2. Use a kernel-matched akmods tag (`main-<fedora>-<kernel_release>`).
 
 The build validates ZFS module presence for kernel directories before image publish.
 

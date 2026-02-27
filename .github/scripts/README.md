@@ -12,7 +12,7 @@ Goal:
 - `main/resolve-build-inputs.sh`: Resolve lock/default build inputs and emit outputs.
 - `main/write-build-inputs-manifest.sh`: Emit `artifacts/build-inputs.json` for replay/audit.
 - `main/check-candidate-akmods-cache.sh`: Detect usable candidate/stable akmods cache.
-- `main/configure-candidate-recipe.sh`: Rewrite kernel-matched `AKMODS_IMAGE` in the ZFS Containerfile.
+- `main/configure-candidate-recipe.sh`: Pin recipe base tag for the run and rewrite kernel-matched `AKMODS_IMAGE`.
 - `main/promote-stable.sh`: Promote candidate outputs to stable/audit tags.
 
 ## Branch Pipeline Scripts
@@ -31,8 +31,9 @@ Goal:
 Containerfile note:
 
 - `AKMODS_IMAGE` is now defined in `containerfiles/zfs-akmods/Containerfile`.
-- Main/branch recipe-configuration scripts rewrite that line in the Containerfile,
-  while `image-version` and `base-image` remain in `recipes/recipe.yml`.
+- Main/branch recipe-configuration scripts rewrite that line in the Containerfile.
+- Main workflow also rewrites `base-image`/`image-version` in `recipes/recipe.yml`
+  to a resolved immutable tag so `latest` cannot drift mid-run.
 
 ## Usage Notes
 

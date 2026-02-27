@@ -73,11 +73,12 @@ jq . /tmp/build-inputs-<RUN_ID>/build-inputs.json
 Check these fields first:
 
 1. `inputs.base_image_pinned`
-2. `inputs.kernel_release`
-3. `inputs.build_container_pinned`
-4. `inputs.zfs_minor_version`
-5. `inputs.akmods_upstream_ref`
-6. `inputs.use_input_lock`
+2. `inputs.base_image_tag`
+3. `inputs.kernel_release`
+4. `inputs.build_container_pinned`
+5. `inputs.zfs_minor_version`
+6. `inputs.akmods_upstream_ref`
+7. `inputs.use_input_lock`
 
 ## Failure Patterns And Actions
 
@@ -115,9 +116,10 @@ Likely cause:
 Action:
 
 1. Re-run candidate with `rebuild_akmods=true`.
-2. Verify candidate compose references `AKMODS_IMAGE` tag `main-<fedora>-<kernel_release>`.
-3. Verify akmods logs show `Pinned akmods kernel release to <kernel_release>`.
-4. Keep promotion disabled until candidate passes.
+2. Verify candidate compose pins `image-version` to the resolved immutable base tag from `build-inputs.json`.
+3. Verify candidate compose references `AKMODS_IMAGE` tag `main-<fedora>-<kernel_release>`.
+4. Verify akmods logs show `Pinned akmods kernel release to <kernel_release>`.
+5. Keep promotion disabled until candidate passes.
 
 ### Pattern C: Promotion Job Fails
 

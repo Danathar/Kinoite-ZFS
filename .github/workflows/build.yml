@@ -82,6 +82,8 @@ jobs:
       fedora_version: ${{ steps.inputs.outputs.version }}
       kernel_release: ${{ steps.inputs.outputs.kernel_release }}
       base_image_ref: ${{ steps.inputs.outputs.base_image_ref }}
+      base_image_name: ${{ steps.inputs.outputs.base_image_name }}
+      base_image_tag: ${{ steps.inputs.outputs.base_image_tag }}
       base_image_pinned: ${{ steps.inputs.outputs.base_image_pinned }}
       base_image_digest: ${{ steps.inputs.outputs.base_image_digest }}
       build_container_ref: ${{ steps.inputs.outputs.build_container_ref }}
@@ -122,6 +124,8 @@ jobs:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
           BASE_IMAGE_REF: ${{ steps.inputs.outputs.base_image_ref }}
+          BASE_IMAGE_NAME: ${{ steps.inputs.outputs.base_image_name }}
+          BASE_IMAGE_TAG: ${{ steps.inputs.outputs.base_image_tag }}
           BASE_IMAGE_PINNED: ${{ steps.inputs.outputs.base_image_pinned }}
           BASE_IMAGE_DIGEST: ${{ steps.inputs.outputs.base_image_digest }}
           BUILD_CONTAINER_REF: ${{ steps.inputs.outputs.build_container_ref }}
@@ -202,10 +206,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set kernel-matched akmods source in recipe
+      - name: Set kernel-matched akmods source and pin base tag in recipe
         shell: bash
         env:
           KERNEL_RELEASE: ${{ needs.build-zfs-akmods.outputs.kernel_release }}
+          BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
+          BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
           # Current akmods upstream tooling publishes to akmods-zfs tags; use that source for candidate compose.
           AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
