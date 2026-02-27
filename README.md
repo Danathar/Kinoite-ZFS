@@ -64,7 +64,11 @@ Quick terms used in this repo:
 - `stable`: user-facing tags (`latest` and `main-<fedora>`).
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
-- `image ref`: text that points to a container image, usually `name:tag` (moving) or `name@sha256:digest` (exact).
+- `tag`: a human-readable label on an image, like `latest` or `main-43`.
+- `image ref`: text that points to a container image, usually `name:tag` or `name@sha256:digest`.
+- `floating ref` / `floating latest ref`: a tag-based ref (for example `:latest`) that can point to a different image later without changing its text.
+- `digest-pinned ref`: an exact image pointer like `name@sha256:...`; this does not move to a different image unless you change the digest value.
+- `tag vs digest-pinned` (plain language): a tag is a moving signpost, while a digest is an exact snapshot.
 
 Common commands used in docs:
 
@@ -138,7 +142,7 @@ Issue #3 mitigation adds lock-based replay support:
    - `build_container_image=<value from lock file>`
    - `promote_to_stable=false` (recommended for validation)
 
-This allows you to rebuild with pinned base image/build container inputs instead of floating `latest` refs.
+This allows you to rebuild with pinned base image/build container inputs instead of floating `latest` refs (moving tags).
 
 ## Install And Rebase
 
