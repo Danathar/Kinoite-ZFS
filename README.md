@@ -30,10 +30,10 @@ Common commands used in docs:
 
 If you want the full technical design and workflow details, read:
 
-- `docs/architecture-overview.md` (high-level architecture: what/why/how)
-- `docs/upstream-change-response.md` (user/operator failure response guide)
-- `docs/akmods-fork-maintenance.md` (how to maintain and update the pinned akmods fork source)
-- `docs/zfs-kinoite-testing.md`
+- [`docs/architecture-overview.md`](docs/architecture-overview.md) (high-level architecture: what/why/how)
+- [`docs/upstream-change-response.md`](docs/upstream-change-response.md) (user/operator failure response guide)
+- [`docs/akmods-fork-maintenance.md`](docs/akmods-fork-maintenance.md) (how to maintain and update the pinned akmods fork source)
+- [`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md)
 
 That document is maintained as a living record and will be updated as each hardening issue is addressed.
 
@@ -67,16 +67,16 @@ If candidate fails, stable tags are not updated. That protects users from overni
 
 ## Workflows
 
-- `.github/workflows/build.yml`
+- [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
   - Uses thin shell entry-point scripts that call Python helpers in `ci_tools/` for readable workflow logic.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
-- `.github/workflows/build-beta.yml`
+- [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
   - Runs on branch pushes and manual dispatch.
-- `.github/workflows/build-pr.yml`
+- [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)
   - PR validation build only (`push: false`, unsigned).
 
 Markdown/docs-only changes do not trigger image builds.
@@ -86,7 +86,7 @@ Markdown/docs-only changes do not trigger image builds.
 Issue #3 mitigation adds lock-based replay support:
 
 1. Each main workflow run publishes a `build-inputs-<run_id>` artifact.
-2. To replay a known run, copy those values into `ci/inputs.lock.json`.
+2. To replay a known run, copy those values into [`ci/inputs.lock.json`](ci/inputs.lock.json).
 3. Manually run `Build And Promote Main Image` with:
    - `use_input_lock=true`
    - `build_container_image=<value from lock file>`

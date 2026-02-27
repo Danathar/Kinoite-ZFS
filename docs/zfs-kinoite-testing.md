@@ -19,7 +19,7 @@ This is intentionally designed for iterative validation before adopting any appr
 2. Candidate: a test build/tag created before stable tags are updated.
 3. Stable: the tags users normally consume (`latest` and `main-<fedora>`).
 4. Build inputs artifact: JSON file saved per run that records exact inputs.
-5. Replay/lock mode: manual run mode that uses saved inputs from `ci/inputs.lock.json`.
+5. Replay/lock mode: manual run mode that uses saved inputs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
 
 ## Command Notes
 
@@ -38,15 +38,15 @@ This is intentionally designed for iterative validation before adopting any appr
 
 ## Repository Components
 
-1. `recipes/recipe.yml`
+1. [`recipes/recipe.yml`](../recipes/recipe.yml)
    - Defines the final image (`kinoite-zfs`) and installs ZFS RPMs from a self-hosted akmods image.
-2. `.github/workflows/build.yml`
+2. [`.github/workflows/build.yml`](../.github/workflows/build.yml)
    - Main pipeline: builds candidate artifacts first and promotes to stable only after candidate success.
-3. `.github/workflows/build-beta.yml`
+3. [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml)
    - Branch pipeline: builds/publishes branch-isolated akmods and branch-tagged OS image.
-4. `.github/workflows/build-pr.yml`
+4. [`.github/workflows/build-pr.yml`](../.github/workflows/build-pr.yml)
    - Pull request validation build with no push/signing.
-5. `ci/inputs.lock.json`
+5. [`ci/inputs.lock.json`](../ci/inputs.lock.json)
    - Optional pinned input file used by replay mode for deterministic rebuilds.
 
 ## Artifact Strategy
@@ -73,7 +73,7 @@ Branch artifacts are isolated by both tag and repo name to avoid clobbering main
 The main workflow resolves build inputs in one of two modes:
 
 1. Default mode: resolve floating refs (for example `kinoite-main:latest`) to immutable digests and immutable stream tags at run time.
-2. Replay mode: read pinned inputs from `ci/inputs.lock.json` when `use_input_lock=true`.
+2. Replay mode: read pinned inputs from [`ci/inputs.lock.json`](../ci/inputs.lock.json) when `use_input_lock=true`.
 
 After resolving the base image ref, it reads `ostree.linux` to obtain:
 
@@ -106,7 +106,7 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 
 ### 4. Build Candidate Kinoite Image
 
-`recipes/recipe.yml` and `containerfiles/zfs-akmods/Containerfile` are rewritten in-run to pin base + akmods inputs, then:
+[`recipes/recipe.yml`](../recipes/recipe.yml) and [`containerfiles/zfs-akmods/Containerfile`](../containerfiles/zfs-akmods/Containerfile) are rewritten in-run to pin base + akmods inputs, then:
 
 1. Pins `base-image`/`image-version` to the resolved immutable base tag from input resolution.
 2. Pulls the akmods cache image for the resolved kernel release.
@@ -143,7 +143,7 @@ In practice, this means:
 
 ## Workflow Behavior
 
-### `.github/workflows/build.yml` (Main)
+### [`.github/workflows/build.yml`](../.github/workflows/build.yml) (Main)
 
 Triggers:
 
@@ -157,11 +157,11 @@ Key behavior:
 2. Builds/publishes candidate image.
 3. Promotes candidate artifacts to stable tags only on success.
 4. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-5. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from `ci/inputs.lock.json`.
+5. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
 6. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
 7. Ignores markdown/docs-only changes.
 
-### `.github/workflows/build-beta.yml` (Branch)
+### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
 
 Triggers:
 
@@ -172,11 +172,11 @@ Key behavior:
 
 1. Computes branch-safe image tag and branch-specific akmods repo name.
 2. Builds/publishes branch-isolated akmods cache as needed.
-3. Rewrites `recipes/recipe.yml` in-run to consume branch-scoped akmods source.
+3. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume branch-scoped akmods source.
 4. Builds/publishes branch-tagged image.
 5. Ignores markdown/docs-only changes.
 
-### `.github/workflows/build-pr.yml` (PR Validation)
+### [`.github/workflows/build-pr.yml`](../.github/workflows/build-pr.yml) (PR Validation)
 
 Triggers:
 
@@ -233,8 +233,8 @@ Mitigation implemented:
 
 Where:
 
-1. `.github/workflows/build.yml`
-2. `.github/workflows/build-beta.yml`
+1. [`.github/workflows/build.yml`](../.github/workflows/build.yml)
+2. [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml)
 
 Residual risk:
 
@@ -243,7 +243,7 @@ Residual risk:
 
 Planned follow-up:
 
-1. Maintain fork update process documented in `docs/akmods-fork-maintenance.md`.
+1. Maintain fork update process documented in [`docs/akmods-fork-maintenance.md`](./akmods-fork-maintenance.md).
 
 ## Issue #2: No Compatibility Holdback When Fedora Kernel Jumps Ahead
 
@@ -255,14 +255,14 @@ Problem:
 
 Mitigation implemented:
 
-1. Implemented candidate-first pipeline in `.github/workflows/build.yml`.
+1. Implemented candidate-first pipeline in [`.github/workflows/build.yml`](../.github/workflows/build.yml).
 2. Main workflow now publishes candidate artifacts before touching stable tags.
 3. Added gated promotion job that retags candidate artifacts to stable only when candidate jobs succeed.
 4. Added manual dispatch input `promote_to_stable` for controlled candidate-only runs.
 
 Where:
 
-1. `.github/workflows/build.yml`
+1. [`.github/workflows/build.yml`](../.github/workflows/build.yml)
 
 Residual risk:
 
@@ -284,28 +284,28 @@ Problem:
 
 Mitigation implemented:
 
-1. Added lock replay inputs to `.github/workflows/build.yml` (`use_input_lock`, `lock_file`, `build_container_image`).
+1. Added lock replay inputs to [`.github/workflows/build.yml`](../.github/workflows/build.yml) (`use_input_lock`, `lock_file`, `build_container_image`).
 2. Added deterministic input resolution step that records immutable digests for base image and builder container.
 3. Candidate image flow now pins `base-image`/`image-version` to a resolved immutable base tag, rewrites `AKMODS_IMAGE` to a kernel-matched tag, and validates exact-module presence.
 4. Added build input manifest artifact upload (`build-inputs-<run_id>`) for audit and reproducible reruns.
-5. Added repository lock file `ci/inputs.lock.json` for replay mode.
+5. Added repository lock file [`ci/inputs.lock.json`](../ci/inputs.lock.json) for replay mode.
 6. Akmods build now seeds upstream cache metadata (`cache.json`) from resolved `KERNEL_RELEASE`.
 
 Where:
 
-1. `.github/workflows/build.yml`
-2. `ci/inputs.lock.json`
+1. [`.github/workflows/build.yml`](../.github/workflows/build.yml)
+2. [`ci/inputs.lock.json`](../ci/inputs.lock.json)
 
 Residual risk:
 
 1. Default scheduled/push runs still follow moving upstream inputs by design (to catch breakage early).
-2. Replay mode requires operator discipline to keep `ci/inputs.lock.json` aligned with a selected run artifact.
+2. Replay mode requires operator discipline to keep [`ci/inputs.lock.json`](../ci/inputs.lock.json) aligned with a selected run artifact.
 3. ZFS version is still pinned at minor line unless replay lock sets a different value.
 
 Planned follow-up:
 
 1. Add OCI labels with resolved input metadata to published candidate/stable images.
-2. Add a helper script to auto-sync `ci/inputs.lock.json` from a selected run artifact.
+2. Add a helper script to auto-sync [`ci/inputs.lock.json`](../ci/inputs.lock.json) from a selected run artifact.
 
 ## Issue #4: Runtime Patching Is Operationally Fragile
 
@@ -321,9 +321,9 @@ Mitigation implemented:
 2. Added required dependency fixes directly in fork commit `9d13b6950811cdaae2e8ab748c85c5da35810ae3`:
    - `jq` install in `build_files/zfs/build-kmod-zfs.sh`
    - `python3-cffi` in `build_files/prep/build-prep.sh`
-3. Updated `.github/workflows/build.yml` and `.github/workflows/build-beta.yml` to pin `AKMODS_UPSTREAM_REPO`/`AKMODS_UPSTREAM_REF` to that fork commit.
+3. Updated [`.github/workflows/build.yml`](../.github/workflows/build.yml) and [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) to pin `AKMODS_UPSTREAM_REPO`/`AKMODS_UPSTREAM_REF` to that fork commit.
 4. Removed runtime patch injection logic from both workflows.
-5. Added operator maintenance guide: `docs/akmods-fork-maintenance.md`.
+5. Added operator maintenance guide: [`docs/akmods-fork-maintenance.md`](./akmods-fork-maintenance.md).
 
 Residual risk:
 

@@ -104,7 +104,7 @@ If candidate fails, stable tags are not changed.
 
 ### 5. Replay Mode
 
-For repeatable troubleshooting, manual runs support lock replay using `ci/inputs.lock.json`.
+For repeatable troubleshooting, manual runs support lock replay using [`ci/inputs.lock.json`](../ci/inputs.lock.json).
 
 This lets you rebuild with saved values instead of moving `latest` tags.
 
@@ -139,6 +139,6 @@ Term note used in code/docs:
 
 ## Related Documents
 
-1. Detailed technical runbook and issue log: `docs/zfs-kinoite-testing.md`
-2. Akmods fork update process: `docs/akmods-fork-maintenance.md`
-3. Project quickstart and usage: `README.md`
+1. Detailed technical runbook and issue log: [`docs/zfs-kinoite-testing.md`](./zfs-kinoite-testing.md)
+2. Akmods fork update process: [`docs/akmods-fork-maintenance.md`](./akmods-fork-maintenance.md)
+3. Project quickstart and usage: [`README.md`](../README.md)

@@ -29,7 +29,7 @@ Command quick reference:
 
 This guide covers failures in:
 
-1. `Build And Promote Main Image` (`.github/workflows/build.yml`)
+1. `Build And Promote Main Image` ([`.github/workflows/build.yml`](../.github/workflows/build.yml))
 2. Candidate akmods build
 3. Candidate image build
 4. Promotion to stable tags
@@ -170,11 +170,11 @@ Typical signal:
 
 Likely cause:
 
-1. `ci/inputs.lock.json` missing/invalid or inconsistent with manual dispatch inputs.
+1. [`ci/inputs.lock.json`](../ci/inputs.lock.json) missing/invalid or inconsistent with manual dispatch inputs.
 
 Action:
 
-1. Ensure `ci/inputs.lock.json` exists in the branch being run.
+1. Ensure [`ci/inputs.lock.json`](../ci/inputs.lock.json) exists in the branch being run.
 2. Use `build_container_image` exactly equal to lock file `build_container`.
 3. Verify lock fields are non-empty and not placeholder values.
 
@@ -238,5 +238,5 @@ When opening an issue or documenting an incident, capture:
 
 ## Related Documents
 
-1. High-level architecture: `docs/architecture-overview.md`
-2. Detailed technical runbook and issue log: `docs/zfs-kinoite-testing.md`
+1. High-level architecture: [`docs/architecture-overview.md`](./architecture-overview.md)
+2. Detailed technical runbook and issue log: [`docs/zfs-kinoite-testing.md`](./zfs-kinoite-testing.md)
