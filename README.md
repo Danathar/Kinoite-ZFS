@@ -20,7 +20,7 @@ Why this matters here:
 
 1. Kinoite/Aurora-style systems are image-based and mostly immutable.
 2. You usually do not want ad-hoc module build steps happening directly on every client machine.
-3. Instead, we build and validate matching ZFS kernel modules in our pipeline, then bake those RPMs into the final image.
+3. Instead, we build and validate matching ZFS kernel modules in our pipeline (the ordered set of build/check/publish steps in one workflow run), then bake those RPMs into the final image.
 
 In plain terms, this project is doing:
 
