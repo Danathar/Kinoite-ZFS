@@ -84,7 +84,7 @@ If you want the full technical design and workflow details, read:
 - [`docs/akmods-fork-maintenance.md`](docs/akmods-fork-maintenance.md) (how to maintain and update the pinned akmods fork source)
 - [`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md)
 
-That document is maintained as a living record and will be updated as each hardening issue is addressed.
+[`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md) is maintained as a living record and is updated as each hardening issue is addressed.
 
 ## What Gets Published
 
