@@ -20,6 +20,14 @@ Quick terms used in this repo:
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
 - `image ref`: text that points to a container image, usually `name:tag` (moving) or `name@sha256:digest` (exact).
 
+Common commands used in docs:
+
+- `gh`: GitHub CLI. Used to list runs, inspect jobs, and download run files.
+- `skopeo`: reads/copies container images without running them.
+- `jq`: reads and filters JSON output.
+- `rpm-ostree`: manages package layering/rebase on atomic Fedora systems (like Kinoite).
+- `cosign`: verifies container image signatures.
+
 If you want the full technical design and workflow details, read:
 
 - `docs/architecture-overview.md` (high-level architecture: what/why/how)

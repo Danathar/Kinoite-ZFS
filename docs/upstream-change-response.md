@@ -18,6 +18,13 @@ Quick terms:
 5. Build-inputs artifact: JSON file with exact run inputs.
 6. Lock replay: rerun using saved inputs from a previous run.
 
+Command quick reference:
+
+1. `gh` (GitHub CLI): inspect workflow runs, jobs, and logs.
+2. `skopeo`: inspect/copy container images directly (without running a container).
+3. `jq`: parse and filter JSON output from `gh` and `skopeo`.
+4. `rpm-ostree`: show/manage OS package state on atomic systems.
+
 ## Scope
 
 This guide covers failures in:
@@ -40,18 +47,21 @@ This guide covers failures in:
 Run:
 
 ```bash
+# List recent workflow runs.
 gh run list --limit 20 --json databaseId,workflowName,event,status,conclusion,displayTitle,createdAt
 ```
 
 For the specific run:
 
 ```bash
+# Show status, result, and jobs for one run.
 gh run view <RUN_ID> --json status,conclusion,event,jobs,url --jq '.'
 ```
 
 If you need full logs:
 
 ```bash
+# Download combined logs for a run.
 gh run view <RUN_ID> --log
 ```
 
@@ -60,7 +70,9 @@ gh run view <RUN_ID> --log
 Candidate failure should not move stable tags. Verify directly:
 
 ```bash
+# Check stable image digest and kernel label.
 skopeo inspect docker://ghcr.io/danathar/kinoite-zfs:latest | jq -r '.Digest,.Labels["ostree.linux"]'
+# Check stable akmods digest.
 skopeo inspect docker://ghcr.io/danathar/akmods-zfs:main-43 | jq -r '.Digest'
 ```
 
@@ -75,7 +87,9 @@ Each main run uploads a `build-inputs-<run_id>` artifact.
 Download and inspect:
 
 ```bash
+# Download the build-inputs file from this run.
 gh run download <RUN_ID> -n build-inputs-<RUN_ID> -D /tmp/build-inputs-<RUN_ID>
+# Pretty-print the JSON file.
 jq . /tmp/build-inputs-<RUN_ID>/build-inputs.json
 ```
 

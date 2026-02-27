@@ -21,6 +21,14 @@ This is intentionally designed for iterative validation before adopting any appr
 4. Build inputs artifact: JSON file saved per run that records exact inputs.
 5. Replay/lock mode: manual run mode that uses saved inputs from `ci/inputs.lock.json`.
 
+## Command Notes
+
+1. `gh`: GitHub CLI for workflow runs/logs/artifacts.
+2. `skopeo`: inspect/copy container images directly.
+3. `jq`: parse JSON output from CLI commands.
+4. `rpm-ostree`: package/rebase management on atomic Fedora systems.
+5. `depmod`: rebuild kernel module dependency metadata for a target kernel.
+
 ## Constraints And Context
 
 1. Kinoite uses immutable/ostree workflows, so custom kernel module integration must happen during image build.
