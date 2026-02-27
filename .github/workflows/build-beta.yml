@@ -104,6 +104,7 @@ jobs:
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
+          AKMODS_KERNEL: ${{ needs.prepare-branch-metadata.outputs.akmods_tag_prefix }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
           AKMODS_DESCRIPTION: A branch-scoped caching layer for pre-built zfs akmod RPMs
         run: |

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from ci_tools.common import CiToolError, normalize_owner, require_env, run_cmd
+from ci_tools.common import CiToolError, normalize_owner, optional_env, require_env, run_cmd
 
 
 AKMODS_WORKTREE = Path("/tmp/akmods")
@@ -13,6 +13,10 @@ IMAGES_YAML = AKMODS_WORKTREE / "images.yaml"
 def main() -> None:
     # Inputs passed from workflow env.
     fedora_version = require_env("FEDORA_VERSION")
+    # In upstream akmods tooling, this value is the "kernel flavor" key in
+    # images.yaml (for example `main`).
+    # Branch workflows can set a branch-safe value so branch tags stay isolated.
+    akmods_kernel = optional_env("AKMODS_KERNEL", "main")
     akmods_repo = require_env("AKMODS_REPO")
     akmods_description = require_env("AKMODS_DESCRIPTION")
     # Normalize owner means: convert to lowercase for consistent registry paths.
@@ -26,15 +30,16 @@ def main() -> None:
     # `yq` uses `strenv(NAME)` to read values from environment variables.
     # We set them explicitly here so the expression below is easy to read.
     os.environ["FEDORA_VERSION"] = fedora_version
+    os.environ["AKMODS_KERNEL"] = akmods_kernel
     os.environ["IMAGE_ORG"] = image_org
     os.environ["AKMODS_REPO"] = akmods_repo
     os.environ["AKMODS_DESCRIPTION"] = akmods_description
 
     # This updates one target block in images.yaml:
-    # images.<fedora>.main.zfs = {...}
+    # images.<fedora>.<akmods_kernel>.zfs = {...}
     # The goal is to tell akmods exactly where to publish the ZFS cache image.
     yq_expression = """
-      .images[strenv(FEDORA_VERSION)].main.zfs = {
+      .images[strenv(FEDORA_VERSION)][strenv(AKMODS_KERNEL)].zfs = {
         "org": strenv(IMAGE_ORG),
         "registry": "ghcr.io",
         "repo": "akmods",
@@ -49,7 +54,7 @@ def main() -> None:
 
     # Print final block so logs show the effective output destination.
     updated_block = run_cmd(
-        ["yq", f'.images["{fedora_version}"].main.zfs', str(IMAGES_YAML)],
+        ["yq", f'.images["{fedora_version}"]["{akmods_kernel}"].zfs', str(IMAGES_YAML)],
     ).strip()
     if updated_block:
         print(updated_block)
