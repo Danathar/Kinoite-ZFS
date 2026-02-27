@@ -122,8 +122,8 @@ If you want the full technical design and workflow details, read:
   - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 - Branch test image:
   - `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
-- Branch akmods build cache (branch-private source):
-  - `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
+- Shared akmods source tag used by branch alias step:
+  - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 - Branch akmods compose alias (branch-scoped public tag):
   - `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
 
@@ -148,7 +148,8 @@ If candidate fails, stable tags are not updated. That protects users from overni
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
-  - Compose step supports authenticated pulls for branch-private akmods repos when credentials are available in the build environment.
+  - Copies shared akmods source tags into branch-scoped public alias tags in `akmods-zfs-candidate` for compose.
+  - Rebuilds shared akmods tags only as a fallback path when the expected source tag is missing.
   - Runs on branch pushes and manual dispatch.
 - [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)
   - PR validation build only (`push: false`, unsigned).

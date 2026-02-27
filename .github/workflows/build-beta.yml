@@ -72,13 +72,16 @@ jobs:
         run: |
           python3 -m ci_tools.cli beta-detect-fedora-version
 
-      - name: Check for existing branch-scoped self-hosted zfs akmods image
+      - name: Check for existing shared self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
-          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
+          # We check that shared source tag here so branch runs do not rebuild
+          # unnecessarily and then fail looking for a non-existent branch repo tag.
+          AKMODS_REPO: akmods-zfs
         run: |
           python3 -m ci_tools.cli beta-check-branch-akmods-cache
 
@@ -92,7 +95,7 @@ jobs:
         run: |
           python3 -m ci_tools.cli akmods-clone-pinned
 
-      - name: Configure zfs target in branch-scoped namespace
+      - name: Configure zfs target in shared namespace (fallback rebuild path)
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         # Namespace here means the owner/org segment in GHCR image paths
         # (for example `danathar` in `ghcr.io/danathar/...`).
@@ -100,12 +103,12 @@ jobs:
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
-          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
-          AKMODS_DESCRIPTION: A branch-scoped caching layer for pre-built zfs akmod RPMs
+          AKMODS_REPO: akmods-zfs
+          AKMODS_DESCRIPTION: Shared caching layer for pre-built zfs akmod RPMs
         run: |
           python3 -m ci_tools.cli akmods-configure-zfs-target
 
-      - name: Build and publish branch-scoped self-hosted zfs akmods image
+      - name: Build and publish shared self-hosted zfs akmods image (fallback)
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
@@ -124,12 +127,13 @@ jobs:
 
       - name: Publish branch cache alias in candidate repo
         # Compose runs in a separate build environment that may not be able to
-        # read private branch repos directly. We copy to a branch-scoped tag in
-        # the public candidate repo so compose can pull reliably.
+        # read private repos directly. We copy from the shared akmods source tag
+        # to a branch-scoped tag in the public candidate repo so compose can pull
+        # reliably without touching stable tags.
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
-          SOURCE_AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          SOURCE_AKMODS_REPO: akmods-zfs
           DEST_AKMODS_REPO: akmods-zfs-candidate
           DEST_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
           REGISTRY_ACTOR: ${{ github.actor }}

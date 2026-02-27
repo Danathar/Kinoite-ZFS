@@ -26,7 +26,7 @@ This keeps workflow logic readable and avoids extra wrapper layers.
 | Promote candidate image and akmods cache to stable tags | `main-promote-stable` | `ci_tools.main_promote_stable` |
 | Compute branch-safe image and akmods names | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
 | Detect Fedora major version for Kinoite latest | `beta-detect-fedora-version` | `ci_tools.beta_detect_fedora_version` |
-| Check for existing branch-scoped self-hosted zfs akmods image | `beta-check-branch-akmods-cache` | `ci_tools.beta_check_branch_akmods_cache` |
+| Check for existing shared self-hosted zfs akmods image tag | `beta-check-branch-akmods-cache` | `ci_tools.beta_check_branch_akmods_cache` |
 | Publish branch akmods alias tag in candidate repo | `beta-publish-branch-akmods-alias` | `ci_tools.beta_publish_branch_akmods_alias` |
 | Set branch akmods source in recipe | `beta-configure-branch-recipe` | `ci_tools.beta_configure_branch_recipe` |
 | Clone upstream akmods tooling | `akmods-clone-pinned` | `ci_tools.akmods_clone_pinned` |

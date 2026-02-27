@@ -5,8 +5,9 @@ from ci_tools.common import normalize_owner, require_env, skopeo_copy
 
 def main() -> None:
     # Inputs from the branch workflow step.
-    # `SOURCE_AKMODS_REPO` is the branch-private repo that akmods build/push wrote.
-    # `DEST_AKMODS_REPO` is the shared public repo used by image compose.
+    # `SOURCE_AKMODS_REPO` is the shared source repo that already contains
+    # kernel-matched akmods tags (for example `akmods-zfs:main-43`).
+    # `DEST_AKMODS_REPO` is the public repo used by branch compose.
     fedora_version = require_env("FEDORA_VERSION")
     source_akmods_repo = require_env("SOURCE_AKMODS_REPO")
     dest_akmods_repo = require_env("DEST_AKMODS_REPO")

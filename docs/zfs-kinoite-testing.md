@@ -65,10 +65,10 @@ This is intentionally designed for iterative validation before adopting any appr
 ### Branch Artifacts
 
 1. OS image: `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
-2. Branch-private akmods build source: `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
+2. Shared akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 3. Branch-scoped public compose alias: `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
 
-Branch artifacts are isolated by both repo and tag naming to avoid clobbering main caches.
+Branch artifacts are isolated at the image tag level and at the branch alias tag level in candidate repo, so test images do not overwrite stable image tags.
 
 ## End-To-End Build Flow
 
@@ -175,12 +175,13 @@ Triggers:
 
 Key behavior:
 
-1. Computes branch-safe image tag and branch-specific akmods repo name.
-2. Builds/publishes branch-isolated akmods cache as needed.
-3. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
-4. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume that branch-scoped alias tag.
-5. Builds/publishes branch-tagged image.
-6. Ignores markdown/docs-only changes.
+1. Computes branch-safe image tag.
+2. Checks for shared akmods source tag `akmods-zfs:main-<fedora>`.
+3. Rebuilds shared akmods source only as a fallback if that source tag is missing.
+4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
+5. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume that branch-scoped alias tag.
+6. Builds/publishes branch-tagged image.
+7. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-pr.yml`](../.github/workflows/build-pr.yml) (PR Validation)
 
