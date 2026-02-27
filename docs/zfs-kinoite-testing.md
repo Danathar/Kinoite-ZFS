@@ -27,7 +27,7 @@ This is intentionally designed for iterative validation before adopting any appr
 1. `gh`: GitHub CLI for workflow runs/logs/artifacts.
 2. `skopeo`: inspect/copy container images directly.
 3. `jq`: parse JSON output from CLI commands.
-4. `rpm-ostree`: package/rebase management on atomic Fedora systems.
+4. `rpm-ostree`: package/rebase management on atomic Fedora systems. Rebase means switching the installed OS image source ref.
 5. `depmod`: rebuild kernel module dependency metadata for a target kernel.
 
 ## Constraints And Context
@@ -367,7 +367,7 @@ Planned follow-up:
 
 Assume VM has a secondary blank disk at `/dev/vdb`.
 
-1. Rebase to test image.
+1. Rebase to test image (switch the VM to boot from the test image ref).
 2. Reboot.
 3. Validate package/module visibility.
 4. Create a non-root-mounted test dataset.

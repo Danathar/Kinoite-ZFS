@@ -81,6 +81,7 @@ Quick terms used in this repo:
 - `tag`: a human-readable label on an image, like `latest` or `main-43`.
 - `image ref`: text that points to a container image, usually `name:tag` or `name@sha256:digest`.
 - `namespace` (registry namespace): the owner/org part of an image path, for example `danathar` in `ghcr.io/danathar/kinoite-zfs`.
+- `rebase` / `rebasing` (rpm-ostree): switching your installed OS image source to a different container image ref/tag.
 - `floating ref` / `floating latest ref`: a tag-based ref (for example `:latest`) that can point to a different image later without changing its text.
 - `digest-pinned ref`: an exact image pointer like `name@sha256:...`; this does not move to a different image unless you change the digest value.
 - `tag vs digest-pinned` (plain language): a tag is a moving signpost, while a digest is an exact snapshot.
@@ -169,6 +170,8 @@ This allows you to rebuild with pinned base image/build container inputs instead
 > This is an experimental image stream for testing.
 
 Rebase in two steps so signing policies are available:
+
+Here, "rebase" means "tell rpm-ostree to switch this machine to boot from a new image reference."
 
 ```bash
 rpm-ostree rebase ostree-unverified-registry:ghcr.io/danathar/kinoite-zfs:latest

@@ -69,7 +69,7 @@ git rev-parse HEAD
    - Run `Build And Promote Main Image` with:
      - `rebuild_akmods=true`
      - `promote_to_stable=false`
-   - Rebase a VM to the produced image and run runtime ZFS checks.
+   - Rebase a VM to the produced image (switch the VM to boot from that image ref) and run runtime ZFS checks.
 
 8. After validation, run promotion (`promote_to_stable=true`) and then merge.
 

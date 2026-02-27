@@ -19,6 +19,7 @@ Quick terms:
 6. Lock replay: rerun using saved inputs from a previous run.
 7. Fail closed: stop with an explicit error when required candidate inputs are missing, rather than silently reusing old stable inputs.
 8. Stale module (or stale kmod): a module package built for an older kernel than the kernel in the current base image.
+9. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
 
 Command quick reference:
 

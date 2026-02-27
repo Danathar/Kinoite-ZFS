@@ -37,6 +37,7 @@ This repo's pipeline is designed around that exact problem.
 8. Stale module (or stale kmod): a module built for an older kernel than the kernel this run is building against.
 9. Namespace: the owner/org part of an image path (example: `danathar` in `ghcr.io/danathar/kinoite-zfs`).
 10. Fedora/kernel stream: the moving sequence of new kernel versions published over time.
+11. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
 
 ## Beginner Primer: Akmods On Atomic Images
 
