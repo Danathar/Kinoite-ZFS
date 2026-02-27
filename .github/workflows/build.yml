@@ -139,7 +139,7 @@ jobs:
           python3 -m ci_tools.cli main-write-build-inputs-manifest
 
       - name: Upload build inputs manifest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           # One input snapshot per run. You can copy it into `ci/inputs.lock.json`.
           name: build-inputs-${{ github.run_id }}
