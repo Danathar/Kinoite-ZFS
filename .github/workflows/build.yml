@@ -203,6 +203,7 @@ jobs:
           python3 -m ci_tools.cli akmods-build-and-publish
 
       - name: Publish candidate akmods alias tags
+        # Compose step means the candidate image build step (`Build Candidate Image`).
         # Candidate compose/promotion read from `akmods-zfs-candidate`.
         # We copy shared source tags into candidate tags every run so the
         # candidate boundary stays explicit even when upstream push names are fixed.

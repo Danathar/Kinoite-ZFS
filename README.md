@@ -77,6 +77,8 @@ Quick terms used in this repo:
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
 - `workflow run`: one execution of a GitHub Actions workflow from start to finish (one run has its own run ID and logs).
 - `pipeline`: the ordered set of jobs/steps in a workflow run (for example: resolve inputs -> build candidate -> promote stable).
+- `compose` / `compose step`: the image build step that combines the base image + configured modules/packages into the final publishable image.
+- `package visibility` (registry): who can read a container package/tag. This is separate from source repo visibility, so a public code repo can still have package paths that require auth.
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
 - `Fedora stream` / `kernel stream`: the ongoing flow of new kernel releases in Fedora over time (for example one nightly run may see a newer kernel than yesterday).
 - `tag`: a human-readable label on an image, like `latest` or `main-43`.
@@ -142,14 +144,14 @@ If candidate fails, stable tags are not updated. That protects users from overni
 
 - [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
-  - Copies shared akmods source tags into candidate akmods tags before candidate compose and promotion.
+  - Copies shared akmods source tags into candidate akmods tags before candidate compose (candidate image build step) and promotion.
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
   - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
-  - Copies shared akmods source tags into branch-scoped public alias tags in `akmods-zfs-candidate` for compose.
+  - Copies shared akmods source tags into branch-scoped public alias tags in `akmods-zfs-candidate` for compose (branch image build step).
   - Fails closed if shared akmods source tags are missing/stale (so test branches do not mutate shared cache tags).
   - Runs on branch pushes and manual dispatch.
 - [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)

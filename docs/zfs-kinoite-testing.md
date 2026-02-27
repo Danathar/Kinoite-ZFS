@@ -23,6 +23,8 @@ This is intentionally designed for iterative validation before adopting any appr
 6. Build inputs artifact: JSON file saved per run that records exact inputs.
 7. Replay/lock mode: manual run mode that uses saved inputs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
 8. Fedora/kernel stream: the moving sequence of new kernel releases over time.
+9. Compose (or compose step): the image build stage that combines the base image plus selected modules/packages into the final image output.
+10. Package visibility (registry): who can read a container package/tag. This is separate from source repo visibility.
 
 ## Command Notes
 
@@ -66,7 +68,7 @@ This is intentionally designed for iterative validation before adopting any appr
 
 1. OS image: `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
 2. Shared akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
-3. Branch-scoped public compose alias: `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
+3. Branch-scoped public compose alias (the alias tag read by the branch compose step): `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
 
 Branch artifacts are isolated at the image tag level and at the branch alias tag level in candidate repo, so test images do not overwrite stable image tags.
 
@@ -108,7 +110,7 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 3. Injects the ZFS image target under this repo owner namespace (the owner/org part of the image path, like `danathar` in `ghcr.io/danathar/...`).
 4. Seeds upstream akmods cache metadata with the resolved `KERNEL_RELEASE`.
 5. Builds and publishes kernel-matched shared akmods tags.
-6. Copies those shared tags into candidate alias tags before candidate compose/promotion.
+6. Copies those shared tags into candidate alias tags before candidate compose (candidate image build stage)/promotion.
 
 ### 4. Build Candidate Kinoite Image
 

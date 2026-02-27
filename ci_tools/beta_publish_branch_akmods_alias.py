@@ -8,6 +8,9 @@ def main() -> None:
     # `SOURCE_AKMODS_REPO` is the shared source repo that already contains
     # kernel-matched akmods tags (for example `akmods-zfs:main-43`).
     # `DEST_AKMODS_REPO` is the public repo used by branch compose.
+    # Compose step here means the branch image build stage.
+    # Note: source-code repo visibility and container package visibility are
+    # separate. We use this alias copy so compose reads a known accessible tag.
     fedora_version = require_env("FEDORA_VERSION")
     source_akmods_repo = require_env("SOURCE_AKMODS_REPO")
     dest_akmods_repo = require_env("DEST_AKMODS_REPO")

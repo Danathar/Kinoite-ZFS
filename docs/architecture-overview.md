@@ -40,6 +40,8 @@ This repo's pipeline is designed around that exact problem.
 11. Namespace: the owner/org part of an image path (example: `danathar` in `ghcr.io/danathar/kinoite-zfs`).
 12. Fedora/kernel stream: the moving sequence of new kernel versions published over time.
 13. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
+14. Compose (or compose step): the image build stage that combines base image plus configured modules/packages into the final image output.
+15. Package visibility (registry): who can read a container package/tag; this can differ from source repo visibility.
 
 ## Beginner Primer: Akmods On Atomic Images
 
@@ -120,7 +122,7 @@ This avoids publishing images with outdated kernel modules.
 
 ### 3. Candidate Image Build
 
-The workflow rewrites recipe/containerfile inputs before candidate compose to:
+The workflow rewrites recipe/containerfile inputs before candidate compose (candidate image build stage) to:
 
 1. Pin `base-image` + `image-version` to the resolved immutable base tag for this run.
 2. Use a kernel-matched akmods tag (`main-<fedora>-<kernel_release>`).

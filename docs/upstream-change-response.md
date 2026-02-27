@@ -22,6 +22,8 @@ Quick terms:
 9. Fail closed: stop with an explicit error when required candidate inputs are missing, rather than silently reusing old stable inputs.
 10. Stale module (or stale kmod): a module package built for an older kernel than the kernel in the current base image.
 11. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
+12. Compose (or compose step): the image build stage that combines base image plus selected modules/packages into the final image output.
+13. Package visibility (registry): who can read a container package/tag; this can differ from source repo visibility.
 
 Command quick reference:
 

@@ -83,10 +83,14 @@ jobs:
           exit 1
 
       - name: Publish branch cache alias in candidate repo
-        # Compose runs in a separate build environment that may not be able to
-        # read private repos directly. We copy from the shared akmods source tag
-        # to a branch-scoped tag in the public candidate repo so compose can pull
-        # reliably without touching stable tags.
+        # Compose step means the final image build step below (`Build Custom Image`).
+        # That compose step runs in a separate build environment that may not be able to
+        # read every container package/tag path anonymously.
+        # Important: source-code repo visibility and container package visibility
+        # are separate settings. A public code repo can still have package tags
+        # that require authentication in some build contexts.
+        # We copy from shared source tag to a branch-scoped tag in candidate repo
+        # so compose can pull reliably without touching stable tags.
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}

@@ -22,6 +22,7 @@ def main() -> None:
     # Inputs from workflow env.
     # - source repo: where akmods build actually published tags
     # - destination repo: candidate repo used by candidate compose/promotion
+    # Compose step here means the candidate image build stage.
     fedora_version = require_env("FEDORA_VERSION")
     kernel_release = require_env("KERNEL_RELEASE")
     source_akmods_repo = require_env("SOURCE_AKMODS_REPO")
