@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# Thin wrapper: run the Python implementation for readability and testability.
+# Thin wrapper: call the shared Python CLI entrypoint.
 set -euo pipefail
-exec python3 -m ci_tools.beta_detect_fedora_version
+exec python3 -m ci_tools.cli beta-detect-fedora-version

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# Thin wrapper: run the Python implementation for readability and testability.
+# Thin wrapper: call the shared Python CLI entrypoint.
 set -euo pipefail
-exec python3 -m ci_tools.main_check_candidate_akmods_cache
+exec python3 -m ci_tools.cli main-check-candidate-akmods-cache
