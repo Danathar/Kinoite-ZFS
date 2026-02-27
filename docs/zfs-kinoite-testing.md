@@ -190,6 +190,11 @@ Key behavior:
 
 ## Kernel Compatibility Risk Handling
 
+Real-world discussion context:
+
+1. https://github.com/ublue-os/aurora/issues/1765
+2. https://github.com/ublue-os/aurora/issues/1765#issuecomment-3967188245
+
 When Fedora kernel updates faster than OpenZFS support:
 
 1. Akmods build can fail at build stage.

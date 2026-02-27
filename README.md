@@ -32,6 +32,31 @@ In plain terms, this project is doing:
 So the safety model is: test first, then promote.
 If something upstream changes and breaks compatibility, candidate fails and stable does not move.
 
+## Current Ecosystem Issue (Aurora/Kinoite/Silverblue Context)
+
+Based on the Aurora discussion here:
+- https://github.com/ublue-os/aurora/issues/1765
+- https://github.com/ublue-os/aurora/issues/1765#issuecomment-3967188245
+
+The core issue is not "immutability is broken." The main issue is version timing:
+
+1. Fedora-family systems move kernels forward quickly.
+2. ZFS is an out-of-tree kernel module, so it needs upstream OpenZFS support for each new kernel series.
+3. There can be a time gap between "new kernel shipped" and "matching ZFS support/release available."
+4. During that gap, image projects must choose between:
+   - holding back kernels,
+   - delaying ZFS-enabled image updates,
+   - or removing/relaxing ZFS support.
+
+What this repo does to handle that gap:
+
+1. Resolve exact base-image/kernel inputs for each run.
+2. Check whether cached ZFS modules match that exact kernel release.
+3. Rebuild modules when they do not match.
+4. Build candidate images first and only promote to stable when candidate succeeds.
+
+This does not eliminate upstream timing gaps, but it prevents silently shipping mismatched kernel/module combinations in this image stream.
+
 Quick terms used in this repo:
 
 - `CI`: the GitHub Actions workflows in `.github/workflows`.

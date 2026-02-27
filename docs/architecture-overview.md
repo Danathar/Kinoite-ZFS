@@ -4,6 +4,22 @@
 
 This project provides a controlled way to run ZFS on Kinoite while reducing the risk of breakage from upstream kernel changes.
 
+## Real-World Context
+
+Discussion reference:
+
+1. https://github.com/ublue-os/aurora/issues/1765
+2. https://github.com/ublue-os/aurora/issues/1765#issuecomment-3967188245
+
+Beginner summary:
+
+1. The hard part is kernel timing, not simply "immutable images."
+2. Fedora-family images move kernels quickly.
+3. ZFS is out-of-tree, so OpenZFS support can lag new kernels.
+4. That timing gap creates risk of module mismatch unless builds are gated carefully.
+
+This repo's pipeline is designed around that exact problem.
+
 ## Quick Terms
 
 1. Candidate: a test build. It is built first and checked before anything is marked stable.
