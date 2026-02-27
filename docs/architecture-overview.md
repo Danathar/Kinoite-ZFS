@@ -144,14 +144,14 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 
 ## Implementation Note: Workflow Scripts
 
-Workflow entry-point scripts under `.github/scripts/main`, `.github/scripts/beta`, and `.github/scripts/akmods` are thin shell wrappers.
+Workflow jobs call Python commands directly (`python3 -m ci_tools.cli <command>`).
 The behavior lives in Python modules under `ci_tools/`.
 
 Why this setup:
 
 1. Keep workflow YAML focused on job wiring.
 2. Keep logic in code that is easier to read and unit-test.
-3. Preserve existing workflow step paths (`.sh` files) so workflow YAML stays stable.
+3. Keep workflow command dispatch centralized in one CLI entrypoint.
 
 Term note used in code/docs:
 

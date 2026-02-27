@@ -114,7 +114,7 @@ jobs:
           DEFAULT_ZFS_MINOR_VERSION: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
           DEFAULT_AKMODS_REF: ${{ env.AKMODS_UPSTREAM_REF }}
         run: |
-          ./.github/scripts/main/resolve-build-inputs.sh
+          python3 -m ci_tools.cli main-resolve-build-inputs
 
       - name: Write build inputs manifest
         shell: bash
@@ -134,7 +134,7 @@ jobs:
           USE_INPUT_LOCK: ${{ steps.inputs.outputs.use_input_lock }}
           LOCK_FILE_PATH: ${{ steps.inputs.outputs.lock_file_path }}
         run: |
-          ./.github/scripts/main/write-build-inputs-manifest.sh
+          python3 -m ci_tools.cli main-write-build-inputs-manifest
 
       - name: Upload build inputs manifest
         uses: actions/upload-artifact@v6
@@ -152,7 +152,7 @@ jobs:
           CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
-          ./.github/scripts/main/check-candidate-akmods-cache.sh
+          python3 -m ci_tools.cli main-check-candidate-akmods-cache
 
       - name: Clone upstream akmods tooling
         # Rebuild when scheduled, manually forced, or cache is missing/outdated.
@@ -162,7 +162,7 @@ jobs:
           AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
           AKMODS_UPSTREAM_REF: ${{ steps.inputs.outputs.akmods_upstream_ref }}
         run: |
-          ./.github/scripts/akmods/clone-pinned-akmods.sh
+          python3 -m ci_tools.cli akmods-clone-pinned
 
       - name: Configure candidate zfs target in self-hosted namespace
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
@@ -173,7 +173,7 @@ jobs:
           AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           AKMODS_DESCRIPTION: Candidate caching layer for pre-built zfs akmod RPMs
         run: |
-          ./.github/scripts/akmods/configure-zfs-target.sh
+          python3 -m ci_tools.cli akmods-configure-zfs-target
 
       - name: Build and publish candidate self-hosted zfs akmods image
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
@@ -191,7 +191,7 @@ jobs:
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
-          ./.github/scripts/akmods/build-and-publish.sh
+          python3 -m ci_tools.cli akmods-build-and-publish
 
   bluebuild-candidate:
     name: Build Candidate Image
@@ -216,7 +216,7 @@ jobs:
           # Candidate image build pulls from these akmods tags.
           AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
-          ./.github/scripts/main/configure-candidate-recipe.sh
+          python3 -m ci_tools.cli main-configure-candidate-recipe
 
       - name: Build Candidate Image
         uses: blue-build/github-action@v1.11.0
@@ -263,4 +263,4 @@ jobs:
           CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
-          ./.github/scripts/main/promote-stable.sh
+          python3 -m ci_tools.cli main-promote-stable

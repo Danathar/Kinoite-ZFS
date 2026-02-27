@@ -132,7 +132,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
 - [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
-  - Uses thin shell entry-point scripts that call Python helpers in `ci_tools/` for readable workflow logic.
+  - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)

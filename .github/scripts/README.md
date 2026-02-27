@@ -1,13 +1,11 @@
-# Workflow Script Layout
+# Workflow Command Map
 
-These files are workflow entry points.
-
-Each `.sh` file is now a thin wrapper that calls one shared Python CLI entrypoint:
+Workflows now call Python directly with one shared entrypoint:
 
 - `python3 -m ci_tools.cli <command>`
 
-The CLI then dispatches to the real module in [`ci_tools/`](../../ci_tools).
-This keeps workflow logic readable, testable, and easier to maintain.
+The CLI dispatches to the real module in [`ci_tools/`](../../ci_tools).
+This keeps workflow logic readable and avoids extra wrapper layers.
 
 ## Quick Terms
 
@@ -18,20 +16,20 @@ This keeps workflow logic readable, testable, and easier to maintain.
 
 ## Step Mapping Table
 
-| Workflow step (example) | Shell entrypoint | CLI command | Python module |
-|---|---|---|---|
-| Resolve build inputs (latest mode or lock replay mode) | [`.github/scripts/main/resolve-build-inputs.sh`](./main/resolve-build-inputs.sh) | `main-resolve-build-inputs` | `ci_tools.main_resolve_build_inputs` |
-| Write build inputs manifest | [`.github/scripts/main/write-build-inputs-manifest.sh`](./main/write-build-inputs-manifest.sh) | `main-write-build-inputs-manifest` | `ci_tools.main_write_build_inputs_manifest` |
-| Check for existing candidate self-hosted zfs akmods image | [`.github/scripts/main/check-candidate-akmods-cache.sh`](./main/check-candidate-akmods-cache.sh) | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
-| Set kernel-matched akmods source and pin base tag in recipe | [`.github/scripts/main/configure-candidate-recipe.sh`](./main/configure-candidate-recipe.sh) | `main-configure-candidate-recipe` | `ci_tools.main_configure_candidate_recipe` |
-| Promote candidate image and akmods cache to stable tags | [`.github/scripts/main/promote-stable.sh`](./main/promote-stable.sh) | `main-promote-stable` | `ci_tools.main_promote_stable` |
-| Compute branch-safe image and akmods names | [`.github/scripts/beta/compute-branch-metadata.sh`](./beta/compute-branch-metadata.sh) | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
-| Detect Fedora major version for Kinoite latest | [`.github/scripts/beta/detect-fedora-version.sh`](./beta/detect-fedora-version.sh) | `beta-detect-fedora-version` | `ci_tools.beta_detect_fedora_version` |
-| Check for existing branch-scoped self-hosted zfs akmods image | [`.github/scripts/beta/check-branch-akmods-cache.sh`](./beta/check-branch-akmods-cache.sh) | `beta-check-branch-akmods-cache` | `ci_tools.beta_check_branch_akmods_cache` |
-| Set branch image tag and branch akmods source in recipe | [`.github/scripts/beta/configure-branch-recipe.sh`](./beta/configure-branch-recipe.sh) | `beta-configure-branch-recipe` | `ci_tools.beta_configure_branch_recipe` |
-| Clone upstream akmods tooling | [`.github/scripts/akmods/clone-pinned-akmods.sh`](./akmods/clone-pinned-akmods.sh) | `akmods-clone-pinned` | `ci_tools.akmods_clone_pinned` |
-| Configure zfs target in branch/candidate namespace | [`.github/scripts/akmods/configure-zfs-target.sh`](./akmods/configure-zfs-target.sh) | `akmods-configure-zfs-target` | `ci_tools.akmods_configure_zfs_target` |
-| Build and publish self-hosted zfs akmods image | [`.github/scripts/akmods/build-and-publish.sh`](./akmods/build-and-publish.sh) | `akmods-build-and-publish` | `ci_tools.akmods_build_and_publish` |
+| Workflow step (example) | CLI command | Python module |
+|---|---|---|
+| Resolve build inputs (latest mode or lock replay mode) | `main-resolve-build-inputs` | `ci_tools.main_resolve_build_inputs` |
+| Write build inputs manifest | `main-write-build-inputs-manifest` | `ci_tools.main_write_build_inputs_manifest` |
+| Check for existing candidate self-hosted zfs akmods image | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
+| Set kernel-matched akmods source and pin base tag in recipe | `main-configure-candidate-recipe` | `ci_tools.main_configure_candidate_recipe` |
+| Promote candidate image and akmods cache to stable tags | `main-promote-stable` | `ci_tools.main_promote_stable` |
+| Compute branch-safe image and akmods names | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
+| Detect Fedora major version for Kinoite latest | `beta-detect-fedora-version` | `ci_tools.beta_detect_fedora_version` |
+| Check for existing branch-scoped self-hosted zfs akmods image | `beta-check-branch-akmods-cache` | `ci_tools.beta_check_branch_akmods_cache` |
+| Set branch image tag and branch akmods source in recipe | `beta-configure-branch-recipe` | `ci_tools.beta_configure_branch_recipe` |
+| Clone upstream akmods tooling | `akmods-clone-pinned` | `ci_tools.akmods_clone_pinned` |
+| Configure zfs target in branch/candidate namespace | `akmods-configure-zfs-target` | `ci_tools.akmods_configure_zfs_target` |
+| Build and publish self-hosted zfs akmods image | `akmods-build-and-publish` | `ci_tools.akmods_build_and_publish` |
 
 ## Containerfile Note
 

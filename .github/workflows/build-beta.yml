@@ -48,7 +48,7 @@ jobs:
         id: branch
         shell: bash
         run: |
-          ./.github/scripts/beta/compute-branch-metadata.sh
+          python3 -m ci_tools.cli beta-compute-branch-metadata
 
   build-zfs-akmods:
     name: Build Self-Hosted ZFS Akmods (branch)
@@ -68,7 +68,7 @@ jobs:
         id: fedora
         shell: bash
         run: |
-          ./.github/scripts/beta/detect-fedora-version.sh
+          python3 -m ci_tools.cli beta-detect-fedora-version
 
       - name: Check for existing branch-scoped self-hosted zfs akmods image
         id: akmods
@@ -78,7 +78,7 @@ jobs:
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
         run: |
-          ./.github/scripts/beta/check-branch-akmods-cache.sh
+          python3 -m ci_tools.cli beta-check-branch-akmods-cache
 
       - name: Clone upstream akmods tooling
         # Rebuild when manually forced or when branch cache is missing/stale.
@@ -88,7 +88,7 @@ jobs:
           AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
           AKMODS_UPSTREAM_REF: ${{ env.AKMODS_UPSTREAM_REF }}
         run: |
-          ./.github/scripts/akmods/clone-pinned-akmods.sh
+          python3 -m ci_tools.cli akmods-clone-pinned
 
       - name: Configure zfs target in branch-scoped namespace
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
@@ -99,7 +99,7 @@ jobs:
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
           AKMODS_DESCRIPTION: A branch-scoped caching layer for pre-built zfs akmod RPMs
         run: |
-          ./.github/scripts/akmods/configure-zfs-target.sh
+          python3 -m ci_tools.cli akmods-configure-zfs-target
 
       - name: Build and publish branch-scoped self-hosted zfs akmods image
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
@@ -114,7 +114,7 @@ jobs:
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
-          ./.github/scripts/akmods/build-and-publish.sh
+          python3 -m ci_tools.cli akmods-build-and-publish
 
   bluebuild:
     name: Build Custom Image (branch)
@@ -135,7 +135,7 @@ jobs:
           IMAGE_TAG: ${{ needs.prepare-branch-metadata.outputs.image_tag }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
         run: |
-          ./.github/scripts/beta/configure-branch-recipe.sh
+          python3 -m ci_tools.cli beta-configure-branch-recipe
 
       - name: Build Custom Image
         uses: blue-build/github-action@v1.11.0
