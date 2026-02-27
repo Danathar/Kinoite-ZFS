@@ -76,6 +76,7 @@ Quick terms used in this repo:
 - `stable`: user-facing tags (`latest` and `main-<fedora>`).
 - `branch-scoped`: a tag/name that includes the branch identifier (for example `br-my-branch-43`) so branch test artifacts stay isolated.
 - `metadata`: descriptive data attached to an object (for example image labels or workflow run details).
+- `artifact`: a file/package/output saved by a workflow run so you can inspect or reuse it later.
 - `workflow`: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
 - `workflow run`: one execution of a GitHub Actions workflow from start to finish (one run has its own run ID and logs).
