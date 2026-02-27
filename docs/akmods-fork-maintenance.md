@@ -1,5 +1,8 @@
 # Akmods Fork Maintenance
 
+If a term is unfamiliar, check the shared glossary first:
+[`docs/glossary.md`](./glossary.md)
+
 ## Purpose
 
 This repository no longer patches `ublue-os/akmods` scripts at runtime during CI.

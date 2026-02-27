@@ -7,6 +7,9 @@ Workflows now call Python directly with one shared entrypoint:
 The CLI dispatches to the real module in [`ci_tools/`](../../ci_tools).
 This keeps workflow logic readable and avoids extra wrapper layers.
 
+If a term is unfamiliar, check the shared glossary first:
+[`docs/glossary.md`](../../docs/glossary.md)
+
 ## Quick Terms
 
 - `normalize`: make text consistent. In this repo, normalize owner/org means lowercase it so image paths are stable.

@@ -1,5 +1,8 @@
 # Upstream Change Response Guide
 
+If a term is unfamiliar, check the shared glossary first:
+[`docs/glossary.md`](./glossary.md)
+
 ## Purpose
 
 Use this guide when a build fails because something upstream changed (Fedora kernel, Kinoite base image, build container, ZFS compatibility, or registry behavior).
@@ -163,12 +166,19 @@ Likely cause:
 
 1. Registry transient issue, auth issue, or partial copy failure.
 2. Candidate akmods tag missing for that Fedora version (`akmods-zfs-candidate:main-<fedora>`).
+3. Stable digest signing failed after promotion copy (for example missing signing secret or signature upload failure).
 
 Action:
 
 1. Verify current stable tags before retrying.
 2. Re-run workflow in lock mode with same inputs and `promote_to_stable=true`.
 3. Confirm both stable image and stable akmods tags are updated together.
+4. Confirm stable digest has a valid signature:
+
+```bash
+DIGEST=$(skopeo inspect docker://ghcr.io/danathar/kinoite-zfs:latest | jq -r .Digest)
+cosign verify --key cosign.pub ghcr.io/danathar/kinoite-zfs@"$DIGEST"
+```
 
 ### Pattern D: Replay Mode Fails
 

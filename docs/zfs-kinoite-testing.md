@@ -1,5 +1,8 @@
 # ZFS On Kinoite Testing Design
 
+If a term is unfamiliar, check the shared glossary first:
+[`docs/glossary.md`](./glossary.md)
+
 ## Purpose
 
 This repository is a controlled testbed for ZFS support on Kinoite-based images built with BlueBuild.
@@ -111,7 +114,7 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 3. Injects the ZFS image target under this repo owner namespace (the owner/org part of the image path, like `danathar` in `ghcr.io/danathar/...`).
 4. Seeds upstream akmods cache metadata with the resolved `KERNEL_RELEASE`.
 5. Builds and publishes kernel-matched shared akmods tags.
-6. Copies those shared tags into candidate alias tags before candidate compose (candidate image build stage)/promotion.
+6. Copies those shared tags into candidate alias tags before candidate compose (candidate image build stage) and promotion.
 
 ### 4. Build Candidate Kinoite Image
 
@@ -133,6 +136,7 @@ Promotion runs only after successful candidate akmods and candidate image jobs:
 1. Retags candidate image to stable `latest`.
 2. Publishes immutable stable audit tag (`stable-<run>-<sha>`).
 3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source cache image.
+4. Re-signs the promoted stable image digest so signature-required host rebases keep working.
 
 If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
 
@@ -166,10 +170,11 @@ Key behavior:
 2. Copies shared akmods tags into candidate akmods alias tags.
 3. Builds/publishes candidate image.
 4. Promotes candidate artifacts to stable tags only on success.
-5. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-6. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-7. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
-8. Ignores markdown/docs-only changes.
+5. Re-signs the promoted stable digest after candidate-to-stable copy.
+6. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+7. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+8. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
+9. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
 

@@ -1,5 +1,8 @@
 # Kinoite-ZFS Architecture Overview
 
+If a term is unfamiliar, check the shared glossary first:
+[`docs/glossary.md`](./glossary.md)
+
 ## Purpose
 
 This project provides a controlled way to run ZFS on Kinoite while reducing the risk of breakage from upstream kernel changes.
@@ -138,6 +141,7 @@ Promotion is a separate gated job:
 2. Retags run-scoped candidate image source to stable `latest`.
 3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source image.
 4. Writes an immutable stable audit tag (`stable-<run>-<sha>`).
+5. Re-signs the promoted stable image digest so signature-required host rebases continue to work.
 
 If candidate fails, stable tags are not changed.
 
