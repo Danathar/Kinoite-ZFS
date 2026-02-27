@@ -40,11 +40,9 @@ def main() -> None:
     fedora_version = require_env("FEDORA_VERSION")
     kernel_release = require_env("KERNEL_RELEASE")
     akmods_repo = require_env("AKMODS_REPO")
-    akmods_tag_prefix = require_env("AKMODS_TAG_PREFIX")
 
-    # Branch-specific cache tag for this Fedora major version.
-    # Example tag: `br-my-feature-43`
-    akmods_image = f"ghcr.io/{image_org}/{akmods_repo}:{akmods_tag_prefix}-{fedora_version}"
+    # Branch-specific cache image for this Fedora major version.
+    akmods_image = f"ghcr.io/{image_org}/{akmods_repo}:main-{fedora_version}"
     if not skopeo_exists(f"docker://{akmods_image}"):
         write_github_outputs({"exists": "false"})
         print(f"No existing {akmods_image}; akmods rebuild is required.")

@@ -65,9 +65,9 @@ This is intentionally designed for iterative validation before adopting any appr
 ### Branch Artifacts
 
 1. OS image: `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
-2. Akmods cache image: `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
+2. Akmods cache image: `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
 
-Branch artifacts are isolated by branch-specific tags to avoid clobbering main caches.
+Branch artifacts are isolated by both tag and repo name to avoid clobbering main caches.
 
 ## End-To-End Build Flow
 
@@ -174,7 +174,7 @@ Triggers:
 
 Key behavior:
 
-1. Computes branch-safe tags for image and akmods cache outputs.
+1. Computes branch-safe image tag and branch-specific akmods repo name.
 2. Builds/publishes branch-isolated akmods cache as needed.
 3. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume branch-scoped akmods source.
 4. Builds/publishes branch-tagged image.

@@ -123,7 +123,7 @@ If you want the full technical design and workflow details, read:
 - Branch test image:
   - `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
 - Branch akmods cache image:
-  - `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
+  - `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
 
 Candidate and branch artifacts are isolated so test runs do not overwrite stable `ghcr.io/danathar/kinoite-zfs:latest`.
 
