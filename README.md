@@ -145,7 +145,7 @@ Markdown/docs-only changes do not trigger image builds.
 
 ## Reproducible Replay
 
-Issue #3 mitigation adds lock-based replay support:
+Lock-based replay support is available:
 
 1. Each main workflow run publishes a `build-inputs-<run_id>` artifact.
 2. To replay a known run, copy those values into [`ci/inputs.lock.json`](ci/inputs.lock.json).
