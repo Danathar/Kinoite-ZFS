@@ -96,6 +96,7 @@ If you want the full technical design and workflow details, read:
 - [`docs/upstream-change-response.md`](docs/upstream-change-response.md) (user/operator failure response guide)
 - [`docs/akmods-fork-maintenance.md`](docs/akmods-fork-maintenance.md) (how to maintain and update the pinned akmods fork source)
 - [`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md)
+- [`.github/scripts/README.md`](.github/scripts/README.md) (workflow command map: step -> command -> Python module)
 
 [`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md) is maintained as a living record and is updated as each hardening issue is addressed.
 
