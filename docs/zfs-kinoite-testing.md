@@ -16,11 +16,13 @@ This is intentionally designed for iterative validation before adopting any appr
 ## Terminology
 
 1. CI: the GitHub Actions workflows in this repo.
-2. Candidate: a test build/tag created before stable tags are updated.
-3. Stable: the tags users normally consume (`latest` and `main-<fedora>`).
-4. Build inputs artifact: JSON file saved per run that records exact inputs.
-5. Replay/lock mode: manual run mode that uses saved inputs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-6. Fedora/kernel stream: the moving sequence of new kernel releases over time.
+2. Workflow: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
+3. Workflow run: one full execution of a workflow from start to finish (with its own run ID and logs).
+4. Candidate: a test build/tag created before stable tags are updated.
+5. Stable: the tags users normally consume (`latest` and `main-<fedora>`).
+6. Build inputs artifact: JSON file saved per run that records exact inputs.
+7. Replay/lock mode: manual run mode that uses saved inputs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+8. Fedora/kernel stream: the moving sequence of new kernel releases over time.
 
 ## Command Notes
 

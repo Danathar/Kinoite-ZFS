@@ -27,17 +27,19 @@ This repo's pipeline is designed around that exact problem.
 
 ## Quick Terms
 
-1. Candidate: a test build. It is built first and checked before anything is marked stable.
-2. Stable: the tags users should normally consume (`latest` and `main-<fedora>`).
-3. Workflow metadata: run details like run ID, branch/ref, commit SHA, and triggering user.
-4. Image ref: a container image pointer, usually `name:tag` (moving) or `name@sha256:digest` (exact).
-5. Build inputs: base image, kernel, builder image, and pinned source commit used for one run.
-6. Lock replay: rerun using saved inputs from a previous run.
-7. Fail closed: stop with an explicit error when a required safety condition is missing, instead of silently guessing.
-8. Stale module (or stale kmod): a module built for an older kernel than the kernel this run is building against.
-9. Namespace: the owner/org part of an image path (example: `danathar` in `ghcr.io/danathar/kinoite-zfs`).
-10. Fedora/kernel stream: the moving sequence of new kernel versions published over time.
-11. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
+1. Workflow: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
+2. Workflow run: one full execution of a workflow from start to finish (with its own run ID and logs).
+3. Candidate: a test build. It is built first and checked before anything is marked stable.
+4. Stable: the tags users should normally consume (`latest` and `main-<fedora>`).
+5. Workflow metadata: run details like run ID, branch/ref, commit SHA, and triggering user.
+6. Image ref: a container image pointer, usually `name:tag` (moving) or `name@sha256:digest` (exact).
+7. Build inputs: base image, kernel, builder image, and pinned source commit used for one run.
+8. Lock replay: rerun using saved inputs from a previous run.
+9. Fail closed: stop with an explicit error when a required safety condition is missing, instead of silently guessing.
+10. Stale module (or stale kmod): a module built for an older kernel than the kernel this run is building against.
+11. Namespace: the owner/org part of an image path (example: `danathar` in `ghcr.io/danathar/kinoite-zfs`).
+12. Fedora/kernel stream: the moving sequence of new kernel versions published over time.
+13. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
 
 ## Beginner Primer: Akmods On Atomic Images
 
