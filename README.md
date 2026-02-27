@@ -16,7 +16,7 @@ Core goal:
 - Build matching ZFS akmods against that kernel.
 - Install those ZFS RPMs directly into the final image.
 - Catch kernel/module mismatches during CI (automated GitHub Actions workflow runs), before rebasing a host.
-- Keep the workflow reusable as a template so users can adapt it to other Universal Blue or Fedora Atomic images if they want ZFS support there.
+- Keep the workflow (the GitHub Actions automation file that defines jobs and steps) reusable as a template so users can adapt it to other Universal Blue or Fedora Atomic images if they want ZFS support there.
 
 ## If You Are New To Akmods And Atomic Images
 
