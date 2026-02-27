@@ -18,10 +18,15 @@ def main() -> None:
     # Inputs resolved earlier in the workflow.
     # Normalize owner means: convert to lowercase for consistent registry paths.
     image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
+    candidate_image_name = require_env("CANDIDATE_IMAGE_NAME")
     kernel_release = require_env("KERNEL_RELEASE")
     akmods_repo = require_env("AKMODS_REPO")
     base_image_name = require_env("BASE_IMAGE_NAME")
     base_image_tag = require_env("BASE_IMAGE_TAG")
+
+    # Candidate images are pushed to a dedicated repository so the candidate step
+    # cannot overwrite stable `kinoite-zfs:latest` directly.
+    replace_line_starting_with(RECIPE_FILE, "name:", f"name: {candidate_image_name}")
 
     # Pin the base image name and immutable tag for this run.
     replace_line_starting_with(RECIPE_FILE, "base-image:", f"base-image: {base_image_name}")
@@ -36,6 +41,7 @@ def main() -> None:
     replace_line_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=", akmods_line)
 
     # Print changed lines so logs clearly show the final effective values.
+    print_lines_starting_with(RECIPE_FILE, "name:")
     print_lines_starting_with(RECIPE_FILE, "base-image:")
     print_lines_starting_with(RECIPE_FILE, "image-version:")
     print_lines_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=")

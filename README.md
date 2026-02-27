@@ -81,6 +81,8 @@ Quick terms used in this repo:
 - `floating ref` / `floating latest ref`: a tag-based ref (for example `:latest`) that can point to a different image later without changing its text.
 - `digest-pinned ref`: an exact image pointer like `name@sha256:...`; this does not move to a different image unless you change the digest value.
 - `tag vs digest-pinned` (plain language): a tag is a moving signpost, while a digest is an exact snapshot.
+- `fail closed`: if a required safety input is missing, stop with an error instead of guessing or silently reusing old data.
+- `stale module` / `stale kmod`: a kernel module built for an older kernel release than the one currently in the base image.
 
 Common commands used in docs:
 
@@ -103,7 +105,7 @@ If you want the full technical design and workflow details, read:
 ## What Gets Published
 
 - Candidate image (pre-promotion):
-  - `ghcr.io/danathar/kinoite-zfs:candidate`
+  - `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
 - Candidate akmods cache image (pre-promotion):
   - `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
 - Stable image (promoted only after candidate success):
@@ -113,11 +115,11 @@ If you want the full technical design and workflow details, read:
 - Stable akmods cache image (promoted from candidate cache):
   - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 - Branch test image:
-  - `ghcr.io/danathar/kinoite-zfs:beta-<branch>`
+  - `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
 - Branch akmods cache image:
   - `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
 
-Candidate and branch artifacts are isolated so test runs do not overwrite stable `latest` artifacts.
+Candidate and branch artifacts are isolated so test runs do not overwrite stable `ghcr.io/danathar/kinoite-zfs:latest`.
 
 ## Why Candidate First
 

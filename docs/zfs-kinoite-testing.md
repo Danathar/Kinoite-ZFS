@@ -53,15 +53,15 @@ This is intentionally designed for iterative validation before adopting any appr
 
 ### Main Artifacts
 
-1. Candidate source image tag: `ghcr.io/danathar/kinoite-zfs:<shortsha>-<fedora>`
-2. Candidate akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>-<kernel_release>`
+1. Candidate source image tag: `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
+2. Candidate akmods source tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
 3. Stable OS image: `ghcr.io/danathar/kinoite-zfs:latest`
 4. Stable OS audit tag: `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
 5. Stable akmods cache image: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 
 ### Branch Artifacts
 
-1. OS image: `ghcr.io/danathar/kinoite-zfs:beta-<branch>`
+1. OS image: `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
 2. Akmods cache image: `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
 
 Branch artifacts are isolated by both tag and repo name to avoid clobbering main caches.
@@ -123,7 +123,7 @@ Promotion runs only after successful candidate akmods and candidate image jobs:
 
 1. Retags candidate image to stable `latest`.
 2. Publishes immutable stable audit tag (`stable-<run>-<sha>`).
-3. Aligns stable akmods tag (`main-<fedora>`) to the selected source cache image.
+3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source cache image.
 
 If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
 

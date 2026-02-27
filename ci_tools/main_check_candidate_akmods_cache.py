@@ -29,6 +29,7 @@ def _load_layer_files(akmods_dir: Path) -> list[Path]:
 
 def _has_kernel_matching_rpm(root_dir: Path, kernel_release: str) -> bool:
     # We only trust cache reuse when an RPM exists for this exact kernel string.
+    # If the cache only has RPMs for older kernels, that cache is "stale".
     rpm_dir = root_dir / "rpms" / "kmods" / "zfs"
     if not rpm_dir.exists():
         return False
@@ -43,35 +44,23 @@ def main() -> None:
     fedora_version = require_env("FEDORA_VERSION")
     kernel_release = require_env("KERNEL_RELEASE")
     candidate_repo = require_env("CANDIDATE_AKMODS_REPO")
-    stable_repo = require_env("STABLE_AKMODS_REPO")
 
-    # Candidate and stable cache image references for this Fedora major stream.
+    # Candidate cache image reference for this Fedora major stream.
+    # This step intentionally validates candidate cache only.
+    # If candidate cache is missing/stale, we rebuild candidate cache.
+    # "Stale" means cache content was built for an older kernel release.
     candidate_image = f"ghcr.io/{image_org}/{candidate_repo}:main-{fedora_version}"
-    stable_image = f"ghcr.io/{image_org}/{stable_repo}:main-{fedora_version}"
-
-    # Prefer candidate cache, then optionally fall back to stable cache.
-    selected_image = ""
-    if skopeo_exists(f"docker://{candidate_image}"):
-        selected_image = candidate_image
-        print(f"Using candidate cache source {selected_image}")
-    elif candidate_repo != stable_repo and skopeo_exists(f"docker://{stable_image}"):
-        selected_image = stable_image
-        print(f"Candidate cache tag missing; falling back to stable cache source {selected_image}")
-
-    if not selected_image:
-        # No cache image exists, so downstream build should rebuild akmods.
+    if not skopeo_exists(f"docker://{candidate_image}"):
+        # Candidate cache image is missing, so downstream build must rebuild it.
         write_github_outputs({"exists": "false"})
-        print(
-            "No existing candidate/stable akmods cache image for "
-            f"Fedora {fedora_version}; akmods rebuild is required."
-        )
+        print(f"No existing candidate akmods cache image for Fedora {fedora_version}; rebuild is required.")
         return
 
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         akmods_dir = root / "akmods"
         # `skopeo copy ... dir:<path>` saves image layers so we can inspect files.
-        skopeo_copy(f"docker://{selected_image}", f"dir:{akmods_dir}")
+        skopeo_copy(f"docker://{candidate_image}", f"dir:{akmods_dir}")
 
         layer_files = _load_layer_files(akmods_dir)
         # Extract all filesystem layers into one temp tree for file checks.
@@ -80,13 +69,13 @@ def main() -> None:
         if _has_kernel_matching_rpm(root, kernel_release):
             write_github_outputs({"exists": "true"})
             print(
-                f"Found matching {selected_image} kmod for kernel {kernel_release}; "
+                f"Found matching {candidate_image} kmod for kernel {kernel_release}; "
                 "akmods rebuild can be skipped."
             )
         else:
             write_github_outputs({"exists": "false"})
             print(
-                f"Cached {selected_image} is present but missing kmod for kernel {kernel_release}; "
+                f"Cached {candidate_image} is present but missing kmod for kernel {kernel_release}; "
                 "akmods rebuild is required."
             )
 

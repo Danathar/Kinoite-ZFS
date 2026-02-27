@@ -61,9 +61,11 @@ env:
   AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git
   AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
 
-  # Candidate-first flow: update `latest` only after candidate succeeds.
+  # Candidate-first flow:
+  # - Candidate image is built in a dedicated candidate repository.
+  # - Stable `kinoite-zfs:latest` is updated only in the promote job.
   IMAGE_NAME: kinoite-zfs
-  CANDIDATE_IMAGE_TAG: candidate
+  CANDIDATE_IMAGE_NAME: kinoite-zfs-candidate
   CANDIDATE_AKMODS_REPO: akmods-zfs-candidate
   STABLE_AKMODS_REPO: akmods-zfs
 
@@ -150,7 +152,6 @@ jobs:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
           CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
-          STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
           python3 -m ci_tools.cli main-check-candidate-akmods-cache
 
@@ -210,11 +211,12 @@ jobs:
       - name: Set kernel-matched akmods source and pin base tag in recipe
         shell: bash
         env:
+          CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
           KERNEL_RELEASE: ${{ needs.build-zfs-akmods.outputs.kernel_release }}
           BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
           # Candidate image build pulls from these akmods tags.
-          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
         run: |
           python3 -m ci_tools.cli main-configure-candidate-recipe
 
@@ -234,6 +236,8 @@ jobs:
     # Safety model:
     # Promotion is a separate job that runs only after both candidate jobs succeed.
     # That keeps broken candidate outputs from replacing stable tags.
+    # Promotion logic is fail-closed for candidate akmods:
+    # if candidate akmods are missing, promotion stops with an error.
     needs:
       - build-zfs-akmods
       - bluebuild-candidate
@@ -259,6 +263,7 @@ jobs:
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
           FEDORA_VERSION: ${{ needs.build-zfs-akmods.outputs.fedora_version }}
+          CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}

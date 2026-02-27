@@ -26,6 +26,12 @@ fi
 
 # Unpack every image layer so `/tmp/rpms/kmods/zfs` becomes available.
 for layer in "${layer_files[@]}"; do
+  # Safety check: stop if a tar entry tries absolute or parent-directory paths.
+  # That is a fail-closed guard against path traversal in unexpected layer content.
+  if tar -tf "${layer}" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+    echo "Unsafe tar path found in layer ${layer}; refusing extraction." >&2
+    exit 1
+  fi
   tar -xf "${layer}" -C /tmp/
 done
 
@@ -49,6 +55,7 @@ rpm-ostree install "${zfs_rpms[@]}"
 
 # Fail closed if the cached kmods do not match the kernel(s) from the base image.
 # This prevents publishing an image where `kmod-zfs` is installed but `modprobe zfs` fails.
+# "Stale" here means the cached module was built for an older kernel release.
 for kernel_release in "${image_kernels[@]}"; do
   module_path="/lib/modules/${kernel_release}/extra/zfs/zfs.ko"
   if [[ ! -f "${module_path}" ]]; then

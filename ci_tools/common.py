@@ -140,10 +140,17 @@ def skopeo_copy(
 
 
 def unpack_layer_tarballs(layer_files: list[Path], destination: Path) -> None:
-    """Extract image layer tar files into one filesystem tree."""
+    """
+    Extract image layer tar files into one filesystem tree.
+
+    We pass `filter="data"` so extraction is safer:
+    - blocks absolute paths and parent-directory escapes
+    - blocks unsafe link targets
+    This is a "fail closed" safety check for untrusted tar metadata.
+    """
     for layer_file in layer_files:
         with tarfile.open(layer_file, "r") as tar:
-            tar.extractall(destination)
+            tar.extractall(destination, filter="data")
 
 
 def print_lines_starting_with(file_path: Path, prefix: str) -> None:

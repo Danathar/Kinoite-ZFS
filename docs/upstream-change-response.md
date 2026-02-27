@@ -17,6 +17,8 @@ Quick terms:
 4. Image ref: image pointer (`name:tag` or `name@sha256:digest`).
 5. Build-inputs artifact: JSON file with exact run inputs.
 6. Lock replay: rerun using saved inputs from a previous run.
+7. Fail closed: stop with an explicit error when required candidate inputs are missing, rather than silently reusing old stable inputs.
+8. Stale module (or stale kmod): a module package built for an older kernel than the kernel in the current base image.
 
 Command quick reference:
 
@@ -140,7 +142,7 @@ Action:
 
 1. Re-run candidate with `rebuild_akmods=true`.
 2. Verify candidate compose pins `image-version` to the resolved immutable base tag from `build-inputs.json`.
-3. Verify candidate compose references `AKMODS_IMAGE` tag `main-<fedora>-<kernel_release>`.
+3. Verify candidate compose references candidate akmods `AKMODS_IMAGE` tag `ghcr.io/<owner>/akmods-zfs-candidate:main-<fedora>-<kernel_release>`.
 4. Verify akmods logs show `Pinned akmods kernel release to <kernel_release>`.
 5. Keep promotion disabled until candidate passes.
 
@@ -154,6 +156,7 @@ Typical signal:
 Likely cause:
 
 1. Registry transient issue, auth issue, or partial copy failure.
+2. Candidate akmods tag missing for that Fedora version (`akmods-zfs-candidate:main-<fedora>`).
 
 Action:
 

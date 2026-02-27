@@ -33,6 +33,8 @@ This repo's pipeline is designed around that exact problem.
 4. Image ref: a container image pointer, usually `name:tag` (moving) or `name@sha256:digest` (exact).
 5. Build inputs: base image, kernel, builder image, and pinned source commit used for one run.
 6. Lock replay: rerun using saved inputs from a previous run.
+7. Fail closed: stop with an explicit error when a required safety condition is missing, instead of silently guessing.
+8. Stale module (or stale kmod): a module built for an older kernel than the kernel this run is building against.
 
 ## Beginner Primer: Akmods On Atomic Images
 
@@ -53,13 +55,13 @@ At a high level, this repository has a build workflow that:
 We publish two output groups:
 
 1. Candidate outputs (test stage):
-   - Run-scoped image source tag produced by BlueBuild (`<shortsha>-<fedora>`)
-   - Kernel-matched akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>-<kernel_release>`
+   - Run-scoped image source tag in candidate repo: `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
+   - Kernel-matched akmods source tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
 2. Stable outputs (updated only after candidate success):
    - `ghcr.io/danathar/kinoite-zfs:latest`
    - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 
-Branch builds are isolated (`beta-*` tags and branch-specific akmods repos) so experiments do not overwrite stable images.
+Branch builds are isolated (`br-<branch>-<fedora>` tags and branch-specific akmods repos) so experiments do not overwrite stable images.
 
 ## Why We Are Doing It
 
@@ -125,7 +127,7 @@ Promotion is a separate gated job:
 
 1. Runs only after candidate jobs succeed.
 2. Retags run-scoped candidate image source to stable `latest`.
-3. Aligns stable akmods tag (`main-<fedora>`) to the selected source image.
+3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source image.
 4. Writes an immutable stable audit tag (`stable-<run>-<sha>`).
 
 If candidate fails, stable tags are not changed.
