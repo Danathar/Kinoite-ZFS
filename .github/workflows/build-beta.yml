@@ -28,7 +28,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Issue #1/#4 hardening:
+  # Issue #1/#4 hardening (safety tightening):
+  # "Hardening" here means adding safeguards that reduce breakage risk.
   # Pin to our forked akmods commit so branch tests use the same curated source
   # as main and avoid runtime patching drift.
   AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git

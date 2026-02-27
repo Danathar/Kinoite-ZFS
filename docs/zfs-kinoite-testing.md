@@ -213,7 +213,7 @@ Important limitation:
 
 ## Living Issue Log
 
-This section is updated for each tracked issue as we work through hardening items.
+This section is updated for each tracked issue as we work through hardening items (safety improvements that reduce breakage risk).
 For each new issue, add a section with:
 
 1. Problem

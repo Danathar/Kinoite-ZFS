@@ -165,7 +165,7 @@ Term note used in code/docs:
 2. Isolation: separate candidate, branch, and stable artifacts.
 3. Visibility: save exact input metadata every run.
 4. Repeatability: support lock replay for troubleshooting.
-5. Incremental hardening: address risks issue-by-issue and document each mitigation.
+5. Incremental hardening (step-by-step safety tightening): address risks issue-by-issue and document each mitigation.
 
 ## Related Documents
 

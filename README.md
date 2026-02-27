@@ -83,6 +83,7 @@ Quick terms used in this repo:
 - `tag vs digest-pinned` (plain language): a tag is a moving signpost, while a digest is an exact snapshot.
 - `fail closed`: if a required safety input is missing, stop with an error instead of guessing or silently reusing old data.
 - `stale module` / `stale kmod`: a kernel module built for an older kernel release than the one currently in the base image.
+- `harden` / `hardening`: add safety checks or stricter rules so failures are less likely and easier to catch early.
 
 Common commands used in docs:
 
@@ -100,7 +101,7 @@ If you want the full technical design and workflow details, read:
 - [`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md)
 - [`.github/scripts/README.md`](.github/scripts/README.md) (workflow command map: step -> command -> Python module)
 
-[`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md) is maintained as a living record and is updated as each hardening issue is addressed.
+[`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md) is maintained as a living record and is updated as each hardening issue (each safety-improvement task) is addressed.
 
 ## What Gets Published
 
