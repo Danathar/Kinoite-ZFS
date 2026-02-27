@@ -1,3 +1,6 @@
 cosign.key
 cosign.private
 /Containerfile
+__pycache__/
+*.pyc
+*.pyo

@@ -11,12 +11,20 @@ This document is for operators and users who need to answer two questions quickl
 
 Quick terms:
 
-1. Candidate: test build created first.
-2. Stable: user-facing tags (`latest` and `main-<fedora>`).
-3. Workflow metadata: run details like run ID, branch/ref, commit SHA, and triggering user.
-4. Image ref: image pointer (`name:tag` or `name@sha256:digest`).
-5. Build-inputs artifact: JSON file with exact run inputs.
-6. Lock replay: rerun using saved inputs from a previous run.
+1. Workflow: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
+2. Workflow run: one full execution of a workflow from start to finish (with its own run ID and logs).
+3. Candidate: test build created first.
+4. Stable: user-facing tags (`latest` and `main-<fedora>`).
+5. Workflow metadata: run details like run ID, branch/ref, commit SHA, and triggering user.
+6. Image ref: image pointer (`name:tag` or `name@sha256:digest`).
+7. Build-inputs artifact: JSON file with exact run inputs.
+8. Lock replay: rerun using saved inputs from a previous run.
+9. Fail closed: stop with an explicit error when required candidate inputs are missing, rather than silently reusing old stable inputs.
+10. Stale module (or stale kmod): a module package built for an older kernel than the kernel in the current base image.
+11. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
+12. Compose (or compose step): the image build stage that combines base image plus selected modules/packages into the final image output.
+13. Package visibility (registry): who can read a container package/tag; this can differ from source repo visibility.
+14. Branch-scoped: tag/name includes the branch identifier so branch test artifacts remain isolated.
 
 Command quick reference:
 
@@ -29,7 +37,7 @@ Command quick reference:
 
 This guide covers failures in:
 
-1. `Build And Promote Main Image` (`.github/workflows/build.yml`)
+1. `Build And Promote Main Image` ([`.github/workflows/build.yml`](../.github/workflows/build.yml))
 2. Candidate akmods build
 3. Candidate image build
 4. Promotion to stable tags
@@ -140,7 +148,7 @@ Action:
 
 1. Re-run candidate with `rebuild_akmods=true`.
 2. Verify candidate compose pins `image-version` to the resolved immutable base tag from `build-inputs.json`.
-3. Verify candidate compose references `AKMODS_IMAGE` tag `main-<fedora>-<kernel_release>`.
+3. Verify candidate compose references candidate akmods `AKMODS_IMAGE` tag `ghcr.io/<owner>/akmods-zfs-candidate:main-<fedora>-<kernel_release>`.
 4. Verify akmods logs show `Pinned akmods kernel release to <kernel_release>`.
 5. Keep promotion disabled until candidate passes.
 
@@ -154,6 +162,7 @@ Typical signal:
 Likely cause:
 
 1. Registry transient issue, auth issue, or partial copy failure.
+2. Candidate akmods tag missing for that Fedora version (`akmods-zfs-candidate:main-<fedora>`).
 
 Action:
 
@@ -170,11 +179,11 @@ Typical signal:
 
 Likely cause:
 
-1. `ci/inputs.lock.json` missing/invalid or inconsistent with manual dispatch inputs.
+1. [`ci/inputs.lock.json`](../ci/inputs.lock.json) missing/invalid or inconsistent with manual dispatch inputs.
 
 Action:
 
-1. Ensure `ci/inputs.lock.json` exists in the branch being run.
+1. Ensure [`ci/inputs.lock.json`](../ci/inputs.lock.json) exists in the branch being run.
 2. Use `build_container_image` exactly equal to lock file `build_container`.
 3. Verify lock fields are non-empty and not placeholder values.
 
@@ -238,5 +247,5 @@ When opening an issue or documenting an incident, capture:
 
 ## Related Documents
 
-1. High-level architecture: `docs/architecture-overview.md`
-2. Detailed technical runbook and issue log: `docs/zfs-kinoite-testing.md`
+1. High-level architecture: [`docs/architecture-overview.md`](./architecture-overview.md)
+2. Detailed technical runbook and issue log: [`docs/zfs-kinoite-testing.md`](./zfs-kinoite-testing.md)

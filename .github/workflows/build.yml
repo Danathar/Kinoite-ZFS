@@ -61,9 +61,11 @@ env:
   AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git
   AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
 
-  # Candidate-first flow: update `latest` only after candidate succeeds.
+  # Candidate-first flow:
+  # - Candidate image is built in a dedicated candidate repository.
+  # - Stable `kinoite-zfs:latest` is updated only in the promote job.
   IMAGE_NAME: kinoite-zfs
-  CANDIDATE_IMAGE_TAG: candidate
+  CANDIDATE_IMAGE_NAME: kinoite-zfs-candidate
   CANDIDATE_AKMODS_REPO: akmods-zfs-candidate
   STABLE_AKMODS_REPO: akmods-zfs
 
@@ -114,7 +116,7 @@ jobs:
           DEFAULT_ZFS_MINOR_VERSION: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
           DEFAULT_AKMODS_REF: ${{ env.AKMODS_UPSTREAM_REF }}
         run: |
-          ./.github/scripts/main/resolve-build-inputs.sh
+          python3 -m ci_tools.cli main-resolve-build-inputs
 
       - name: Write build inputs manifest
         shell: bash
@@ -134,7 +136,7 @@ jobs:
           USE_INPUT_LOCK: ${{ steps.inputs.outputs.use_input_lock }}
           LOCK_FILE_PATH: ${{ steps.inputs.outputs.lock_file_path }}
         run: |
-          ./.github/scripts/main/write-build-inputs-manifest.sh
+          python3 -m ci_tools.cli main-write-build-inputs-manifest
 
       - name: Upload build inputs manifest
         uses: actions/upload-artifact@v6
@@ -143,16 +145,18 @@ jobs:
           name: build-inputs-${{ github.run_id }}
           path: artifacts/build-inputs.json
 
-      - name: Check for existing candidate self-hosted zfs akmods image
+      - name: Check for existing shared self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
-          CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
-          STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
+          # We check that shared source tag here, then copy it into candidate
+          # alias tags before compose.
+          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
-          ./.github/scripts/main/check-candidate-akmods-cache.sh
+          python3 -m ci_tools.cli main-check-candidate-akmods-cache
 
       - name: Clone upstream akmods tooling
         # Rebuild when scheduled, manually forced, or cache is missing/outdated.
@@ -162,24 +166,27 @@ jobs:
           AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
           AKMODS_UPSTREAM_REF: ${{ steps.inputs.outputs.akmods_upstream_ref }}
         run: |
-          ./.github/scripts/akmods/clone-pinned-akmods.sh
+          python3 -m ci_tools.cli akmods-clone-pinned
 
-      - name: Configure candidate zfs target in self-hosted namespace
+      - name: Configure shared zfs target in self-hosted namespace (fallback rebuild path)
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+        # Namespace here means the owner/org segment in GHCR image paths
+        # (for example `danathar` in `ghcr.io/danathar/...`).
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
-          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
-          AKMODS_DESCRIPTION: Candidate caching layer for pre-built zfs akmod RPMs
+          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          AKMODS_DESCRIPTION: Shared caching layer for pre-built zfs akmod RPMs
         run: |
-          ./.github/scripts/akmods/configure-zfs-target.sh
+          python3 -m ci_tools.cli akmods-configure-zfs-target
 
-      - name: Build and publish candidate self-hosted zfs akmods image
+      - name: Build and publish shared self-hosted zfs akmods image (fallback)
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
           # `main` follows the Fedora desktop kernel stream used by Kinoite main/latest.
+          # "Stream" here means the moving track of new kernel releases over time.
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.inputs.outputs.version }}
           # Build akmods for the exact kernel chosen in input resolution.
@@ -187,11 +194,29 @@ jobs:
           AKMODS_TARGET: zfs
           # ZFS version comes from input resolution (default or lock file).
           ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
+          # Upstream akmods scripts pull OpenZFS release source from:
+          # https://github.com/openzfs/zfs/releases
           CI: "1"
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
-          ./.github/scripts/akmods/build-and-publish.sh
+          python3 -m ci_tools.cli akmods-build-and-publish
+
+      - name: Publish candidate akmods alias tags
+        # Compose step means the candidate image build step (`Build Candidate Image`).
+        # Candidate compose/promotion read from `akmods-zfs-candidate`.
+        # We copy shared source tags into candidate tags every run so the
+        # candidate boundary stays explicit even when upstream push names are fixed.
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          SOURCE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          DEST_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
+          REGISTRY_ACTOR: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m ci_tools.cli main-publish-candidate-akmods-alias
 
   bluebuild-candidate:
     name: Build Candidate Image
@@ -210,13 +235,14 @@ jobs:
       - name: Set kernel-matched akmods source and pin base tag in recipe
         shell: bash
         env:
+          CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
           KERNEL_RELEASE: ${{ needs.build-zfs-akmods.outputs.kernel_release }}
           BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
           # Candidate image build pulls from these akmods tags.
-          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
         run: |
-          ./.github/scripts/main/configure-candidate-recipe.sh
+          python3 -m ci_tools.cli main-configure-candidate-recipe
 
       - name: Build Candidate Image
         uses: blue-build/github-action@v1.11.0
@@ -234,6 +260,8 @@ jobs:
     # Safety model:
     # Promotion is a separate job that runs only after both candidate jobs succeed.
     # That keeps broken candidate outputs from replacing stable tags.
+    # Promotion logic is fail-closed for candidate akmods:
+    # if candidate akmods are missing, promotion stops with an error.
     needs:
       - build-zfs-akmods
       - bluebuild-candidate
@@ -259,8 +287,9 @@ jobs:
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
           FEDORA_VERSION: ${{ needs.build-zfs-akmods.outputs.fedora_version }}
+          CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
           IMAGE_NAME: ${{ env.IMAGE_NAME }}
           CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
         run: |
-          ./.github/scripts/main/promote-stable.sh
+          python3 -m ci_tools.cli main-promote-stable

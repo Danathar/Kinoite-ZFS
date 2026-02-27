@@ -4,21 +4,97 @@
 
 This repository exists to test and validate ZFS support on Kinoite images built with BlueBuild.
 
+If you are new to ZFS:
+
+- ZFS is a filesystem + volume manager focused on data integrity and storage management features (for example checksums, snapshots, and pooled storage).
+- In this repo, the key detail is that ZFS needs kernel modules that must match the running kernel version.
+- Owner opinion around here: ZFS is awesome and everyone should use it :)
+
 Core goal:
 
-- Track the current Kinoite/Fedora kernel stream.
+- Track the current Kinoite/Fedora kernel stream (stream = the moving sequence of kernel versions published over time, newest to oldest).
 - Build matching ZFS akmods against that kernel.
 - Install those ZFS RPMs directly into the final image.
-- Catch kernel/module mismatches during CI, before rebasing a host.
+- Catch kernel/module mismatches during CI (automated GitHub Actions workflow runs), before rebasing a host (`rebasing` here means switching an existing atomic host to a newly built container image).
+- Keep the workflow (the GitHub Actions automation file that defines jobs and steps) reusable as a template so users can adapt it to other Universal Blue or Fedora Atomic images if they want ZFS support there.
+
+## If You Are New To Akmods And Atomic Images
+
+`akmod` (automatic kernel module) packages are a way to provide out-of-tree
+kernel modules (`out-of-tree` means the module is developed outside the Linux
+kernel source tree and shipped separately), like ZFS, for a specific kernel
+release.
+
+Why this matters here:
+
+1. Kinoite/Aurora-style systems are image-based and mostly immutable.
+2. You usually do not want ad-hoc module build steps happening directly on every client machine.
+3. Instead, we build and validate matching ZFS kernel modules in our pipeline (the ordered set of build/check/publish steps in one workflow run), then bake those RPMs into the final image.
+
+In plain terms, this project is doing:
+
+1. Read current upstream kernel version from labels stored in Kinoite base image metadata (extra descriptive data attached to the image).
+2. Build (or reuse) ZFS akmods that exactly match that kernel.
+3. For new builds, akmods pulls OpenZFS source from upstream OpenZFS GitHub releases (`https://github.com/openzfs/zfs/releases`) and builds RPMs from that release source.
+4. Build a candidate custom image (`candidate` = test image built first) that installs those ZFS RPMs.
+5. Promote to stable tags (`stable` = normal user-facing tags) only if candidate build/test checks succeed.
+
+So the safety model is: test first, then promote.
+If something upstream changes and breaks compatibility, candidate fails and stable does not move.
+
+## Current Ecosystem Issue (Aurora/Kinoite/Silverblue Context)
+
+The core issue is not "immutability is broken." The main issue is version timing:
+
+1. Fedora-family systems move kernels forward quickly.
+2. ZFS is an out-of-tree kernel module, so it needs upstream OpenZFS support for each new kernel series.
+3. There can be a time gap between "new kernel shipped" and "matching ZFS support/release available."
+4. During that gap, image projects must choose between:
+   - holding back kernels,
+   - delaying ZFS-enabled image updates,
+   - or removing/relaxing ZFS support.
+
+What this repo does to handle that gap:
+
+1. Resolve exact base-image/kernel inputs for each run.
+2. Check whether cached ZFS modules match that exact kernel release.
+3. Rebuild modules when they do not match.
+4. Build candidate images first and only promote to stable when candidate succeeds.
+
+This pipeline (ordered jobs/steps in one workflow run) does not eliminate upstream timing gaps, but it prevents silently shipping mismatched kernel/module combinations in this image stream.
+
+As of February 27, 2026:
+
+1. There are active discussions about possible future ZFS scope changes in some Universal Blue images (for example Aurora issue [#1765](https://github.com/ublue-os/aurora/issues/1765)).
+2. The linked issue is currently open and framed as consideration/planning discussion, not a finalized global removal action.
+3. A practical goal of this repository is continuity: if upstream image defaults change, this workflow can still be used as a starting template for self-maintained ZFS-enabled images.
 
 Quick terms used in this repo:
 
 - `CI`: the GitHub Actions workflows in `.github/workflows`.
 - `candidate`: test image/tag built first.
 - `stable`: user-facing tags (`latest` and `main-<fedora>`).
+- `branch-scoped`: a tag/name that includes the branch identifier (for example `br-my-branch-43`) so branch test artifacts stay isolated.
+- `metadata`: descriptive data attached to an object (for example image labels or workflow run details).
+- `artifact`: a file/package/output saved by a workflow run so you can inspect or reuse it later.
+- `workflow`: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
+- `workflow run`: one execution of a GitHub Actions workflow from start to finish (one run has its own run ID and logs).
+- `pipeline`: the ordered set of jobs/steps in a workflow run (for example: resolve inputs -> build candidate -> promote stable).
+- `compose` / `compose step`: the image build step that combines the base image + configured modules/packages into the final publishable image.
+- `package visibility` (registry): who can read a container package/tag. This is separate from source repo visibility, so a public code repo can still have package paths that require auth.
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
-- `image ref`: text that points to a container image, usually `name:tag` (moving) or `name@sha256:digest` (exact).
+- `Fedora stream` / `kernel stream`: the ongoing flow of new kernel releases in Fedora over time (for example one nightly run may see a newer kernel than yesterday).
+- `tag`: a human-readable label on an image, like `latest` or `main-43`.
+- `image ref`: text that points to a container image, usually `name:tag` or `name@sha256:digest`.
+- `namespace` (registry namespace): the owner/org part of an image path, for example `danathar` in `ghcr.io/danathar/kinoite-zfs`.
+- `rebase` / `rebasing` (rpm-ostree): switching your installed OS image source to a different container image ref/tag.
+- `floating ref` / `floating latest ref`: a tag-based ref (for example `:latest`) that can point to a different image later without changing its text.
+- `digest-pinned ref`: an exact image pointer like `name@sha256:...`; this does not move to a different image unless you change the digest value.
+- `tag vs digest-pinned` (plain language): a tag is a moving signpost, while a digest is an exact snapshot.
+- `fail closed`: if a required safety input is missing, stop with an error instead of guessing or silently reusing old data.
+- `stale module` / `stale kmod`: a kernel module built for an older kernel release than the one currently in the base image.
+- `harden` / `hardening`: add safety checks or stricter rules so failures are less likely and easier to catch early.
 
 Common commands used in docs:
 
@@ -30,17 +106,18 @@ Common commands used in docs:
 
 If you want the full technical design and workflow details, read:
 
-- `docs/architecture-overview.md` (high-level architecture: what/why/how)
-- `docs/upstream-change-response.md` (user/operator failure response guide)
-- `docs/akmods-fork-maintenance.md` (how to maintain and update the pinned akmods fork source)
-- `docs/zfs-kinoite-testing.md`
+- [`docs/architecture-overview.md`](docs/architecture-overview.md) (high-level architecture: what/why/how)
+- [`docs/upstream-change-response.md`](docs/upstream-change-response.md) (user/operator failure response guide)
+- [`docs/akmods-fork-maintenance.md`](docs/akmods-fork-maintenance.md) (how to maintain and update the pinned akmods fork source)
+- [`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md)
+- [`.github/scripts/README.md`](.github/scripts/README.md) (workflow command map: step -> command -> Python module)
 
-That document is maintained as a living record and will be updated as each hardening issue is addressed.
+[`docs/zfs-kinoite-testing.md`](docs/zfs-kinoite-testing.md) is maintained as a living record and is updated as each hardening issue (each safety-improvement task) is addressed.
 
 ## What Gets Published
 
 - Candidate image (pre-promotion):
-  - `ghcr.io/danathar/kinoite-zfs:candidate`
+  - `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
 - Candidate akmods cache image (pre-promotion):
   - `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
 - Stable image (promoted only after candidate success):
@@ -50,11 +127,13 @@ That document is maintained as a living record and will be updated as each harde
 - Stable akmods cache image (promoted from candidate cache):
   - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 - Branch test image:
-  - `ghcr.io/danathar/kinoite-zfs:beta-<branch>`
-- Branch akmods cache image:
-  - `ghcr.io/danathar/akmods-zfs-<branch>:main-<fedora>`
+  - `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
+- Shared akmods source tag used by branch alias step:
+  - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+- Branch akmods compose alias (branch-scoped public tag):
+  - `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
 
-Candidate and branch artifacts are isolated so test runs do not overwrite stable `latest` artifacts.
+Candidate and branch artifacts are isolated so test runs do not overwrite stable `ghcr.io/danathar/kinoite-zfs:latest`.
 
 ## Why Candidate First
 
@@ -67,31 +146,35 @@ If candidate fails, stable tags are not updated. That protects users from overni
 
 ## Workflows
 
-- `.github/workflows/build.yml`
+- [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
+  - Copies shared akmods source tags into candidate akmods tags before candidate compose (candidate image build step) and promotion.
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
+  - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
-- `.github/workflows/build-beta.yml`
+- [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
+  - Copies shared akmods source tags into branch-scoped public alias tags in `akmods-zfs-candidate` for compose (branch image build step).
+  - Fails closed if shared akmods source tags are missing/stale (so test branches do not mutate shared cache tags).
   - Runs on branch pushes and manual dispatch.
-- `.github/workflows/build-pr.yml`
+- [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)
   - PR validation build only (`push: false`, unsigned).
 
 Markdown/docs-only changes do not trigger image builds.
 
 ## Reproducible Replay
 
-Issue #3 mitigation adds lock-based replay support:
+Lock-based replay support is available:
 
 1. Each main workflow run publishes a `build-inputs-<run_id>` artifact.
-2. To replay a known run, copy those values into `ci/inputs.lock.json`.
+2. To replay a known run, copy those values into [`ci/inputs.lock.json`](ci/inputs.lock.json).
 3. Manually run `Build And Promote Main Image` with:
    - `use_input_lock=true`
    - `build_container_image=<value from lock file>`
    - `promote_to_stable=false` (recommended for validation)
 
-This allows you to rebuild with pinned base image/build container inputs instead of floating `latest` refs.
+This allows you to rebuild with pinned base image/build container inputs instead of floating `latest` refs (moving tags).
 
 ## Install And Rebase
 
@@ -99,6 +182,8 @@ This allows you to rebuild with pinned base image/build container inputs instead
 > This is an experimental image stream for testing.
 
 Rebase in two steps so signing policies are available:
+
+Here, "rebase" means "tell rpm-ostree to switch this machine to boot from a new image reference."
 
 ```bash
 rpm-ostree rebase ostree-unverified-registry:ghcr.io/danathar/kinoite-zfs:latest

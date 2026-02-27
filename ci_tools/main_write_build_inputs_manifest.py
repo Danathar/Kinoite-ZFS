@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+from ci_tools.common import require_env
+
+
+ARTIFACT_DIR = Path("artifacts")
+ARTIFACT_PATH = ARTIFACT_DIR / "build-inputs.json"
+
+
+def main() -> None:
+    # Save the timestamp so each manifest records exactly when it was generated.
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Record run metadata and fully resolved build inputs for replay/debug.
+    # `document` is the full JSON object written to artifacts/build-inputs.json.
+    # Keeping it in one object makes it easy to inspect and replay later.
+    document = {
+        "schema_version": 1,
+        "generated_at": generated_at,
+        "repository": require_env("GITHUB_REPOSITORY"),
+        "workflow": require_env("GITHUB_WORKFLOW"),
+        "run": {
+            "id": int(require_env("GITHUB_RUN_ID")),
+            "attempt": int(require_env("GITHUB_RUN_ATTEMPT")),
+            "number": int(require_env("GITHUB_RUN_NUMBER")),
+            "ref": require_env("GITHUB_REF"),
+            "sha": require_env("GITHUB_SHA"),
+            "actor": require_env("GITHUB_ACTOR"),
+        },
+        "inputs": {
+            "use_input_lock": require_env("USE_INPUT_LOCK").lower() == "true",
+            "lock_file_path": require_env("LOCK_FILE_PATH"),
+            "fedora_version": require_env("FEDORA_VERSION"),
+            "kernel_release": require_env("KERNEL_RELEASE"),
+            "base_image_ref": require_env("BASE_IMAGE_REF"),
+            "base_image_name": require_env("BASE_IMAGE_NAME"),
+            "base_image_tag": require_env("BASE_IMAGE_TAG"),
+            "base_image_pinned": require_env("BASE_IMAGE_PINNED"),
+            "base_image_digest": require_env("BASE_IMAGE_DIGEST"),
+            "build_container_ref": require_env("BUILD_CONTAINER_REF"),
+            "build_container_pinned": require_env("BUILD_CONTAINER_PINNED"),
+            "build_container_digest": require_env("BUILD_CONTAINER_DIGEST"),
+            "zfs_minor_version": require_env("ZFS_MINOR_VERSION"),
+            "akmods_upstream_ref": require_env("AKMODS_UPSTREAM_REF"),
+        },
+    }
+
+    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    ARTIFACT_PATH.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+    # Print in logs so operators can copy the file contents quickly if needed.
+    print(ARTIFACT_PATH.read_text(encoding="utf-8"), end="")
+
+
+if __name__ == "__main__":
+    main()

@@ -14,41 +14,27 @@ on:
       - "**/*.md"
 
   workflow_dispatch:
-    # Manual trigger for branch rebuild/testing.
-    inputs:
-      rebuild_akmods:
-        description: Force rebuild of branch-scoped self-hosted akmods-zfs
-        required: false
-        default: false
-        type: boolean
+    # Manual trigger for branch build/testing.
 
 concurrency:
   # One active run per workflow+branch; newer pushes cancel stale runs.
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
-env:
-  # Issue #1/#4 hardening:
-  # Pin to our forked akmods commit so branch tests use the same curated source
-  # as main and avoid runtime patching drift.
-  AKMODS_UPSTREAM_REPO: https://github.com/Danathar/akmods.git
-  AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
-
 jobs:
   prepare-branch-metadata:
     name: Compute Branch Tags
     runs-on: ubuntu-latest
     outputs:
-      image_tag: ${{ steps.branch.outputs.image_tag }}
-      akmods_repo: ${{ steps.branch.outputs.akmods_repo }}
+      akmods_public_tag_prefix: ${{ steps.branch.outputs.akmods_public_tag_prefix }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Compute branch-safe image and akmods names
+      - name: Compute branch-safe public alias tag prefix
         id: branch
         shell: bash
         run: |
-          ./.github/scripts/beta/compute-branch-metadata.sh
+          python3 -m ci_tools.cli beta-compute-branch-metadata
 
   build-zfs-akmods:
     name: Build Self-Hosted ZFS Akmods (branch)
@@ -56,7 +42,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      # Needed to push ghcr.io/<owner>/<branch-akmods-repo>:* images.
+      # Needed to copy/publish branch alias tags in ghcr.io/<owner>/akmods-zfs-candidate:*.
       packages: write
     container:
       image: ghcr.io/ublue-os/devcontainer:latest
@@ -68,53 +54,54 @@ jobs:
         id: fedora
         shell: bash
         run: |
-          ./.github/scripts/beta/detect-fedora-version.sh
+          python3 -m ci_tools.cli beta-detect-fedora-version
 
-      - name: Check for existing branch-scoped self-hosted zfs akmods image
+      - name: Check for existing shared self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
-          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
+          # Branch workflow intentionally treats this as read-only input.
+          AKMODS_REPO: akmods-zfs
         run: |
-          ./.github/scripts/beta/check-branch-akmods-cache.sh
+          python3 -m ci_tools.cli beta-check-branch-akmods-cache
 
-      - name: Clone upstream akmods tooling
-        # Rebuild when manually forced or when branch cache is missing/stale.
-        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
-        shell: bash
-        env:
-          AKMODS_UPSTREAM_REPO: ${{ env.AKMODS_UPSTREAM_REPO }}
-          AKMODS_UPSTREAM_REF: ${{ env.AKMODS_UPSTREAM_REF }}
-        run: |
-          ./.github/scripts/akmods/clone-pinned-akmods.sh
-
-      - name: Configure zfs target in branch-scoped namespace
-        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+      - name: Stop when shared akmods source is missing or stale
+        # Branch workflow is intentionally read-only for shared akmods tags.
+        # If the shared source cache is missing/stale, fail closed and rebuild it
+        # from the main workflow instead of mutating shared tags from a test branch.
+        if: steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
-          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
-          AKMODS_DESCRIPTION: A branch-scoped caching layer for pre-built zfs akmod RPMs
         run: |
-          ./.github/scripts/akmods/configure-zfs-target.sh
+          echo "Shared akmods source tag akmods-zfs:main-${FEDORA_VERSION} is missing or stale for kernel ${KERNEL_RELEASE}." >&2
+          echo "Run main workflow (Build And Promote Main Image) with rebuild_akmods=true, then rerun this branch workflow." >&2
+          exit 1
 
-      - name: Build and publish branch-scoped self-hosted zfs akmods image
-        if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+      - name: Publish branch cache alias in candidate repo
+        # Compose step means the final image build step below (`Build Custom Image`).
+        # That compose step runs in a separate build environment that may not be able to
+        # read every container package/tag path anonymously.
+        # Important: source-code repo visibility and container package visibility
+        # are separate settings. A public code repo can still have package tags
+        # that require authentication in some build contexts.
+        # "Branch-scoped" means the destination tag includes the branch name.
+        # We copy from shared source tag to a branch-scoped tag in candidate repo
+        # so compose can pull reliably without touching stable tags.
         shell: bash
         env:
-          AKMODS_KERNEL: main
-          AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
-          KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
-          AKMODS_TARGET: zfs
-          ZFS_MINOR_VERSION: "2.4"
-          CI: "1"
+          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+          SOURCE_AKMODS_REPO: akmods-zfs
+          DEST_AKMODS_REPO: akmods-zfs-candidate
+          DEST_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: |
-          ./.github/scripts/akmods/build-and-publish.sh
+          python3 -m ci_tools.cli beta-publish-branch-akmods-alias
 
   bluebuild:
     name: Build Custom Image (branch)
@@ -129,13 +116,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set branch image tag and branch akmods source in recipe
+      - name: Set branch akmods source in recipe
         shell: bash
         env:
-          IMAGE_TAG: ${{ needs.prepare-branch-metadata.outputs.image_tag }}
-          AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          AKMODS_REPO: akmods-zfs-candidate
+          AKMODS_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
         run: |
-          ./.github/scripts/beta/configure-branch-recipe.sh
+          python3 -m ci_tools.cli beta-configure-branch-recipe
 
       - name: Build Custom Image
         uses: blue-build/github-action@v1.11.0
@@ -145,3 +132,5 @@ jobs:
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
           maximize_build_space: true
+          # Keep recipe/containerfile edits from the previous step.
+          skip_checkout: true
