@@ -24,7 +24,7 @@ Why this matters here:
 
 In plain terms, this project is doing:
 
-1. Read current upstream kernel version from Kinoite base image metadata.
+1. Read current upstream kernel version from labels stored in Kinoite base image metadata (extra descriptive data attached to the image).
 2. Build (or reuse) ZFS akmods that exactly match that kernel.
 3. Build a candidate custom image that installs those ZFS RPMs.
 4. Promote to stable tags only if candidate build/test checks succeed.
@@ -62,6 +62,7 @@ Quick terms used in this repo:
 - `CI`: the GitHub Actions workflows in `.github/workflows`.
 - `candidate`: test image/tag built first.
 - `stable`: user-facing tags (`latest` and `main-<fedora>`).
+- `metadata`: descriptive data attached to an object (for example image labels or workflow run details).
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
 - `tag`: a human-readable label on an image, like `latest` or `main-43`.
