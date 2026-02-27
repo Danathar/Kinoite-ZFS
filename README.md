@@ -12,7 +12,7 @@ If you are new to ZFS:
 
 Core goal:
 
-- Track the current Kinoite/Fedora kernel stream.
+- Track the current Kinoite/Fedora kernel stream (stream = the moving sequence of kernel versions published over time, newest to oldest).
 - Build matching ZFS akmods against that kernel.
 - Install those ZFS RPMs directly into the final image.
 - Catch kernel/module mismatches during CI, before rebasing a host.
@@ -77,6 +77,7 @@ Quick terms used in this repo:
 - `workflow run`: one execution of a GitHub Actions workflow from start to finish (one run has its own run ID and logs).
 - `pipeline`: the ordered set of jobs/steps in a workflow run (for example: resolve inputs -> build candidate -> promote stable).
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
+- `Fedora stream` / `kernel stream`: the ongoing flow of new kernel releases in Fedora over time (for example one nightly run may see a newer kernel than yesterday).
 - `tag`: a human-readable label on an image, like `latest` or `main-43`.
 - `image ref`: text that points to a container image, usually `name:tag` or `name@sha256:digest`.
 - `namespace` (registry namespace): the owner/org part of an image path, for example `danathar` in `ghcr.io/danathar/kinoite-zfs`.

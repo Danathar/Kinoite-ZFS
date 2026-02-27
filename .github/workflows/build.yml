@@ -183,6 +183,7 @@ jobs:
         shell: bash
         env:
           # `main` follows the Fedora desktop kernel stream used by Kinoite main/latest.
+          # "Stream" here means the moving track of new kernel releases over time.
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.inputs.outputs.version }}
           # Build akmods for the exact kernel chosen in input resolution.

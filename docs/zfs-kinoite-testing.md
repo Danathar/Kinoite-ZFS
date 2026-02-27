@@ -7,7 +7,7 @@ This repository is a controlled testbed for ZFS support on Kinoite-based images 
 The objective is to validate that we can safely:
 
 1. Track the current Kinoite/Fedora kernel stream.
-2. Build ZFS kernel modules (`kmod-zfs`) against that exact kernel stream.
+2. Build ZFS kernel modules (`kmod-zfs`) against that exact kernel stream (that exact point in the moving release flow).
 3. Install those modules into the final ostree image.
 4. Fail in CI when kernel/module compatibility breaks, instead of discovering it after rebasing a desktop or host.
 
@@ -20,6 +20,7 @@ This is intentionally designed for iterative validation before adopting any appr
 3. Stable: the tags users normally consume (`latest` and `main-<fedora>`).
 4. Build inputs artifact: JSON file saved per run that records exact inputs.
 5. Replay/lock mode: manual run mode that uses saved inputs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+6. Fedora/kernel stream: the moving sequence of new kernel releases over time.
 
 ## Command Notes
 

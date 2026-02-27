@@ -36,6 +36,7 @@ This repo's pipeline is designed around that exact problem.
 7. Fail closed: stop with an explicit error when a required safety condition is missing, instead of silently guessing.
 8. Stale module (or stale kmod): a module built for an older kernel than the kernel this run is building against.
 9. Namespace: the owner/org part of an image path (example: `danathar` in `ghcr.io/danathar/kinoite-zfs`).
+10. Fedora/kernel stream: the moving sequence of new kernel versions published over time.
 
 ## Beginner Primer: Akmods On Atomic Images
 
@@ -46,7 +47,7 @@ This repo's pipeline is designed around that exact problem.
 
 At a high level, this repository has a build workflow that:
 
-1. Tracks the current Fedora/Kinoite kernel stream.
+1. Tracks the current Fedora/Kinoite kernel stream (the moving sequence of new kernel versions over time).
 2. Builds ZFS kernel modules (`kmod-zfs`) for that kernel.
 3. Integrates those modules into a custom Kinoite image.
 4. Publishes to stable tags only after checks pass.
