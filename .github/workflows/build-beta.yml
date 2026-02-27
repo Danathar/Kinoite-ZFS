@@ -93,6 +93,8 @@ jobs:
 
       - name: Configure zfs target in branch-scoped namespace
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+        # Namespace here means the owner/org segment in GHCR image paths
+        # (for example `danathar` in `ghcr.io/danathar/...`).
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
@@ -111,6 +113,8 @@ jobs:
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
           AKMODS_TARGET: zfs
           ZFS_MINOR_VERSION: "2.4"
+          # Upstream akmods scripts pull OpenZFS release source from:
+          # https://github.com/openzfs/zfs/releases
           CI: "1"
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}

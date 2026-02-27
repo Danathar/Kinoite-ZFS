@@ -167,6 +167,8 @@ jobs:
 
       - name: Configure candidate zfs target in self-hosted namespace
         if: github.event_name == 'schedule' || github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
+        # Namespace here means the owner/org segment in GHCR image paths
+        # (for example `danathar` in `ghcr.io/danathar/...`).
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
@@ -188,6 +190,8 @@ jobs:
           AKMODS_TARGET: zfs
           # ZFS version comes from input resolution (default or lock file).
           ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
+          # Upstream akmods scripts pull OpenZFS release source from:
+          # https://github.com/openzfs/zfs/releases
           CI: "1"
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}

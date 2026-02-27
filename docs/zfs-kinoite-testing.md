@@ -100,9 +100,10 @@ This is the core mechanism that prevents shipping stale kmods.
 If cache is missing/stale (or manual rebuild is requested), CI:
 
 1. Fetches a pinned commit from the maintained fork (`Danathar/akmods`).
-2. Injects the ZFS image target under this repo owner namespace.
-3. Seeds upstream akmods cache metadata with the resolved `KERNEL_RELEASE`.
-4. Builds and publishes kernel-matched akmods tags.
+2. Pulls OpenZFS release source from upstream OpenZFS GitHub releases (`https://github.com/openzfs/zfs/releases`) through the akmods build scripts.
+3. Injects the ZFS image target under this repo owner namespace (the owner/org part of the image path, like `danathar` in `ghcr.io/danathar/...`).
+4. Seeds upstream akmods cache metadata with the resolved `KERNEL_RELEASE`.
+5. Builds and publishes kernel-matched akmods tags.
 
 ### 4. Build Candidate Kinoite Image
 

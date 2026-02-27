@@ -35,6 +35,7 @@ This repo's pipeline is designed around that exact problem.
 6. Lock replay: rerun using saved inputs from a previous run.
 7. Fail closed: stop with an explicit error when a required safety condition is missing, instead of silently guessing.
 8. Stale module (or stale kmod): a module built for an older kernel than the kernel this run is building against.
+9. Namespace: the owner/org part of an image path (example: `danathar` in `ghcr.io/danathar/kinoite-zfs`).
 
 ## Beginner Primer: Akmods On Atomic Images
 
@@ -109,6 +110,7 @@ The workflow checks cached akmods images for a `kmod-zfs` RPM that matches the e
 
 1. If yes, it reuses cache.
 2. If no, it rebuilds and publishes kernel-matched akmods tags.
+3. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
 
 This avoids publishing images with outdated kernel modules.
 

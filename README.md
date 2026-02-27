@@ -33,8 +33,9 @@ In plain terms, this project is doing:
 
 1. Read current upstream kernel version from labels stored in Kinoite base image metadata (extra descriptive data attached to the image).
 2. Build (or reuse) ZFS akmods that exactly match that kernel.
-3. Build a candidate custom image (`candidate` = test image built first) that installs those ZFS RPMs.
-4. Promote to stable tags (`stable` = normal user-facing tags) only if candidate build/test checks succeed.
+3. For new builds, akmods pulls OpenZFS source from upstream OpenZFS GitHub releases (`https://github.com/openzfs/zfs/releases`) and builds RPMs from that release source.
+4. Build a candidate custom image (`candidate` = test image built first) that installs those ZFS RPMs.
+5. Promote to stable tags (`stable` = normal user-facing tags) only if candidate build/test checks succeed.
 
 So the safety model is: test first, then promote.
 If something upstream changes and breaks compatibility, candidate fails and stable does not move.
@@ -78,6 +79,7 @@ Quick terms used in this repo:
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
 - `tag`: a human-readable label on an image, like `latest` or `main-43`.
 - `image ref`: text that points to a container image, usually `name:tag` or `name@sha256:digest`.
+- `namespace` (registry namespace): the owner/org part of an image path, for example `danathar` in `ghcr.io/danathar/kinoite-zfs`.
 - `floating ref` / `floating latest ref`: a tag-based ref (for example `:latest`) that can point to a different image later without changing its text.
 - `digest-pinned ref`: an exact image pointer like `name@sha256:...`; this does not move to a different image unless you change the digest value.
 - `tag vs digest-pinned` (plain language): a tag is a moving signpost, while a digest is an exact snapshot.
