@@ -19,6 +19,7 @@ def main() -> None:
     # Normalize owner means: convert to lowercase for consistent registry paths.
     image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
     akmods_repo = require_env("AKMODS_REPO")
+    akmods_tag_prefix = require_env("AKMODS_TAG_PREFIX")
 
     # Keep branch builds on a real upstream base tag.
     # Important: recipe `image-version` selects the base-image tag to pull
@@ -27,11 +28,13 @@ def main() -> None:
     # Branch-specific publish tags are handled by BlueBuild's branch tagging,
     # not by setting `image-version` to the branch name.
     replace_line_starting_with(RECIPE_FILE, "image-version:", "image-version: latest")
-    # Point to this branch's akmods repository to avoid touching main caches.
+    # Point to this branch's akmods tag to avoid touching main caches.
+    # We keep one shared candidate repo and isolate by branch-specific tags
+    # (example: `br-my-branch-43`), which avoids private per-branch repos.
     # This line is inserted into the Containerfile and expanded later at build time.
     akmods_line = (
         "AKMODS_IMAGE=\""
-        f"ghcr.io/{image_org}/{akmods_repo}:main-${{FEDORA_VERSION}}"
+        f"ghcr.io/{image_org}/{akmods_repo}:{akmods_tag_prefix}-${{FEDORA_VERSION}}"
         "\""
     )
     replace_line_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=", akmods_line)

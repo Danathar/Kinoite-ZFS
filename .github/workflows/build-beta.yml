@@ -42,6 +42,7 @@ jobs:
     outputs:
       image_tag: ${{ steps.branch.outputs.image_tag }}
       akmods_repo: ${{ steps.branch.outputs.akmods_repo }}
+      akmods_tag_prefix: ${{ steps.branch.outputs.akmods_tag_prefix }}
     steps:
       - uses: actions/checkout@v6
 
@@ -78,6 +79,7 @@ jobs:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          AKMODS_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_tag_prefix }}
         run: |
           python3 -m ci_tools.cli beta-check-branch-akmods-cache
 
@@ -95,6 +97,9 @@ jobs:
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         # Namespace here means the owner/org segment in GHCR image paths
         # (for example `danathar` in `ghcr.io/danathar/...`).
+        # Branch tests use a shared candidate repo plus branch-specific tags.
+        # This keeps branch outputs isolated while avoiding per-branch package
+        # repos that may default to private visibility.
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
@@ -108,7 +113,7 @@ jobs:
         if: github.event.inputs.rebuild_akmods == 'true' || steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
-          AKMODS_KERNEL: main
+          AKMODS_KERNEL: ${{ needs.prepare-branch-metadata.outputs.akmods_tag_prefix }}
           AKMODS_VERSION: ${{ steps.fedora.outputs.version }}
           KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
           AKMODS_TARGET: zfs
@@ -138,6 +143,7 @@ jobs:
         shell: bash
         env:
           AKMODS_REPO: ${{ needs.prepare-branch-metadata.outputs.akmods_repo }}
+          AKMODS_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_tag_prefix }}
         run: |
           python3 -m ci_tools.cli beta-configure-branch-recipe
 
