@@ -1,42 +1,42 @@
 # Workflow Script Layout
 
-These scripts hold workflow shell logic that used to live directly inside workflow YAML.
+These files are workflow entry points.
 
-Goal:
+Each `.sh` file is now a thin wrapper that calls a Python module in `ci_tools/`.
+This keeps workflow logic readable, testable, and easier to maintain.
 
-- Keep workflow files focused on job wiring (`on`, `needs`, `if`, permissions, actions).
-- Keep shell behavior in script files that are easier to read and review.
+## Quick Terms
 
-## Main Pipeline Scripts
+- `normalize`: make text consistent. In this repo, when we normalize owner/org names, we convert them to lowercase for registry paths.
+- `image ref`: text that points to a container image, like `name:tag` (moving) or `name@sha256:digest` (exact).
+- `skopeo`: a command-line tool that inspects or copies container images without running them.
+- `GITHUB_OUTPUT`: a file path provided by GitHub Actions; writing `name=value` lines there creates step outputs for later steps.
 
-- `main/resolve-build-inputs.sh`: Resolve lock/default build inputs and emit outputs.
-- `main/write-build-inputs-manifest.sh`: Emit `artifacts/build-inputs.json` for replay/audit.
-- `main/check-candidate-akmods-cache.sh`: Detect usable candidate/stable akmods cache.
-- `main/configure-candidate-recipe.sh`: Pin recipe base tag for the run and rewrite kernel-matched `AKMODS_IMAGE`.
-- `main/promote-stable.sh`: Promote candidate outputs to stable/audit tags.
+## Main Pipeline Entry Points
 
-## Branch Pipeline Scripts
+- `.github/scripts/main/resolve-build-inputs.sh` -> `python3 -m ci_tools.main_resolve_build_inputs`
+- `.github/scripts/main/write-build-inputs-manifest.sh` -> `python3 -m ci_tools.main_write_build_inputs_manifest`
+- `.github/scripts/main/check-candidate-akmods-cache.sh` -> `python3 -m ci_tools.main_check_candidate_akmods_cache`
+- `.github/scripts/main/configure-candidate-recipe.sh` -> `python3 -m ci_tools.main_configure_candidate_recipe`
+- `.github/scripts/main/promote-stable.sh` -> `python3 -m ci_tools.main_promote_stable`
 
-- `beta/compute-branch-metadata.sh`: Generate branch-safe image and akmods names.
-- `beta/detect-fedora-version.sh`: Resolve Fedora major and kernel release for branch build.
-- `beta/check-branch-akmods-cache.sh`: Detect branch cache suitability by exact kernel match.
-- `beta/configure-branch-recipe.sh`: Rewrite `recipes/recipe.yml` for branch image/tag inputs.
+## Branch Pipeline Entry Points
+
+- `.github/scripts/beta/compute-branch-metadata.sh` -> `python3 -m ci_tools.beta_compute_branch_metadata`
+- `.github/scripts/beta/detect-fedora-version.sh` -> `python3 -m ci_tools.beta_detect_fedora_version`
+- `.github/scripts/beta/check-branch-akmods-cache.sh` -> `python3 -m ci_tools.beta_check_branch_akmods_cache`
+- `.github/scripts/beta/configure-branch-recipe.sh` -> `python3 -m ci_tools.beta_configure_branch_recipe`
 
 ## Shared Akmods Scripts
 
-- `akmods/clone-pinned-akmods.sh`: Clone and verify pinned akmods source commit.
-- `akmods/configure-zfs-target.sh`: Add/update zfs target in `images.yaml`.
-- `akmods/build-and-publish.sh`: Execute `just` build/publish/manifest flow.
+These are still shell scripts because they run build tooling directly:
 
-Containerfile note:
+- `akmods/clone-pinned-akmods.sh`
+- `akmods/configure-zfs-target.sh`
+- `akmods/build-and-publish.sh`
 
-- `AKMODS_IMAGE` is now defined in `containerfiles/zfs-akmods/Containerfile`.
-- Main/branch recipe-configuration scripts rewrite that line in the Containerfile.
-- Main workflow also rewrites `base-image`/`image-version` in `recipes/recipe.yml`
-  to a resolved immutable tag so `latest` cannot drift mid-run.
+## Containerfile Note
 
-## Usage Notes
-
-- Scripts assume required values are passed through workflow `env`.
-- GitHub expressions (`${{ ... }}`) are resolved in workflow YAML, not in scripts.
-- Outputs must still be written through `GITHUB_OUTPUT` when a step uses `id` outputs.
+- `AKMODS_IMAGE` is defined in `containerfiles/zfs-akmods/Containerfile`.
+- Main and branch configure steps rewrite that line in the Containerfile.
+- Main also rewrites `base-image` and `image-version` in `recipes/recipe.yml` to a fixed tag for the current run.

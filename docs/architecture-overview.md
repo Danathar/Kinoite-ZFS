@@ -114,6 +114,21 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 2. Branch workflow (`build-beta.yml`): isolated branch testing.
 3. PR workflow (`build-pr.yml`): validation only, no push.
 
+## Implementation Note: Workflow Scripts
+
+Workflow entry-point scripts under `.github/scripts/main` and `.github/scripts/beta` are thin shell wrappers.
+The behavior lives in Python modules under `ci_tools/`.
+
+Why this setup:
+
+1. Keep workflow YAML focused on job wiring.
+2. Keep logic in code that is easier to read and unit-test.
+3. Preserve existing workflow step paths (`.sh` files) so workflow YAML stays stable.
+
+Term note used in code/docs:
+
+1. Normalize owner/org name means convert it to lowercase before building image paths (example: `Danathar` -> `danathar`).
+
 ## Design Principles
 
 1. Safety first: never advance stable on candidate failure.
