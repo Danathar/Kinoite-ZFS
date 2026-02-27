@@ -75,6 +75,8 @@ If you are new to some of the terms used below, read the glossary first:
 
 If you want the full technical design and workflow details, read:
 
+- [`docs/documentation-guide.md`](docs/documentation-guide.md) (documentation tree and reading paths by goal)
+- [`docs/code-reading-guide.md`](docs/code-reading-guide.md) (step-by-step file reading order for newcomers)
 - [`docs/architecture-overview.md`](docs/architecture-overview.md) (high-level architecture: what/why/how)
 - [`docs/upstream-change-response.md`](docs/upstream-change-response.md) (user/operator failure response guide)
 - [`docs/akmods-fork-maintenance.md`](docs/akmods-fork-maintenance.md) (how to maintain and update the pinned akmods fork source)

@@ -16,28 +16,6 @@ The objective is to validate that we can safely:
 
 This is intentionally designed for iterative validation before adopting any approach on production-like systems.
 
-## Terminology
-
-1. CI: the GitHub Actions workflows in this repo.
-2. Workflow: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
-3. Workflow run: one full execution of a workflow from start to finish (with its own run ID and logs).
-4. Candidate: a test build/tag created before stable tags are updated.
-5. Stable: the tags users normally consume (`latest` and `main-<fedora>`).
-6. Build inputs artifact: JSON file saved per run that records exact inputs.
-7. Replay/lock mode: manual run mode that uses saved inputs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-8. Fedora/kernel stream: the moving sequence of new kernel releases over time.
-9. Compose (or compose step): the image build stage that combines the base image plus selected modules/packages into the final image output.
-10. Package visibility (registry): who can read a container package/tag. This is separate from source repo visibility.
-11. Branch-scoped: tag/name includes the branch identifier (for example `br-my-branch-43`) so branch test artifacts stay isolated.
-
-## Command Notes
-
-1. `gh`: GitHub CLI for workflow runs/logs/artifacts.
-2. `skopeo`: inspect/copy container images directly.
-3. `jq`: parse JSON output from CLI commands.
-4. `rpm-ostree`: package/rebase management on atomic Fedora systems. Rebase means switching the installed OS image source ref.
-5. `depmod`: rebuild kernel module dependency metadata for a target kernel.
-
 ## Constraints And Context
 
 1. Kinoite uses immutable/ostree workflows, so custom kernel module integration must happen during image build.

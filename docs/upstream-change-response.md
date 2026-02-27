@@ -12,30 +12,6 @@ This document is for operators and users who need to answer two questions quickl
 1. Is stable still safe to use?
 2. What exact action should we take next?
 
-Quick terms:
-
-1. Workflow: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
-2. Workflow run: one full execution of a workflow from start to finish (with its own run ID and logs).
-3. Candidate: test build created first.
-4. Stable: user-facing tags (`latest` and `main-<fedora>`).
-5. Workflow metadata: run details like run ID, branch/ref, commit SHA, and triggering user.
-6. Image ref: image pointer (`name:tag` or `name@sha256:digest`).
-7. Build-inputs artifact: JSON file with exact run inputs.
-8. Lock replay: rerun using saved inputs from a previous run.
-9. Fail closed: stop with an explicit error when required candidate inputs are missing, rather than silently reusing old stable inputs.
-10. Stale module (or stale kmod): a module package built for an older kernel than the kernel in the current base image.
-11. Rebase (rpm-ostree): switch a machine to boot from a different image ref/tag.
-12. Compose (or compose step): the image build stage that combines base image plus selected modules/packages into the final image output.
-13. Package visibility (registry): who can read a container package/tag; this can differ from source repo visibility.
-14. Branch-scoped: tag/name includes the branch identifier so branch test artifacts remain isolated.
-
-Command quick reference:
-
-1. `gh` (GitHub CLI): inspect workflow runs, jobs, and logs.
-2. `skopeo`: inspect/copy container images directly (without running a container).
-3. `jq`: parse and filter JSON output from `gh` and `skopeo`.
-4. `rpm-ostree`: show/manage OS package state on atomic systems.
-
 ## Scope
 
 This guide covers failures in:
