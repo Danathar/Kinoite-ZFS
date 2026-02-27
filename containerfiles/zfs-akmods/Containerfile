@@ -1,3 +1,6 @@
+ARG AKMODS_REGISTRY_ACTOR=""
+ARG AKMODS_REGISTRY_TOKEN=""
+
 RUN bash -euxo pipefail <<'EOF_INNER'
 # Detect Fedora major from build root so we select the matching akmods tag.
 FEDORA_VERSION="$(rpm -E %fedora)"
@@ -12,7 +15,16 @@ if [[ "${#image_kernels[@]}" -eq 0 ]]; then
 fi
 
 # Pull akmods cache image as a local `dir:` layout for direct layer extraction.
-skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
+# Branch-specific akmods repos can be private, so use credentials when provided.
+if [[ -n "${AKMODS_REGISTRY_ACTOR}" && -n "${AKMODS_REGISTRY_TOKEN}" ]]; then
+  skopeo copy \
+    --retry-times 3 \
+    --src-creds "${AKMODS_REGISTRY_ACTOR}:${AKMODS_REGISTRY_TOKEN}" \
+    "docker://${AKMODS_IMAGE}" \
+    dir:/tmp/akmods-zfs
+else
+  skopeo copy --retry-times 3 "docker://${AKMODS_IMAGE}" dir:/tmp/akmods-zfs
+fi
 
 # Read only manifest layers (not config blobs) and map digest -> local file path.
 mapfile -t layer_files < <(

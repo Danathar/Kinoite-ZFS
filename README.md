@@ -146,6 +146,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
+  - Passes temporary GHCR credentials into the build so branch-private akmods repos can be pulled during compose.
   - Runs on branch pushes and manual dispatch.
 - [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)
   - PR validation build only (`push: false`, unsigned).

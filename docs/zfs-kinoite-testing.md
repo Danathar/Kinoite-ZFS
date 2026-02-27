@@ -177,8 +177,9 @@ Key behavior:
 1. Computes branch-safe image tag and branch-specific akmods repo name.
 2. Builds/publishes branch-isolated akmods cache as needed.
 3. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume branch-scoped akmods source.
-4. Builds/publishes branch-tagged image.
-5. Ignores markdown/docs-only changes.
+4. Passes temporary GHCR credentials into compose so branch-private akmods repos can be pulled by `skopeo`.
+5. Builds/publishes branch-tagged image.
+6. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-pr.yml`](../.github/workflows/build-pr.yml) (PR Validation)
 
