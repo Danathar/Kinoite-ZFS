@@ -282,7 +282,7 @@ jobs:
           sudo apt-get install -y skopeo
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3.8.1
+        uses: sigstore/cosign-installer@v4.0.0
 
       - name: Promote candidate image and akmods cache to stable tags
         shell: bash
