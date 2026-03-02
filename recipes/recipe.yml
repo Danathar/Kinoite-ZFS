@@ -3,7 +3,7 @@
 # Published image: ghcr.io/<owner>/<name>
 name: kinoite-zfs
 # Included in OCI metadata and shown by container registries.
-description: This is my personal OS image.
+description: Kinoite with ZFS, distrobox, and brew.
 
 # Base image stream:
 # - `kinoite-main` follows ublue's regular Kinoite track
@@ -13,12 +13,6 @@ image-version: latest # follow the default Kinoite stream
 
 # Modules execute in order, mutating the image layer-by-layer.
 modules:
-  - type: files
-    files:
-      - source: system
-        # Copies `system/*` into image root.
-        destination: /
-
   - type: containerfile
     # Keep custom ZFS install logic in a dedicated Containerfile snippet directory.
     # This keeps recipe.yml readable while still using the containerfile module.
@@ -26,32 +20,15 @@ modules:
       - zfs-akmods
 
   - type: dnf
-    # Example user packages/removals from BlueBuild template.
-    repos:
-      copr:
-        - atim/starship
     install:
       packages:
-        - micro
-        - starship
-    remove:
-      packages:
-        # example: removing firefox (in favor of the flatpak)
-        # "firefox" is the main package, "firefox-langpacks" is a dependency
-        - firefox
-        # Explicitly remove langpacks dependency in this specific case.
-        - firefox-langpacks
+        - distrobox
+
+  - type: brew
 
   - type: default-flatpaks
     configurations:
-      - notify: true
-        scope: system
-        # Flathub is used by default when repo is omitted.
-        # System scope = present for all users.
-        install:
-          - org.mozilla.firefox
-          - org.gnome.Loupe
-      # Also configure user-scope repo without forcing user installs.
+      - scope: system
       - scope: user
 
   # Configure policy/signing files so signed rebases work cleanly.
