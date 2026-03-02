@@ -244,7 +244,21 @@ jobs:
         run: |
           python3 -m ci_tools.cli main-configure-candidate-recipe
 
-      - name: Build Candidate Image
+      - name: Build Candidate Image (attempt 1)
+        id: build_candidate_attempt_1
+        continue-on-error: true
+        uses: blue-build/github-action@v1.11.0
+        with:
+          recipe: recipe.yml
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          registry_token: ${{ github.token }}
+          pr_event_number: ${{ github.event.number }}
+          maximize_build_space: true
+          # Keep file edits from the previous step. Action checkout would reset them.
+          skip_checkout: true
+
+      - name: Build Candidate Image (retry after transient registry error)
+        if: steps.build_candidate_attempt_1.outcome == 'failure'
         uses: blue-build/github-action@v1.11.0
         with:
           recipe: recipe.yml
