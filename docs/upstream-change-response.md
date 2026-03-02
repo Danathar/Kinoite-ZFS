@@ -189,41 +189,6 @@ Action:
 2. Reproduce with lock replay on the known-good input set.
 3. Only promote when candidate succeeds on intended inputs.
 
-### Pattern F: Signed Host Switch Fails With “Signature Required, But No Signature Exists”
-
-Typical signal:
-
-1. `bootc switch` or signed rebase fails during image import.
-2. Error text includes: `A signature was required, but no signature exists`.
-
-Likely cause:
-
-1. Host-side trust policy cannot resolve signatures for the target repo name
-   (for example stable vs candidate repository mismatch).
-2. Sigstore attachment discovery config for that repo name is missing.
-
-Action:
-
-1. Confirm target image digest is signed in registry:
-
-```bash
-cosign verify --key cosign.pub ghcr.io/danathar/kinoite-zfs:latest
-```
-
-2. Inspect trust policy inside the target image:
-
-```bash
-podman run --rm --entrypoint cat ghcr.io/danathar/kinoite-zfs:latest /etc/containers/policy.json
-podman run --rm --entrypoint sh ghcr.io/danathar/kinoite-zfs:latest -lc 'ls -1 /etc/containers/registries.d'
-```
-
-3. Verify both repo names are present in policy/registries config:
-   - `ghcr.io/danathar/kinoite-zfs`
-   - `ghcr.io/danathar/kinoite-zfs-candidate`
-
-4. If migrating from a different image family, do one unverified bootstrap rebase
-   first, then switch signed.
-
 ## Safe Operational Defaults
 
 1. Treat `latest` as production/stable.

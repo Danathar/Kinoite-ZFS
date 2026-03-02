@@ -111,10 +111,6 @@ The workflow rewrites recipe/containerfile inputs before candidate compose (cand
 
 1. Pin `base-image` + `image-version` to the resolved immutable base tag for this run.
 2. Use a kernel-matched akmods tag (`main-<fedora>-<kernel_release>`).
-3. Normalize signature trust policy entries after the signing module so both
-   stable and candidate repo names are trusted in the final image:
-   - `ghcr.io/danathar/kinoite-zfs`
-   - `ghcr.io/danathar/kinoite-zfs-candidate`
 
 The build validates ZFS module presence for kernel directories before image publish.
 
@@ -127,8 +123,6 @@ Promotion is a separate gated job:
 3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source image.
 4. Writes an immutable stable audit tag (`stable-<run>-<sha>`).
 5. Re-signs the promoted stable image digest so signature-required host rebases continue to work.
-6. Relies on the in-image policy normalization from compose time so signed host
-   switches can move between candidate and stable repository names.
 
 If candidate fails, stable tags are not changed.
 
