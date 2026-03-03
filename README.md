@@ -124,6 +124,13 @@ If candidate fails, stable tags are not updated. That protects users from overni
   - Builds candidate artifacts first, then promotes them to stable tags on success.
   - Copies shared akmods source tags into candidate akmods tags before candidate compose (candidate image build step) and promotion.
   - Re-signs the promoted stable image digest after copy, because signatures are repository-specific and do not automatically move from `kinoite-zfs-candidate` to `kinoite-zfs`.
+  - Normalizes in-image signature policy after signing so both repository names are trusted.
+    - “Policy entries” here means repository-specific trust rules written to:
+      - `/etc/containers/policy.json` (signature verification rules)
+      - `/etc/containers/registries.d/*.yaml` (where to find sigstore attachments)
+    - The two repository rules are:
+    - `ghcr.io/danathar/kinoite-zfs`
+    - `ghcr.io/danathar/kinoite-zfs-candidate`
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
   - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
@@ -166,6 +173,20 @@ systemctl reboot
 rpm-ostree rebase ostree-image-signed:docker://ghcr.io/danathar/kinoite-zfs:latest
 systemctl reboot
 ```
+
+## Signed Switching Between Stable And Candidate
+
+Stable channel in this project is `:latest`:
+
+1. Stable repo: `ghcr.io/danathar/kinoite-zfs:latest`
+2. Candidate repo: `ghcr.io/danathar/kinoite-zfs-candidate:<tag>`
+
+Current images include trust policy entries for both repo names so signed
+switches between these two references can work after you are already running
+this image family.
+
+If you are switching from another image family first, do the initial unverified
+bootstrap rebase once (section above), reboot, then switch signed.
 
 ## Quick Validation
 

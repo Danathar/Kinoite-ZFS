@@ -33,3 +33,8 @@ modules:
 
   # Configure policy/signing files so signed rebases work cleanly.
   - type: signing
+
+  # Keep trust policy valid for both stable and candidate repositories.
+  - type: script
+    scripts:
+      - ensure-repo-signing-policy.sh
