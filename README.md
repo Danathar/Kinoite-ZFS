@@ -3,7 +3,13 @@
 [![Build Main Image](https://github.com/Danathar/Kinoite-ZFS/actions/workflows/build.yml/badge.svg)](https://github.com/Danathar/Kinoite-ZFS/actions/workflows/build.yml)
 
 > [!NOTE]
-> This repository was developed almost entirely (I was more a conductor than a player of music on this thing) created with AI assistance. I believe it's important for anyone using open-source tools on GitHub to have this context before relying on them. It's as much having fun on a Friday afternoon with AI as seeting if this idea could be done. Treat it as such. Please don't use this as production for **ANYTHING**. Its probably WAY more complicated than it needs to be. I'm still reading through the code it made. That being said, it DOES work..seemingly. ;)
+> This repository was developed almost entirely with AI assistance. I was more a conductor than a player on this thing. I think anyone using open-source tools on GitHub should have that context before relying on them.
+>
+> This was as much about having fun on a Friday afternoon with AI as it was about seeing whether this idea could be done. Treat it as such. Please do not use this in production for **ANYTHING**.
+>
+> This repo is **THE** definition of *brittle*! Honestly, it's probably FAR easier to do what groups like Universal Blue do and manually track and hold back releases until the correct ZFS release is available than to maintain this insane bit of code the AI has tried to make while covering all possibilities.
+>
+> It is probably WAY more complicated than it needs to be. I'm still reading through the code it made. That said, it does work, seemingly. ;)
 
 This repository exists to test and validate ZFS support on Kinoite images built with BlueBuild.
 
