@@ -202,12 +202,16 @@ Typical signal:
 
 1. `bootc switch` or signed rebase fails during image import.
 2. Error text includes: `A signature was required, but no signature exists`.
+3. Another common variant is: `Error parsing signature storage configuration`
+   followed by `namespace ... defined both in ...`.
 
 Likely cause:
 
 1. Host-side trust policy cannot resolve signatures for the target repo name
    (for example stable vs candidate repository mismatch).
 2. Sigstore attachment discovery config for that repo name is missing.
+3. More than one file under `/etc/containers/registries.d/` declares the same
+   repo namespace, so `containers/image` aborts before it can check signatures.
 
 Action:
 
@@ -230,6 +234,17 @@ podman run --rm --entrypoint sh ghcr.io/danathar/kinoite-zfs:latest -lc 'ls -1 /
 
 4. If migrating from a different image family, do one unverified bootstrap rebase
    first, then switch signed.
+5. If the error says a namespace is defined in two files, inspect the target
+   image or host for duplicate `registries.d` entries and remove the stale one:
+
+```bash
+podman run --rm --entrypoint sh ghcr.io/danathar/kinoite-zfs:latest -lc 'ls -1 /etc/containers/registries.d && printf "\n---\n"; for f in /etc/containers/registries.d/*.yaml; do echo "## $f"; cat "$f"; echo; done'
+sudo ls -1 /etc/containers/registries.d
+```
+
+6. On already-booted affected hosts, removing the stale owner-prefixed duplicate
+   file (for example `danathar-kinoite-zfs-candidate.yaml`) is a valid emergency
+   recovery step before retrying `bootc upgrade`.
 
 ## Safe Operational Defaults
 

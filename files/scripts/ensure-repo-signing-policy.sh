@@ -57,6 +57,28 @@ candidate_repo="${repo_prefix}/${candidate_image_name}"
 stable_registry_file="${registries_dir}/${stable_image_name}.yaml"
 candidate_registry_file="${registries_dir}/${candidate_image_name}.yaml"
 
+# Remove any pre-existing registry config files that already point at these
+# repository names.
+# Why: the BlueBuild `signing` module can create owner-prefixed filenames such as
+# `danathar-kinoite-zfs-candidate.yaml` for the same namespace we normalize here.
+# `containers/image` treats duplicate namespace definitions as a hard parse error,
+# so leaving both files in place breaks `bootc switch`, `bootc upgrade`, and
+# signed `rpm-ostree rebase` flows before signature verification even starts.
+shopt -s nullglob
+for registry_file in "${registries_dir}"/*.yaml "${registries_dir}"/*.yml; do
+  case "${registry_file}" in
+    "${stable_registry_file}" | "${candidate_registry_file}")
+      # These are the canonical files we are about to overwrite below.
+      continue
+      ;;
+  esac
+
+  if grep -Fq "${stable_repo}:" "${registry_file}" || grep -Fq "${candidate_repo}:" "${registry_file}"; then
+    rm -f "${registry_file}"
+  fi
+done
+shopt -u nullglob
+
 # Ensure both expected key filenames exist, regardless of whether we built
 # candidate or stable naming for this image.
 if [[ -f "${candidate_key}" && ! -f "${stable_key}" ]]; then
