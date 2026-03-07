@@ -245,6 +245,16 @@ sudo ls -1 /etc/containers/registries.d
 6. On already-booted affected hosts, removing the stale owner-prefixed duplicate
    file (for example `danathar-kinoite-zfs-candidate.yaml`) is a valid emergency
    recovery step before retrying `bootc upgrade`.
+7. For a cleaner one-shot repair on hosts already booted into older repo images,
+   run the checked-in helper from the repository root:
+
+```bash
+sudo ./scripts/fix-host-signing-policy.sh
+```
+
+8. Fresh stock Kinoite hosts are different: `bootc switch ghcr.io/danathar/kinoite-zfs:latest`
+   should work directly because the source host does not yet carry this repo's
+   stricter namespace-specific trust requirements.
 
 ## Safe Operational Defaults
 

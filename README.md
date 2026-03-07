@@ -169,7 +169,39 @@ This allows you to rebuild with pinned base image/build container inputs instead
 > [!WARNING]
 > This is an experimental image stream for testing.
 
-Rebase in two steps so signing policies are available:
+### Fresh Stock Kinoite Install
+
+On a fresh stock Kinoite install, you can switch directly:
+
+```bash
+sudo bootc switch ghcr.io/danathar/kinoite-zfs:latest
+systemctl reboot
+```
+
+Why this works:
+
+1. `bootc switch` evaluates trust policy on the currently booted host before it imports the target image.
+2. Fresh stock Kinoite does not ship a repo-specific signature requirement for `ghcr.io/danathar/kinoite-zfs`.
+3. After the first boot into this image family, the in-image trust config is available for later signed stable/candidate moves.
+
+### Older Already-Booted Repo Images
+
+If you are already running one of this repo's older images and `bootc switch` or
+`bootc upgrade` fails with signature-policy errors, repair the host trust config
+once and retry:
+
+```bash
+sudo ./scripts/fix-host-signing-policy.sh
+sudo bootc switch ghcr.io/danathar/kinoite-zfs:latest
+systemctl reboot
+```
+
+Hosts booted into images built before March 7, 2026 are the main case that may
+need that one-time repair.
+
+### Signed Bootstrap Alternative
+
+If you prefer an explicit unverified bootstrap first, this still works:
 
 Here, "rebase" means "tell rpm-ostree to switch this machine to boot from a new image reference."
 
@@ -191,8 +223,11 @@ Current images include trust policy entries for both repo names so signed
 switches between these two references can work after you are already running
 this image family.
 
-If you are switching from another image family first, do the initial unverified
-bootstrap rebase once (section above), reboot, then switch signed.
+If you are switching from another image family first and want strict signature
+verification after that, you can either:
+
+1. switch directly from fresh stock Kinoite (section above), or
+2. do the explicit unverified bootstrap once, reboot, then switch signed.
 
 ## Quick Validation
 
