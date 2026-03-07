@@ -112,6 +112,8 @@ Action:
 4. If needed, replay last known-good locked inputs for deterministic troubleshooting.
 5. If the log shows `podman manifest create ... main-<fedora> ... already in use` during a multi-kernel rebuild, the failure is in manifest sequencing, not kernel-version detection.
 6. If a later candidate image build reports `No ZFS module for base kernel <kernel_release>` even though akmods just published that kernel tag, inspect whether the multi-kernel akmods rebuild reused stale Buildah layers from the earlier kernel iteration.
+7. Current repo-side mitigation for multi-kernel bases is: build isolated per-kernel akmods outputs first, then merge them into one shared `main-<fedora>` cache image for downstream consumers.
+8. Deferred refactor option to record here for later: stop using one shared cache image and instead teach candidate/stable compose paths to consume multiple kernel-specific akmods tags directly. That is a larger design change and is intentionally not the current default.
 
 ### Pattern B: Candidate Image Build Fails (Akmods Succeeded)
 

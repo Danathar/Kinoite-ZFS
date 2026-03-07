@@ -1,9 +1,11 @@
 """
 Script: ci_tools/akmods_build_and_publish.py
 What: Builds and publishes the ZFS akmods image from `/tmp/akmods`.
-Doing: Optionally pins kernel info, then runs `just build`, `just login`, `just push`, and `just manifest`.
-Why: Keeps these steps in one file instead of repeated workflow shell blocks.
-Goal: Publish the akmods image and manifest used by later build steps.
+Doing: Optionally pins kernel info, publishes per-kernel akmods payloads, and
+merges them into one shared Fedora-wide cache image when the base carries more
+than one installed kernel.
+Why: Keeps the workflow logic in one tested file instead of repeated shell.
+Goal: Publish the akmods cache images consumed by later build steps.
 """
 
 from __future__ import annotations
@@ -11,8 +13,20 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from ci_tools.common import CiToolError, kernel_releases_from_env, optional_env, require_env, run_cmd
+from ci_tools.common import (
+    CiToolError,
+    kernel_releases_from_env,
+    load_layer_files_from_oci_layout,
+    normalize_owner,
+    optional_env,
+    require_env,
+    run_cmd,
+    skopeo_copy,
+    sort_kernel_releases,
+    unpack_layer_tarballs,
+)
 
 
 AKMODS_WORKTREE = Path("/tmp/akmods")
@@ -43,6 +57,7 @@ def build_kernel_cache_document(
     akmods_version: str,
     build_root: Path,
     kcpath_override: str,
+    shared_cache_path: bool,
 ) -> tuple[dict[str, str], Path]:
     """
     Build the cache JSON payload and destination path used by akmods tooling.
@@ -51,8 +66,13 @@ def build_kernel_cache_document(
     1. `payload` (dict): JSON fields that upstream scripts read.
     2. `cache_json_path` (Path): where that JSON should be written.
     """
-    # Upstream cache layout groups data by "<kernel_flavor>-<fedora_version>".
-    build_id = f"{kernel_flavor}-{akmods_version}"
+    # Single-kernel runs can keep upstream's Fedora-wide path layout.
+    # Multi-kernel runs need isolated paths so kernel RPMs do not collide in one
+    # directory before we intentionally merge them later.
+    if shared_cache_path:
+        build_id = f"{kernel_flavor}-{akmods_version}"
+    else:
+        build_id = f"{kernel_flavor}-{akmods_version}-{kernel_release}"
     # KCWD/KCPATH names are expected by upstream akmods scripts.
     kcwd = build_root / build_id / "KCWD"
     kcpath = Path(kcpath_override) if kcpath_override else (kcwd / "rpms")
@@ -72,7 +92,7 @@ def build_kernel_cache_document(
     return payload, cache_json_path
 
 
-def write_kernel_cache_file(*, kernel_release: str) -> None:
+def write_kernel_cache_file(*, kernel_release: str, shared_cache_path: bool) -> None:
     # When kernel pinning is enabled, these values must also be set.
     kernel_flavor = require_env("AKMODS_KERNEL")
     akmods_version = require_env("AKMODS_VERSION")
@@ -89,6 +109,7 @@ def write_kernel_cache_file(*, kernel_release: str) -> None:
         akmods_version=akmods_version,
         build_root=build_root,
         kcpath_override=kcpath_override,
+        shared_cache_path=shared_cache_path,
     )
 
     cache_json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,26 +119,145 @@ def write_kernel_cache_file(*, kernel_release: str) -> None:
     print(f"Seeded {cache_json_path}")
 
 
-def build_and_push_kernel_release(kernel_release: str) -> None:
+def build_and_push_kernel_release(kernel_release: str, *, shared_cache_path: bool) -> None:
     """
     Build and push one kernel-specific akmods payload.
 
-    We intentionally reuse the same Fedora-wide cache path (`main-<fedora>`) for
-    each kernel in the run. That lets the shared `main-<fedora>` image collect
-    RPMs for more than one installed kernel when the upstream base image keeps a
-    fallback kernel under `/lib/modules`.
+    Multi-kernel rebuilds use isolated cache paths per kernel. Upstream akmods
+    expects one kernel set per cache directory; mixing two kernels in one cache
+    path causes package collisions during the later build.
     """
     print(f"Building akmods for kernel release: {kernel_release}")
-    write_kernel_cache_file(kernel_release=kernel_release)
+    write_kernel_cache_file(
+        kernel_release=kernel_release,
+        shared_cache_path=shared_cache_path,
+    )
 
-    # Upstream tooling reads the cache metadata we just wrote and publishes both
-    # the Fedora-wide cache tag and the kernel-specific tag for this release.
-    # We defer `just manifest` until after the full loop because the upstream
-    # Justfile creates fixed local manifest names like `main-43`. Re-running
-    # that target mid-loop collides in local Podman state before the shared tag
-    # has finished converging on the final cumulative cache image.
+    # Upstream tooling reads the cache metadata we just wrote and publishes the
+    # kernel-specific tag plus an architecture tag. In the multi-kernel path we
+    # later assemble the shared Fedora-wide tag ourselves from those per-kernel
+    # images, because upstream's shared-cache flow assumes one kernel per build.
     run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
     run_cmd(["just", "push"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+
+
+def merged_cache_missing_kernel_releases(
+    *,
+    merged_root: Path,
+    kernel_releases: list[str],
+) -> list[str]:
+    """
+    Return kernel releases whose `kmod-zfs` RPM is missing from the merged root.
+
+    The merged shared cache image must carry a `kmod-zfs-<kernel_release>-...`
+    RPM for every kernel shipped in the base image. This check keeps the custom
+    merge step fail-closed before we publish a broken shared cache tag.
+    """
+    rpm_dir = merged_root / "rpms" / "kmods" / "zfs"
+    if not rpm_dir.exists():
+        return list(kernel_releases)
+
+    present_names = {path.name for path in rpm_dir.glob("kmod-zfs-*.rpm")}
+    missing: list[str] = []
+    for kernel_release in kernel_releases:
+        expected_prefix = f"kmod-zfs-{kernel_release}-"
+        if not any(name.startswith(expected_prefix) for name in present_names):
+            missing.append(kernel_release)
+    return missing
+
+
+def merge_and_push_shared_cache_image(*, kernel_releases: list[str]) -> None:
+    """
+    Build and push one shared cache image that contains RPMs for every kernel.
+
+    Upstream akmods can publish correct per-kernel images, but its shared-cache
+    layout assumes one kernel per cache directory. We therefore merge the local
+    per-kernel images into one scratch image ourselves and publish that as the
+    Fedora-wide `main-<fedora>` tag consumed by later workflow steps.
+    """
+    kernel_flavor = require_env("AKMODS_KERNEL")
+    akmods_version = require_env("AKMODS_VERSION")
+    akmods_repo = require_env("AKMODS_REPO")
+    image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
+    arch = run_cmd(["uname", "-m"]).strip()
+
+    shared_tag = f"{kernel_flavor}-{akmods_version}"
+    local_shared_ref = f"localhost/{akmods_repo}:{shared_tag}"
+    local_shared_arch_ref = f"{local_shared_ref}-{arch}"
+
+    with TemporaryDirectory(prefix="akmods-merge-") as tempdir:
+        build_context = Path(tempdir)
+
+        for kernel_release in kernel_releases:
+            image_dir = build_context / f"image-{kernel_release}"
+            source_ref = (
+                f"containers-storage:localhost/{akmods_repo}:"
+                f"{kernel_flavor}-{akmods_version}-{kernel_release}"
+            )
+            # `containers-storage:` reads the image we just built locally.
+            # We unpack those local images and then republish one merged result.
+            skopeo_copy(source_ref, f"dir:{image_dir}")
+            layer_files = load_layer_files_from_oci_layout(image_dir)
+            unpack_layer_tarballs(layer_files, build_context)
+
+        missing = merged_cache_missing_kernel_releases(
+            merged_root=build_context,
+            kernel_releases=kernel_releases,
+        )
+        if missing:
+            raise CiToolError(
+                "Merged shared akmods cache is missing kernel RPMs for: "
+                + ", ".join(missing)
+            )
+
+        containerfile = build_context / "Containerfile"
+        containerfile.write_text(
+            "FROM scratch\n"
+            "COPY kernel-rpms /kernel-rpms\n"
+            "COPY rpms /rpms\n",
+            encoding="utf-8",
+        )
+
+        # Tag both the shared Fedora-wide ref and the architecture-specific ref.
+        # The workflow consumes `main-<fedora>`, while `main-<fedora>-x86_64`
+        # stays available for direct inspection and parity with upstream naming.
+        run_cmd(
+            [
+                "podman",
+                "build",
+                "-f",
+                str(containerfile),
+                "-t",
+                local_shared_ref,
+                "-t",
+                local_shared_arch_ref,
+                str(build_context),
+            ],
+            capture_output=False,
+        )
+        run_cmd(
+            [
+                "podman",
+                "push",
+                local_shared_arch_ref,
+                f"docker://ghcr.io/{image_org}/{akmods_repo}:{shared_tag}-{arch}",
+            ],
+            capture_output=False,
+        )
+        run_cmd(
+            [
+                "podman",
+                "push",
+                local_shared_ref,
+                f"docker://ghcr.io/{image_org}/{akmods_repo}:{shared_tag}",
+            ],
+            capture_output=False,
+        )
+
+    print(
+        "Published merged shared akmods cache: "
+        f"ghcr.io/{image_org}/{akmods_repo}:{shared_tag}"
+    )
 
 
 def main() -> None:
@@ -125,7 +265,9 @@ def main() -> None:
     if not AKMODS_WORKTREE.exists():
         raise CiToolError(f"Expected akmods checkout at {AKMODS_WORKTREE}")
 
-    kernel_releases = kernel_releases_from_env()
+    # Keep a stable, de-duplicated order even if env input is messy.
+    # This avoids redundant builds and keeps logs deterministic.
+    kernel_releases = sort_kernel_releases(kernel_releases_from_env())
     if not kernel_releases:
         # If no explicit kernel list is provided, keep default upstream behavior.
         run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
@@ -134,25 +276,31 @@ def main() -> None:
         run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
         return
 
+    if len(kernel_releases) == 1:
+        run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        build_and_push_kernel_release(
+            kernel_releases[0],
+            shared_cache_path=True,
+        )
+        run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        return
+
     # Authenticate once, then publish one kernel-specific payload at a time.
     # This keeps the loop readable in logs and avoids repeated login churn.
     #
-    # Disable Buildah layer caching for the multi-kernel loop. Upstream `just
-    # build` mounts the host-side RPM cache directory into the build. When that
-    # directory changes between kernel iterations, cached container layers can
-    # otherwise be reused even though the mounted RPM payload changed. The
-    # result is a tag whose labels mention the newer kernel while the files
-    # inside still come from the earlier kernel build.
+    # Disable Buildah layer caching for the multi-kernel loop. Each iteration
+    # binds in a different host-side cache directory, and reusing image layers
+    # across those builds can stamp newer labels onto stale earlier-kernel RPMs.
     os.environ["BUILDAH_LAYERS"] = "false"
     print("Disabled Buildah layer cache for multi-kernel akmods rebuild.")
     run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
     for kernel_release in kernel_releases:
-        build_and_push_kernel_release(kernel_release)
+        build_and_push_kernel_release(
+            kernel_release,
+            shared_cache_path=False,
+        )
 
-    # Publish manifests once, after all kernel-specific image tags exist.
-    # The shared Fedora-wide manifest should point at the final build output,
-    # which is the image that now carries the cumulative RPM cache for this run.
-    run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+    merge_and_push_shared_cache_image(kernel_releases=kernel_releases)
 
 
 if __name__ == "__main__":

@@ -103,8 +103,25 @@ The workflow checks cached akmods images for `kmod-zfs` RPMs that match every ke
 1. If yes, it reuses cache.
 2. If no, it rebuilds and publishes the Fedora-wide cache again so it contains RPMs for every installed base-image kernel.
 3. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
-4. In multi-kernel rebuilds, the wrapper publishes per-kernel image tags first and creates the shared manifest only after the loop, because the upstream manifest target reuses fixed local names like `main-<fedora>`.
-5. That same multi-kernel path disables Buildah layer caching so each kernel build sees the updated mounted RPM cache instead of reusing stale filesystem layers from the previous kernel iteration.
+4. In multi-kernel rebuilds, the wrapper gives each kernel its own cache path first, because upstream akmods assumes one kernel payload per cache directory.
+5. The wrapper then publishes each kernel-specific image tag and merges those local outputs into one shared Fedora-wide cache image (`main-<fedora>`).
+6. That same multi-kernel path disables Buildah layer caching so each kernel build sees its own mounted RPM cache instead of reusing stale filesystem layers from the previous kernel iteration.
+
+### Deferred Refactor Note
+
+The current shared-image merge is a compatibility layer around upstream akmods behavior.
+
+Why we do it this way today:
+
+1. It preserves the existing downstream contract: candidate compose, promotion, branch aliasing, and manual switching can keep reading one shared `main-<fedora>` tag.
+2. It keeps the change surface small while upstream base images may carry more than one installed kernel.
+
+If we later choose a broader refactor, the main alternative is:
+
+1. Stop publishing one shared cache image.
+2. Teach candidate/stable consumers to read multiple kernel-specific akmods tags directly.
+
+That broader design may be cleaner long term, but it would require coordinated changes across compose inputs, cache checks, alias publishing, promotion logic, and operator documentation.
 
 This avoids publishing images with outdated kernel modules.
 

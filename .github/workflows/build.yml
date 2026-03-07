@@ -197,6 +197,7 @@ jobs:
           # more than one `/lib/modules/<kernel_release>` directory.
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
           KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
+          AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
           AKMODS_TARGET: zfs
           # ZFS version comes from input resolution (default or lock file).
           ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
