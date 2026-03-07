@@ -110,6 +110,7 @@ Action:
 2. Keep stable on last successful promotion.
 3. Run candidate-only tests (`promote_to_stable=false`) until compatibility is restored.
 4. If needed, replay last known-good locked inputs for deterministic troubleshooting.
+5. If the log shows `podman manifest create ... main-<fedora> ... already in use` during a multi-kernel rebuild, the failure is in manifest sequencing, not kernel-version detection.
 
 ### Pattern B: Candidate Image Build Fails (Akmods Succeeded)
 

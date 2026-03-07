@@ -9,8 +9,11 @@ Goal: Keep akmods helper behavior stable over time.
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import call, patch
 
+from ci_tools import akmods_build_and_publish as script
 from ci_tools.akmods_build_and_publish import (
     build_kernel_cache_document,
     kernel_major_minor_patch,
@@ -77,6 +80,40 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
         # in one run accumulate RPMs into one Fedora-wide cache image.
         self.assertEqual(first_payload["KCPATH"], second_payload["KCPATH"])
         self.assertEqual(first_cache_path, second_cache_path)
+
+    def test_main_defers_manifest_until_after_all_kernel_builds(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            with patch.object(script, "AKMODS_WORKTREE", Path(tempdir)):
+                with patch.object(
+                    script,
+                    "kernel_releases_from_env",
+                    return_value=[
+                        "6.18.13-200.fc43.x86_64",
+                        "6.18.16-200.fc43.x86_64",
+                    ],
+                ):
+                    with patch.object(script, "write_kernel_cache_file") as write_cache:
+                        with patch.object(script, "run_cmd") as run_cmd:
+                            script.main()
+
+        self.assertEqual(
+            write_cache.call_args_list,
+            [
+                call(kernel_release="6.18.13-200.fc43.x86_64"),
+                call(kernel_release="6.18.16-200.fc43.x86_64"),
+            ],
+        )
+        self.assertEqual(
+            run_cmd.call_args_list,
+            [
+                call(["just", "login"], cwd=str(Path(tempdir)), capture_output=False),
+                call(["just", "build"], cwd=str(Path(tempdir)), capture_output=False),
+                call(["just", "push"], cwd=str(Path(tempdir)), capture_output=False),
+                call(["just", "build"], cwd=str(Path(tempdir)), capture_output=False),
+                call(["just", "push"], cwd=str(Path(tempdir)), capture_output=False),
+                call(["just", "manifest"], cwd=str(Path(tempdir)), capture_output=False),
+            ],
+        )
 
 
 if __name__ == "__main__":

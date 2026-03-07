@@ -97,9 +97,9 @@ def write_kernel_cache_file(*, kernel_release: str) -> None:
     print(f"Seeded {cache_json_path}")
 
 
-def build_and_publish_kernel_release(kernel_release: str) -> None:
+def build_and_push_kernel_release(kernel_release: str) -> None:
     """
-    Build and publish one kernel-specific akmods payload.
+    Build and push one kernel-specific akmods payload.
 
     We intentionally reuse the same Fedora-wide cache path (`main-<fedora>`) for
     each kernel in the run. That lets the shared `main-<fedora>` image collect
@@ -111,9 +111,12 @@ def build_and_publish_kernel_release(kernel_release: str) -> None:
 
     # Upstream tooling reads the cache metadata we just wrote and publishes both
     # the Fedora-wide cache tag and the kernel-specific tag for this release.
+    # We defer `just manifest` until after the full loop because the upstream
+    # Justfile creates fixed local manifest names like `main-43`. Re-running
+    # that target mid-loop collides in local Podman state before the shared tag
+    # has finished converging on the final cumulative cache image.
     run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
     run_cmd(["just", "push"], cwd=str(AKMODS_WORKTREE), capture_output=False)
-    run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
 
 
 def main() -> None:
@@ -134,7 +137,12 @@ def main() -> None:
     # This keeps the loop readable in logs and avoids repeated login churn.
     run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
     for kernel_release in kernel_releases:
-        build_and_publish_kernel_release(kernel_release)
+        build_and_push_kernel_release(kernel_release)
+
+    # Publish manifests once, after all kernel-specific image tags exist.
+    # The shared Fedora-wide manifest should point at the final build output,
+    # which is the image that now carries the cumulative RPM cache for this run.
+    run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
 
 
 if __name__ == "__main__":
