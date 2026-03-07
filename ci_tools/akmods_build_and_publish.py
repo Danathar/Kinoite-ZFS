@@ -58,23 +58,25 @@ def build_kernel_cache_document(
     build_root: Path,
     kcpath_override: str,
     shared_cache_path: bool,
-) -> tuple[dict[str, str], Path]:
+) -> tuple[dict[str, str], Path, Path]:
     """
     Build the cache JSON payload and destination path used by akmods tooling.
 
     Return value is a tuple:
     1. `payload` (dict): JSON fields that upstream scripts read.
     2. `cache_json_path` (Path): where that JSON should be written.
+    3. `upstream_build_root` (Path): directory to export as `AKMODS_BUILDDIR`.
     """
-    # Single-kernel runs can keep upstream's Fedora-wide path layout.
-    # Multi-kernel runs need isolated paths so kernel RPMs do not collide in one
-    # directory before we intentionally merge them later.
+    # Upstream Justfile derives `KCWD` and `KCPATH` from `AKMODS_BUILDDIR`.
+    # To isolate multi-kernel runs, we must change that upstream build root, not
+    # only the JSON file location we seed here.
     if shared_cache_path:
-        build_id = f"{kernel_flavor}-{akmods_version}"
+        upstream_build_root = build_root
     else:
-        build_id = f"{kernel_flavor}-{akmods_version}-{kernel_release}"
+        upstream_build_root = build_root / kernel_release
+    build_id = f"{kernel_flavor}-{akmods_version}"
     # KCWD/KCPATH names are expected by upstream akmods scripts.
-    kcwd = build_root / build_id / "KCWD"
+    kcwd = upstream_build_root / build_id / "KCWD"
     kcpath = Path(kcpath_override) if kcpath_override else (kcwd / "rpms")
     cache_json_path = kcpath / "cache.json"
 
@@ -89,7 +91,7 @@ def build_kernel_cache_document(
         "KCWD": str(kcwd),
         "KCPATH": str(kcpath),
     }
-    return payload, cache_json_path
+    return payload, cache_json_path, upstream_build_root
 
 
 def write_kernel_cache_file(*, kernel_release: str, shared_cache_path: bool) -> None:
@@ -101,9 +103,14 @@ def write_kernel_cache_file(*, kernel_release: str, shared_cache_path: bool) -> 
     build_root_default = str(AKMODS_WORKTREE / "build")
     build_root = Path(optional_env("AKMODS_BUILDDIR", build_root_default))
     kcpath_override = optional_env("KCPATH")
+    if kcpath_override and not shared_cache_path:
+        raise CiToolError(
+            "Multi-kernel akmods rebuild cannot reuse a fixed KCPATH override. "
+            "Unset KCPATH so each kernel gets its own upstream build root."
+        )
 
     # Build both the JSON object and output file path from one helper function.
-    payload, cache_json_path = build_kernel_cache_document(
+    payload, cache_json_path, upstream_build_root = build_kernel_cache_document(
         kernel_release=kernel_release,
         kernel_flavor=kernel_flavor,
         akmods_version=akmods_version,
@@ -112,10 +119,20 @@ def write_kernel_cache_file(*, kernel_release: str, shared_cache_path: bool) -> 
         shared_cache_path=shared_cache_path,
     )
 
+    # Upstream Justfile computes `KCWD`/`KCPATH` from `AKMODS_BUILDDIR`.
+    # Export the per-kernel build root so the later `just build`/`just push`
+    # commands really use the isolated path we just calculated.
+    os.environ["AKMODS_BUILDDIR"] = str(upstream_build_root)
+    if kcpath_override:
+        os.environ["KCPATH"] = kcpath_override
+    else:
+        os.environ.pop("KCPATH", None)
+
     cache_json_path.parent.mkdir(parents=True, exist_ok=True)
     cache_json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     print(f"Pinned akmods kernel release to {kernel_release}")
+    print(f"Using upstream akmods build root {upstream_build_root}")
     print(f"Seeded {cache_json_path}")
 
 

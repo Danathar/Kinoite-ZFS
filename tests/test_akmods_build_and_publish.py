@@ -35,7 +35,7 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
         self.assertEqual(value, "6.18.12-200")
 
     def test_build_kernel_cache_document_default_path(self) -> None:
-        payload, cache_path = build_kernel_cache_document(
+        payload, cache_path, upstream_build_root = build_kernel_cache_document(
             kernel_release="6.18.12-200.fc43.x86_64",
             kernel_flavor="main",
             akmods_version="43",
@@ -46,12 +46,13 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
 
         self.assertEqual(payload["kernel_name"], "kernel")
         self.assertEqual(payload["kernel_major_minor_patch"], "6.18.12-200")
+        self.assertEqual(str(upstream_build_root), "/tmp/akmods/build")
         self.assertTrue(payload["KCWD"].endswith("/main-43/KCWD"))
         self.assertTrue(payload["KCPATH"].endswith("/main-43/KCWD/rpms"))
         self.assertTrue(str(cache_path).endswith("/main-43/KCWD/rpms/cache.json"))
 
     def test_build_kernel_cache_document_with_kcpath_override(self) -> None:
-        payload, cache_path = build_kernel_cache_document(
+        payload, cache_path, upstream_build_root = build_kernel_cache_document(
             kernel_release="6.18.12-200.fc43.x86_64",
             kernel_flavor="main",
             akmods_version="43",
@@ -60,11 +61,12 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
             shared_cache_path=True,
         )
 
+        self.assertEqual(str(upstream_build_root), "/tmp/akmods/build")
         self.assertEqual(payload["KCPATH"], "/custom/rpms")
         self.assertEqual(str(cache_path), "/custom/rpms/cache.json")
 
     def test_build_kernel_cache_document_isolates_multi_kernel_paths(self) -> None:
-        first_payload, first_cache_path = build_kernel_cache_document(
+        first_payload, first_cache_path, first_build_root = build_kernel_cache_document(
             kernel_release="6.18.12-200.fc43.x86_64",
             kernel_flavor="main",
             akmods_version="43",
@@ -72,7 +74,7 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
             kcpath_override="",
             shared_cache_path=False,
         )
-        second_payload, second_cache_path = build_kernel_cache_document(
+        second_payload, second_cache_path, second_build_root = build_kernel_cache_document(
             kernel_release="6.18.16-200.fc43.x86_64",
             kernel_flavor="main",
             akmods_version="43",
@@ -83,6 +85,7 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
 
         # Multi-kernel rebuilds keep one cache tree per kernel so upstream
         # akmods tooling never sees mixed kernel RPMs in the same directory.
+        self.assertNotEqual(first_build_root, second_build_root)
         self.assertNotEqual(first_payload["KCPATH"], second_payload["KCPATH"])
         self.assertNotEqual(first_cache_path, second_cache_path)
 
@@ -102,6 +105,50 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
             )
 
         self.assertEqual(missing, ["6.18.16-200.fc43.x86_64"])
+
+    def test_write_kernel_cache_file_exports_isolated_upstream_build_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            with patch.object(script, "AKMODS_WORKTREE", Path(tempdir)):
+                with patch.dict(
+                    script.os.environ,
+                    {
+                        "AKMODS_KERNEL": "main",
+                        "AKMODS_VERSION": "43",
+                    },
+                    clear=True,
+                ):
+                    script.write_kernel_cache_file(
+                        kernel_release="6.18.16-200.fc43.x86_64",
+                        shared_cache_path=False,
+                    )
+
+                    self.assertTrue(
+                        script.os.environ["AKMODS_BUILDDIR"].endswith(
+                            "/build/6.18.16-200.fc43.x86_64"
+                        )
+                    )
+                    self.assertFalse("KCPATH" in script.os.environ)
+
+    def test_write_kernel_cache_file_rejects_fixed_kcpath_in_multi_kernel_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            with patch.object(script, "AKMODS_WORKTREE", Path(tempdir)):
+                with patch.dict(
+                    script.os.environ,
+                    {
+                        "AKMODS_KERNEL": "main",
+                        "AKMODS_VERSION": "43",
+                        "KCPATH": "/tmp/shared-rpms",
+                    },
+                    clear=True,
+                ):
+                    with self.assertRaisesRegex(
+                        RuntimeError,
+                        "cannot reuse a fixed KCPATH override",
+                    ):
+                        script.write_kernel_cache_file(
+                            kernel_release="6.18.16-200.fc43.x86_64",
+                            shared_cache_path=False,
+                        )
 
     def test_main_single_kernel_keeps_upstream_manifest_flow(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
