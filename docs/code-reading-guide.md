@@ -89,9 +89,10 @@ Read tests last to confirm expected behavior:
 If you want to practice reading code flow, trace `kernel_release`:
 
 1. Resolved in [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py).
-2. Written to step outputs (`GITHUB_OUTPUT`) and consumed by later jobs.
-3. Used for akmods cache checks and kernel-matched tag names.
-4. Used when rewriting recipe/container inputs before candidate compose.
+2. Written to step outputs (`GITHUB_OUTPUT`) together with `kernel_releases` and consumed by later jobs.
+3. Used as the newest/base-primary kernel identifier in logs and debug tags.
+4. The full `kernel_releases` list is used for akmods cache checks and rebuild decisions.
+5. Used when rewriting recipe/container inputs before candidate compose.
 
 This single value is a good way to see how data moves across jobs and files.
 

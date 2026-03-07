@@ -41,10 +41,11 @@ This is intentionally designed for iterative validation before adopting any appr
 ### Main Artifacts
 
 1. Candidate source image tag: `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
-2. Candidate akmods source tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
-3. Stable OS image: `ghcr.io/danathar/kinoite-zfs:latest`
-4. Stable OS audit tag: `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
-5. Stable akmods cache image: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+2. Candidate akmods cache tag used by compose: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
+3. Candidate akmods newest-kernel debug tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
+4. Stable OS image: `ghcr.io/danathar/kinoite-zfs:latest`
+5. Stable OS audit tag: `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
+6. Stable akmods cache image: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
 
 ### Branch Artifacts
 
@@ -90,9 +91,10 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 1. Fetches a pinned commit from the maintained fork (`Danathar/akmods`).
 2. Pulls OpenZFS release source from upstream OpenZFS GitHub releases (`https://github.com/openzfs/zfs/releases`) through the akmods build scripts.
 3. Injects the ZFS image target under this repo owner namespace (the owner/org part of the image path, like `danathar` in `ghcr.io/danathar/...`).
-4. Seeds upstream akmods cache metadata with the resolved `KERNEL_RELEASE`.
-5. Builds and publishes kernel-matched shared akmods tags.
-6. Copies those shared tags into candidate alias tags before candidate compose (candidate image build stage) and promotion.
+4. Detects every installed kernel shipped in the pinned base image.
+5. Seeds upstream akmods cache metadata once per detected kernel release.
+6. Builds and publishes the shared Fedora-wide akmods cache so it can carry RPMs for all detected kernels.
+7. Copies those shared tags into candidate alias tags before candidate compose (candidate image build stage) and promotion.
 
 ### 4. Build Candidate Kinoite Image
 
@@ -144,15 +146,16 @@ Triggers:
 
 Key behavior:
 
-1. Validates and (when needed) rebuilds shared kernel-matched akmods cache tags.
-2. Copies shared akmods tags into candidate akmods alias tags.
-3. Builds/publishes candidate image.
-4. Promotes candidate artifacts to stable tags only on success.
-5. Re-signs the promoted stable digest after candidate-to-stable copy.
-6. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-7. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-8. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
-9. Ignores markdown/docs-only changes.
+1. Detects every installed kernel shipped in the pinned base image.
+2. Validates and (when needed) rebuilds the shared Fedora-wide akmods cache so it contains RPMs for all of those kernels.
+3. Copies shared akmods tags into candidate akmods alias tags.
+4. Builds/publishes candidate image.
+5. Promotes candidate artifacts to stable tags only on success.
+6. Re-signs the promoted stable digest after candidate-to-stable copy.
+7. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+8. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+9. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
+10. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
 
@@ -286,7 +289,7 @@ Mitigation implemented:
 
 1. Added lock replay inputs to [`.github/workflows/build.yml`](../.github/workflows/build.yml) (`use_input_lock`, `lock_file`, `build_container_image`).
 2. Added deterministic input resolution step that records immutable digests for base image and builder container.
-3. Candidate image flow now pins `base-image`/`image-version` to a resolved immutable base tag, rewrites `AKMODS_IMAGE` to a kernel-matched tag, and validates exact-module presence.
+3. Candidate image flow now pins `base-image`/`image-version` to a resolved immutable base tag, rewrites `AKMODS_IMAGE` to the candidate-repo Fedora-wide cache tag, and validates exact-module presence for every kernel directory in the base image.
 4. Added build input manifest artifact upload (`build-inputs-<run_id>`) for audit and reproducible reruns.
 5. Added repository lock file [`ci/inputs.lock.json`](../ci/inputs.lock.json) for replay mode.
 6. Akmods build now seeds upstream cache metadata (`cache.json`) from resolved `KERNEL_RELEASE`.

@@ -38,7 +38,7 @@ This repo's pipeline is designed around that exact problem.
 At a high level, this repository has a build workflow that:
 
 1. Tracks the current Fedora/Kinoite kernel stream (the moving sequence of new kernel versions over time).
-2. Builds ZFS kernel modules (`kmod-zfs`) for that kernel.
+2. Builds ZFS kernel modules (`kmod-zfs`) for the kernel set shipped in that base image.
 3. Integrates those modules into a custom Kinoite image.
 4. Publishes to stable tags only after checks pass.
 
@@ -48,7 +48,8 @@ We publish two output groups:
 
 1. Candidate outputs (test stage):
    - Run-scoped image source tag in candidate repo: `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
-   - Kernel-matched akmods source tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
+   - Candidate akmods cache tag used by compose: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
+   - Newest-kernel candidate akmods debug tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
 2. Stable outputs (updated only after candidate success):
    - `ghcr.io/danathar/kinoite-zfs:latest`
    - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
@@ -89,7 +90,7 @@ The main workflow resolves build inputs for each run:
 1. Base image (Kinoite) and its immutable digest.
 2. Base image immutable stream tag (for BlueBuild `image-version` pinning).
 3. Build container image and digest.
-4. Kernel/Fedora version metadata.
+4. Kernel/Fedora version metadata, including every installed kernel directory from `/lib/modules`.
 5. Pinned akmods fork source commit.
 6. ZFS version line.
 
@@ -97,10 +98,10 @@ These inputs are saved as a file (`build-inputs-<run_id>`) so you can inspect wh
 
 ### 2. Candidate Akmods Build
 
-The workflow checks cached akmods images for a `kmod-zfs` RPM that matches the exact kernel release.
+The workflow checks cached akmods images for `kmod-zfs` RPMs that match every kernel shipped in the pinned base image.
 
 1. If yes, it reuses cache.
-2. If no, it rebuilds and publishes kernel-matched akmods tags.
+2. If no, it rebuilds and publishes the Fedora-wide cache again so it contains RPMs for every installed base-image kernel.
 3. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
 
 This avoids publishing images with outdated kernel modules.
@@ -110,7 +111,7 @@ This avoids publishing images with outdated kernel modules.
 The workflow rewrites recipe/containerfile inputs before candidate compose (candidate image build stage) to:
 
 1. Pin `base-image` + `image-version` to the resolved immutable base tag for this run.
-2. Use a kernel-matched akmods tag (`main-<fedora>-<kernel_release>`).
+2. Use the candidate-repo Fedora-wide akmods cache tag (`main-<fedora>`), which can carry RPMs for more than one installed kernel.
 3. Normalize signature trust policy entries after the signing module so both
    stable and candidate repo names are trusted in the final image:
    - `ghcr.io/danathar/kinoite-zfs`

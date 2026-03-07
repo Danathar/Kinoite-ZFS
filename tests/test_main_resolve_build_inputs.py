@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unittest
 
-from ci_tools.common import CiToolError
+from ci_tools.common import CiToolError, sort_kernel_releases
 from ci_tools.main_resolve_build_inputs import choose_base_image_tag
 
 
@@ -55,6 +55,41 @@ class ChooseBaseImageTagTests(unittest.TestCase):
                 expected_digest="sha256:abc",
                 digest_lookup=lambda _tag: "",
             )
+
+
+class SortKernelReleasesTests(unittest.TestCase):
+    def test_sorts_kernel_releases_naturally(self) -> None:
+        releases = sort_kernel_releases(
+            [
+                "6.18.10-200.fc43.x86_64",
+                "6.18.9-200.fc43.x86_64",
+                "6.18.12-200.fc43.x86_64",
+            ]
+        )
+        self.assertEqual(
+            releases,
+            [
+                "6.18.9-200.fc43.x86_64",
+                "6.18.10-200.fc43.x86_64",
+                "6.18.12-200.fc43.x86_64",
+            ],
+        )
+
+    def test_deduplicates_kernel_releases_while_preserving_order(self) -> None:
+        releases = sort_kernel_releases(
+            [
+                "6.18.12-200.fc43.x86_64",
+                "6.18.10-200.fc43.x86_64",
+                "6.18.12-200.fc43.x86_64",
+            ]
+        )
+        self.assertEqual(
+            releases,
+            [
+                "6.18.10-200.fc43.x86_64",
+                "6.18.12-200.fc43.x86_64",
+            ],
+        )
 
 
 if __name__ == "__main__":

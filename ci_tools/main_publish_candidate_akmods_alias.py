@@ -1,9 +1,9 @@
 """
 Script: ci_tools/main_publish_candidate_akmods_alias.py
 What: Publishes candidate akmods alias tags from shared source tags.
-Doing: Copies Fedora-wide and kernel-matched source tags into candidate repo tags.
+Doing: Copies the Fedora-wide cache tag and newest-kernel debug tag into candidate repo tags.
 Why: Candidate compose and promotion expect candidate-repo tag names.
-Goal: Keep candidate flow using the correct akmods content for this kernel.
+Goal: Keep candidate flow using the correct akmods content for this run.
 """
 
 from __future__ import annotations
@@ -53,9 +53,9 @@ def main() -> None:
     skopeo_copy(shared_source_ref, candidate_dest_ref, creds=creds)
     print(f"Published candidate alias: {shared_source_ref} -> {candidate_dest_ref}")
 
-    # Alias the kernel-matched tag used by compose.
-    # This keeps candidate compose pinned to the same kernel-specific kmods that
-    # were validated, while still reading from the candidate repo path.
+    # Also alias the newest-kernel debug tag into the candidate repo.
+    # Compose now reads the Fedora-wide candidate cache tag above, but keeping a
+    # primary-kernel alias is still useful for diagnostics and manual inspection.
     destination_kernel_ref = (
         f"docker://ghcr.io/{image_org}/{dest_akmods_repo}:main-{fedora_version}-{kernel_release}"
     )

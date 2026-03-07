@@ -1,18 +1,19 @@
 """
 Script: ci_tools/main_check_candidate_akmods_cache.py
-What: Checks whether akmods cache can be reused for the current kernel.
-Doing: Pulls cache image, unpacks layers, checks for matching `kmod-zfs` RPM, then writes `exists=true|false`.
-Why: Skip rebuild when safe, but rebuild when modules are stale.
+What: Checks whether akmods cache can be reused for the current base-image kernels.
+Doing: Pulls cache image, unpacks layers, checks for matching `kmod-zfs` RPMs, then writes `exists=true|false`.
+Why: Skip rebuild when safe, but rebuild when any required module set is stale.
 Goal: Control main-workflow rebuild decisions.
 """
 
 from __future__ import annotations
-
-import json
 import tempfile
 from pathlib import Path
 
 from ci_tools.common import (
+    CiToolError,
+    kernel_releases_from_env,
+    load_layer_files_from_oci_layout,
     normalize_owner,
     optional_env,
     require_env,
@@ -21,19 +22,6 @@ from ci_tools.common import (
     unpack_layer_tarballs,
     write_github_outputs,
 )
-
-
-def _load_layer_files(akmods_dir: Path) -> list[Path]:
-    # `manifest.json` lists each filesystem layer by digest.
-    # Convert each digest to its local filename in the `dir:` layout.
-    manifest_path = akmods_dir / "manifest.json"
-    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    # Each layer has a digest like "sha256:abcd...". In dir: layout, filename
-    # is just the hash part, so we map digest -> local file path.
-    layer_digests = [
-        str(layer.get("digest") or "") for layer in manifest_data.get("layers", []) if layer.get("digest")
-    ]
-    return [akmods_dir / digest.replace("sha256:", "") for digest in layer_digests]
 
 
 def _has_kernel_matching_rpm(root_dir: Path, kernel_release: str) -> bool:
@@ -46,12 +34,26 @@ def _has_kernel_matching_rpm(root_dir: Path, kernel_release: str) -> bool:
     return any(rpm_dir.glob(pattern))
 
 
+def _missing_kernel_releases(root_dir: Path, kernel_releases: list[str]) -> list[str]:
+    """
+    Return kernel releases that do not have a matching cached kmod RPM.
+
+    This keeps the main workflow fail-closed: one missing kernel means the cache
+    is not good enough for the current base image.
+    """
+    return [release for release in kernel_releases if not _has_kernel_matching_rpm(root_dir, release)]
+
+
 def main() -> None:
     # Workflow-provided inputs.
     # Normalize owner means: convert to lowercase for consistent registry paths.
     image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
     fedora_version = require_env("FEDORA_VERSION")
-    kernel_release = require_env("KERNEL_RELEASE")
+    # `KERNEL_RELEASES` is the preferred input because one base image can carry
+    # more than one installed kernel under `/lib/modules`.
+    kernel_releases = kernel_releases_from_env()
+    if not kernel_releases:
+        raise CiToolError("Expected at least one kernel release from workflow env")
     # Keep backward compatibility with older workflow env name:
     # - prefer `AKMODS_REPO` (generic source repo name)
     # - fallback to `CANDIDATE_AKMODS_REPO` (older name)
@@ -75,22 +77,24 @@ def main() -> None:
         # `skopeo copy ... dir:<path>` saves image layers so we can inspect files.
         skopeo_copy(f"docker://{source_image}", f"dir:{akmods_dir}")
 
-        layer_files = _load_layer_files(akmods_dir)
+        layer_files = load_layer_files_from_oci_layout(akmods_dir)
         # Extract all filesystem layers into one temp tree for file checks.
         unpack_layer_tarballs(layer_files, root)
 
-        if _has_kernel_matching_rpm(root, kernel_release):
+        missing_releases = _missing_kernel_releases(root, kernel_releases)
+        if not missing_releases:
             # `exists=true` means this cache can be safely reused.
             write_github_outputs({"exists": "true"})
             print(
-                f"Found matching {source_image} kmod for kernel {kernel_release}; "
+                f"Found matching {source_image} kmods for kernels {' '.join(kernel_releases)}; "
                 "akmods rebuild can be skipped."
             )
         else:
             # `exists=false` here means the cache exists but is stale (wrong kernel).
             write_github_outputs({"exists": "false"})
             print(
-                f"Cached {source_image} is present but missing kmod for kernel {kernel_release}; "
+                f"Cached {source_image} is present but missing kmods for kernels "
+                f"{' '.join(missing_releases)}; "
                 "akmods rebuild is required."
             )
 

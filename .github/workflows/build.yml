@@ -81,6 +81,7 @@ jobs:
     outputs:
       fedora_version: ${{ steps.inputs.outputs.version }}
       kernel_release: ${{ steps.inputs.outputs.kernel_release }}
+      kernel_releases: ${{ steps.inputs.outputs.kernel_releases }}
       base_image_ref: ${{ steps.inputs.outputs.base_image_ref }}
       base_image_name: ${{ steps.inputs.outputs.base_image_name }}
       base_image_tag: ${{ steps.inputs.outputs.base_image_tag }}
@@ -123,6 +124,7 @@ jobs:
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
           BASE_IMAGE_REF: ${{ steps.inputs.outputs.base_image_ref }}
           BASE_IMAGE_NAME: ${{ steps.inputs.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ steps.inputs.outputs.base_image_tag }}
@@ -151,6 +153,7 @@ jobs:
         env:
           FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
           # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
           # We check that shared source tag here, then copy it into candidate
           # alias tags before compose.
@@ -189,8 +192,11 @@ jobs:
           # "Stream" here means the moving track of new kernel releases over time.
           AKMODS_KERNEL: main
           AKMODS_VERSION: ${{ steps.inputs.outputs.version }}
-          # Build akmods for the exact kernel chosen in input resolution.
+          # Build akmods for every kernel shipped in the pinned base image.
+          # Fedora keeps installonly kernels around, so one image can expose
+          # more than one `/lib/modules/<kernel_release>` directory.
           KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
           AKMODS_TARGET: zfs
           # ZFS version comes from input resolution (default or lock file).
           ZFS_MINOR_VERSION: ${{ steps.inputs.outputs.zfs_minor_version }}
@@ -232,14 +238,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set kernel-matched akmods source and pin base tag in recipe
+      - name: Set candidate akmods source and pin base tag in recipe
         shell: bash
         env:
           CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
-          KERNEL_RELEASE: ${{ needs.build-zfs-akmods.outputs.kernel_release }}
           BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
-          # Candidate image build pulls from these akmods tags.
+          # Candidate image build pulls from the candidate-repo Fedora-wide
+          # akmods cache tag copied earlier in this workflow.
           AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
         run: |
           python3 -m ci_tools.cli main-configure-candidate-recipe

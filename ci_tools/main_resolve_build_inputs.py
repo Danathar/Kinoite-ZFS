@@ -18,8 +18,10 @@ from ci_tools.common import (
     extract_fedora_version,
     optional_env,
     require_env,
+    run_cmd,
     skopeo_inspect_digest,
     skopeo_inspect_json,
+    sort_kernel_releases,
     write_github_outputs,
 )
 
@@ -90,6 +92,32 @@ def _load_lock_file(lock_file_path: str) -> dict:
         return json.load(handle)
 
 
+def detect_base_image_kernel_releases(image_ref: str) -> list[str]:
+    """
+    Inspect the base image filesystem and return every installed kernel release.
+
+    We intentionally inspect `/lib/modules` from a real container view instead
+    of trusting a single metadata label, because installonly kernel packages
+    can leave more than one kernel in the final merged root filesystem.
+    """
+    output = run_cmd(
+        [
+            "podman",
+            "run",
+            "--rm",
+            "--entrypoint",
+            "/bin/sh",
+            image_ref,
+            "-lc",
+            "find /lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\\n'",
+        ]
+    )
+    kernel_releases = sort_kernel_releases(output.splitlines())
+    if not kernel_releases:
+        raise CiToolError(f"No installed kernel directories found in {image_ref}")
+    return kernel_releases
+
+
 def main() -> None:
     # Workflow inputs are supplied through environment variables.
     use_input_lock = optional_env("USE_INPUT_LOCK", "false").lower() == "true"
@@ -137,16 +165,18 @@ def main() -> None:
     base_image_name = str(base_inspect_json.get("Name") or "")
     base_image_digest = str(base_inspect_json.get("Digest") or "")
     labels = base_inspect_json.get("Labels") or {}
-    kernel_release = str(labels.get("ostree.linux") or "")
+    label_kernel_release = str(labels.get("ostree.linux") or "")
     base_image_version_label = str(labels.get("org.opencontainers.image.version") or "")
 
     if not base_image_name or not base_image_digest:
         raise CiToolError(f"Failed to resolve base image digest for {base_image_ref}")
-    if not kernel_release:
+    if not label_kernel_release:
         raise CiToolError(f"Failed to read ostree.linux label from {base_image_ref}")
 
-    fedora_version = extract_fedora_version(kernel_release)
     base_image_pinned = f"{base_image_name}@{base_image_digest}"
+    kernel_releases = detect_base_image_kernel_releases(base_image_pinned)
+    kernel_release = kernel_releases[-1]
+    fedora_version = extract_fedora_version(kernel_release)
     source_tag = extract_source_tag(base_image_ref)
 
     # Helper function:
@@ -188,6 +218,7 @@ def main() -> None:
         {
             "version": fedora_version,
             "kernel_release": kernel_release,
+            "kernel_releases": " ".join(kernel_releases),
             "base_image_ref": base_image_ref,
             "base_image_name": base_image_name,
             "base_image_tag": base_image_tag,
@@ -206,7 +237,13 @@ def main() -> None:
     print(f"Resolved base image: {base_image_pinned}")
     print(f"Resolved base image tag: {base_image_name}:{base_image_tag}")
     print(f"Resolved build container: {build_container_pinned}")
+    if label_kernel_release != kernel_release:
+        print(
+            "Base image label/kernel directory mismatch: "
+            f"label={label_kernel_release} newest_dir={kernel_release}"
+        )
     print(f"Kernel release: {kernel_release}")
+    print(f"Kernel releases in base image: {' '.join(kernel_releases)}")
     print(f"Fedora version: {fedora_version}")
     print(f"ZFS minor version: {zfs_minor_version}")
 

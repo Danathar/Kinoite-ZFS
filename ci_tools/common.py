@@ -22,6 +22,7 @@ class CiToolError(RuntimeError):
 
 
 FEDORA_FROM_KERNEL_RE = re.compile(r".*fc([0-9]+).*")
+NATURAL_SORT_SPLIT_RE = re.compile(r"([0-9]+)")
 
 
 def require_env(name: str) -> str:
@@ -35,6 +36,26 @@ def require_env(name: str) -> str:
 def optional_env(name: str, default: str = "") -> str:
     """Return an environment variable with a fallback default."""
     return os.environ.get(name, default)
+
+
+def kernel_releases_from_env(
+    *,
+    kernel_releases_var: str = "KERNEL_RELEASES",
+    kernel_release_var: str = "KERNEL_RELEASE",
+) -> list[str]:
+    """
+    Return kernel releases from workflow env, preferring the plural form.
+
+    `KERNEL_RELEASES` is a whitespace-separated list used when one base image
+    carries more than one kernel under `/lib/modules`.
+    `KERNEL_RELEASE` remains supported as the single-kernel fallback.
+    """
+    releases = [value for value in optional_env(kernel_releases_var).split() if value]
+    if releases:
+        return releases
+
+    release = optional_env(kernel_release_var).strip()
+    return [release] if release else []
 
 
 def run_cmd(
@@ -159,6 +180,37 @@ def unpack_layer_tarballs(layer_files: list[Path], destination: Path) -> None:
     for layer_file in layer_files:
         with tarfile.open(layer_file, "r") as tar:
             tar.extractall(destination, filter="data")
+
+
+def load_layer_files_from_oci_layout(image_dir: Path) -> list[Path]:
+    """
+    Return filesystem layer tar paths from one local `skopeo copy ... dir:` tree.
+
+    OCI dir layouts store layer digests in `manifest.json`; the actual filenames
+    are the same digest strings without the `sha256:` prefix.
+    """
+    manifest_path = image_dir / "manifest.json"
+    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    layer_digests = [
+        str(layer.get("digest") or "") for layer in manifest_data.get("layers", []) if layer.get("digest")
+    ]
+    return [image_dir / digest.replace("sha256:", "") for digest in layer_digests]
+
+
+def natural_sort_key(value: str) -> list[int | str]:
+    """
+    Return a natural-sort key so kernel strings order numerically where needed.
+
+    Example:
+    - `6.18.9-200.fc43.x86_64` sorts before `6.18.10-200.fc43.x86_64`
+    """
+    parts = NATURAL_SORT_SPLIT_RE.split(value)
+    return [int(part) if part.isdigit() else part for part in parts]
+
+
+def sort_kernel_releases(kernel_releases: Sequence[str]) -> list[str]:
+    """Return unique kernel release strings in stable natural-sort order."""
+    return sorted(dict.fromkeys(kernel_releases), key=natural_sort_key)
 
 
 def print_lines_starting_with(file_path: Path, prefix: str) -> None:

@@ -27,7 +27,7 @@ If a term is unfamiliar, check the shared glossary first:
 | Write build inputs manifest | `main-write-build-inputs-manifest` | `ci_tools.main_write_build_inputs_manifest` |
 | Check for existing self-hosted zfs akmods source image tag | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
 | Publish candidate akmods alias tags from shared source | `main-publish-candidate-akmods-alias` | `ci_tools.main_publish_candidate_akmods_alias` |
-| Set kernel-matched akmods source and pin base tag in recipe | `main-configure-candidate-recipe` | `ci_tools.main_configure_candidate_recipe` |
+| Set candidate akmods source and pin base tag in recipe | `main-configure-candidate-recipe` | `ci_tools.main_configure_candidate_recipe` |
 | Promote candidate image and akmods cache to stable tags | `main-promote-stable` | `ci_tools.main_promote_stable` |
 | Compute branch-safe public alias tag prefix | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
 | Detect Fedora major version for Kinoite latest | `beta-detect-fedora-version` | `ci_tools.beta_detect_fedora_version` |
@@ -42,4 +42,5 @@ If a term is unfamiliar, check the shared glossary first:
 
 - `AKMODS_IMAGE` is defined in [`containerfiles/zfs-akmods/Containerfile`](../../containerfiles/zfs-akmods/Containerfile).
 - Main and branch configure steps rewrite that line in the Containerfile.
+- Main rewrites it to the candidate-repo Fedora-wide akmods cache tag (`main-<fedora>`), not a single kernel tag.
 - Main also rewrites `base-image` and `image-version` in [`recipes/recipe.yml`](../../recipes/recipe.yml) to a fixed tag for the current run.

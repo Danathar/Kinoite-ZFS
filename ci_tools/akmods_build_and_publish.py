@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ci_tools.common import CiToolError, optional_env, require_env, run_cmd
+from ci_tools.common import CiToolError, kernel_releases_from_env, optional_env, require_env, run_cmd
 
 
 AKMODS_WORKTREE = Path("/tmp/akmods")
@@ -71,12 +71,7 @@ def build_kernel_cache_document(
     return payload, cache_json_path
 
 
-def write_kernel_cache_file() -> None:
-    # If no explicit kernel release is given, keep default upstream behavior.
-    kernel_release = optional_env("KERNEL_RELEASE").strip()
-    if not kernel_release:
-        return
-
+def write_kernel_cache_file(*, kernel_release: str) -> None:
     # When kernel pinning is enabled, these values must also be set.
     kernel_flavor = require_env("AKMODS_KERNEL")
     akmods_version = require_env("AKMODS_VERSION")
@@ -102,18 +97,44 @@ def write_kernel_cache_file() -> None:
     print(f"Seeded {cache_json_path}")
 
 
+def build_and_publish_kernel_release(kernel_release: str) -> None:
+    """
+    Build and publish one kernel-specific akmods payload.
+
+    We intentionally reuse the same Fedora-wide cache path (`main-<fedora>`) for
+    each kernel in the run. That lets the shared `main-<fedora>` image collect
+    RPMs for more than one installed kernel when the upstream base image keeps a
+    fallback kernel under `/lib/modules`.
+    """
+    print(f"Building akmods for kernel release: {kernel_release}")
+    write_kernel_cache_file(kernel_release=kernel_release)
+
+    # Upstream tooling reads the cache metadata we just wrote and publishes both
+    # the Fedora-wide cache tag and the kernel-specific tag for this release.
+    run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+    run_cmd(["just", "push"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+    run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+
+
 def main() -> None:
     # All akmods commands run from /tmp/akmods after the clone step.
     if not AKMODS_WORKTREE.exists():
         raise CiToolError(f"Expected akmods checkout at {AKMODS_WORKTREE}")
 
-    write_kernel_cache_file()
+    kernel_releases = kernel_releases_from_env()
+    if not kernel_releases:
+        # If no explicit kernel list is provided, keep default upstream behavior.
+        run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        run_cmd(["just", "push"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        return
 
-    # Run upstream akmods lifecycle in order.
-    run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+    # Authenticate once, then publish one kernel-specific payload at a time.
+    # This keeps the loop readable in logs and avoids repeated login churn.
     run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
-    run_cmd(["just", "push"], cwd=str(AKMODS_WORKTREE), capture_output=False)
-    run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+    for kernel_release in kernel_releases:
+        build_and_publish_kernel_release(kernel_release)
 
 
 if __name__ == "__main__":

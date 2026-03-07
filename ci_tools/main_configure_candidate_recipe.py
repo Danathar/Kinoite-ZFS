@@ -1,7 +1,7 @@
 """
 Script: ci_tools/main_configure_candidate_recipe.py
 What: Rewrites recipe and containerfile values before candidate image build.
-Doing: Pins base image tag and kernel-matched `AKMODS_IMAGE` tag.
+Doing: Pins base image tag and a candidate-scoped Fedora-wide `AKMODS_IMAGE` tag.
 Why: Prevents input drift during longer runs.
 Goal: Build the candidate image from one consistent base + akmods set.
 """
@@ -27,7 +27,6 @@ def main() -> None:
     # Normalize owner means: convert to lowercase for consistent registry paths.
     image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
     candidate_image_name = require_env("CANDIDATE_IMAGE_NAME")
-    kernel_release = require_env("KERNEL_RELEASE")
     akmods_repo = require_env("AKMODS_REPO")
     base_image_name = require_env("BASE_IMAGE_NAME")
     base_image_tag = require_env("BASE_IMAGE_TAG")
@@ -40,10 +39,14 @@ def main() -> None:
     replace_line_starting_with(RECIPE_FILE, "base-image:", f"base-image: {base_image_name}")
     replace_line_starting_with(RECIPE_FILE, "image-version:", f"image-version: {base_image_tag}")
 
-    # Point ZFS package install at the exact kernel-matching akmods image.
+    # Point ZFS package install at the candidate-repo Fedora-wide cache tag.
+    # "Fedora-wide" here means one cache image that can carry RPMs for more
+    # than one installed kernel in the same base image. The workflow copies
+    # this tag into the candidate repo earlier in the same run, so compose does
+    # not depend on whatever happens to be in the stable repo later.
     akmods_line = (
         "AKMODS_IMAGE=\""
-        f"ghcr.io/{image_org}/{akmods_repo}:main-${{FEDORA_VERSION}}-{kernel_release}"
+        f"ghcr.io/{image_org}/{akmods_repo}:main-${{FEDORA_VERSION}}"
         "\""
     )
     replace_line_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=", akmods_line)

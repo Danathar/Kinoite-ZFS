@@ -57,6 +57,27 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
         self.assertEqual(payload["KCPATH"], "/custom/rpms")
         self.assertEqual(str(cache_path), "/custom/rpms/cache.json")
 
+    def test_build_kernel_cache_document_reuses_fedora_wide_path_across_kernels(self) -> None:
+        first_payload, first_cache_path = build_kernel_cache_document(
+            kernel_release="6.18.12-200.fc43.x86_64",
+            kernel_flavor="main",
+            akmods_version="43",
+            build_root=Path("/tmp/akmods/build"),
+            kcpath_override="",
+        )
+        second_payload, second_cache_path = build_kernel_cache_document(
+            kernel_release="6.18.16-200.fc43.x86_64",
+            kernel_flavor="main",
+            akmods_version="43",
+            build_root=Path("/tmp/akmods/build"),
+            kcpath_override="",
+        )
+
+        # The shared `main-43` cache path is intentional: multiple kernel builds
+        # in one run accumulate RPMs into one Fedora-wide cache image.
+        self.assertEqual(first_payload["KCPATH"], second_payload["KCPATH"])
+        self.assertEqual(first_cache_path, second_cache_path)
+
 
 if __name__ == "__main__":
     unittest.main()

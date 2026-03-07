@@ -127,9 +127,10 @@ Action:
 
 1. Re-run candidate with `rebuild_akmods=true`.
 2. Verify candidate compose pins `image-version` to the resolved immutable base tag from `build-inputs.json`.
-3. Verify candidate compose references candidate akmods `AKMODS_IMAGE` tag `ghcr.io/<owner>/akmods-zfs-candidate:main-<fedora>-<kernel_release>`.
-4. Verify akmods logs show `Pinned akmods kernel release to <kernel_release>`.
-5. Keep promotion disabled until candidate passes.
+3. Verify `build-inputs.json` records every kernel shipped in the base image under `inputs.kernel_releases`.
+4. Verify candidate compose references candidate akmods `AKMODS_IMAGE` tag `ghcr.io/<owner>/akmods-zfs-candidate:main-<fedora>`.
+5. Verify akmods logs show one `Pinned akmods kernel release to <kernel_release>` line for each base-image kernel that required a cache rebuild.
+6. Keep promotion disabled until candidate passes.
 
 ### Pattern C: Promotion Job Fails
 
