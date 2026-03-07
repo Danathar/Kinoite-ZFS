@@ -134,7 +134,9 @@ Action:
 3. Verify `build-inputs.json` records every kernel shipped in the base image under `inputs.kernel_releases`.
 4. Verify candidate compose references candidate akmods `AKMODS_IMAGE` tag `ghcr.io/<owner>/akmods-zfs-candidate:main-<fedora>`.
 5. Verify akmods logs show one `Pinned akmods kernel release to <kernel_release>` line for each base-image kernel that required a cache rebuild.
-6. Keep promotion disabled until candidate passes.
+6. If the cache image already contains every expected `kmod-zfs-<kernel_release>-*.rpm` file, inspect whether those RPM files share the same internal RPM identity (`rpm -qp --qf '%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' ...`). If they do, candidate compose must install only one `kmod-zfs` package through `rpm-ostree` and unpack the remaining kernel-specific payloads directly.
+7. Deferred refactor option to keep documented here for later: replace the current shared-image compatibility shim with a broader downstream design that consumes multiple kernel-specific akmods tags directly instead of one merged `main-<fedora>` tag.
+8. Keep promotion disabled until candidate passes.
 
 ### Pattern C: Promotion Job Fails
 

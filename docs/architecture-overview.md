@@ -138,6 +138,23 @@ The workflow rewrites recipe/containerfile inputs before candidate compose (cand
 
 The build validates ZFS module presence for kernel directories before image publish.
 
+When the base image carries more than one installed kernel, candidate compose uses
+two install paths on purpose:
+
+1. Shared userspace ZFS RPMs and one primary `kmod-zfs` RPM still go through
+   `rpm-ostree install`.
+2. Additional kernel-specific `kmod-zfs` RPM payloads are unpacked directly into
+   the image root and then `depmod -a <kernel>` runs for each base kernel.
+
+Why this exists:
+
+1. The akmods cache can hold multiple `kmod-zfs-<kernel_release>` RPM files.
+2. Those RPM files still share one internal RPM identity (`kmod-zfs`), so
+   `rpm-ostree` does not keep them installed side-by-side as distinct packages.
+3. Direct payload extraction is the current repo-side compatibility shim that
+   keeps every shipped kernel directory populated until we decide whether a
+   broader downstream refactor is worth it.
+
 ### 4. Promotion To Stable
 
 Promotion is a separate gated job:

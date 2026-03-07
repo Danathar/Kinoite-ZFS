@@ -103,11 +103,24 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 1. Pins `base-image`/`image-version` to the resolved immutable base tag from input resolution.
 2. Pulls the akmods cache image for the resolved kernel release.
 3. Extracts ZFS RPMs from image layers.
-4. Installs RPMs via `rpm-ostree install`.
-5. Verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
-6. Runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
+4. Installs shared ZFS userspace RPMs and one primary `kmod-zfs` RPM via `rpm-ostree install`.
+5. If the base image ships fallback kernels too, unpacks the remaining kernel-specific `kmod-zfs` RPM payloads directly into the image root.
+6. Verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
+7. Runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
 
 If module files do not match kernel directories, candidate build fails immediately.
+
+Why the split install exists:
+
+1. Multi-kernel akmods cache images can legitimately contain more than one
+   `kmod-zfs-<kernel_release>-*.rpm` file.
+2. Those RPM files still report one shared RPM identity (`kmod-zfs`), so
+   `rpm-ostree install` does not keep them side-by-side as separate installs.
+3. The repo-side workaround is: install one `kmod-zfs` package normally, then
+   unpack the additional kernel-module payloads directly and run `depmod`.
+4. Deferred future refactor option: stop relying on one merged shared akmods
+   image and teach downstream compose paths to consume multiple kernel-specific
+   akmods tags directly. That is intentionally not the current default design.
 
 ### 5. Promote Candidate To Stable
 

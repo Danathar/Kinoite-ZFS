@@ -50,8 +50,83 @@ if [[ "${#zfs_rpms[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-# Install directly into ostree build root.
-rpm-ostree install "${zfs_rpms[@]}"
+# Split shared userspace RPMs from kernel-specific `kmod-zfs` RPMs.
+# Why: one multi-kernel cache image can carry several `kmod-zfs-<kernel_release>`
+# files, but those RPM files still report the same package identity (`kmod-zfs`).
+# Goal: keep normal package management for shared userspace bits while handling
+# extra kernel-module payloads in a way that survives multi-kernel compose.
+managed_rpms=()
+kmod_rpms=()
+for rpm_path in "${zfs_rpms[@]}"; do
+  rpm_name="$(rpm -qp --qf '%{NAME}\n' "${rpm_path}")"
+  if [[ "${rpm_name}" == "kmod-zfs" ]]; then
+    kmod_rpms+=("${rpm_path}")
+  else
+    managed_rpms+=("${rpm_path}")
+  fi
+done
+
+if [[ "${#kmod_rpms[@]}" -eq 0 ]]; then
+  echo "No kmod-zfs RPMs found in ${AKMODS_IMAGE}" >&2
+  exit 1
+fi
+
+# Record exactly which cached `kmod-zfs` RPM belongs to each kernel release.
+# Why: the payload path under `/lib/modules/<kernel_release>/...` is the reliable
+# signal here; filename-only parsing would be easy to get wrong later.
+declare -A kmod_rpm_by_kernel=()
+for rpm_path in "${kmod_rpms[@]}"; do
+  kernel_release="$(rpm -qpl "${rpm_path}" | sed -n 's#^/lib/modules/\([^/]*\)/extra/zfs/zfs\.ko$#\1#p' | head -n1)"
+  if [[ -z "${kernel_release}" ]]; then
+    echo "Could not determine kernel release for ${rpm_path}" >&2
+    exit 1
+  fi
+  if [[ -n "${kmod_rpm_by_kernel[${kernel_release}]:-}" ]]; then
+    echo "Multiple kmod-zfs RPMs found for kernel ${kernel_release}" >&2
+    exit 1
+  fi
+  kmod_rpm_by_kernel["${kernel_release}"]="${rpm_path}"
+done
+
+# Fail closed before install if any base-image kernel is missing from the cache.
+# Why: manual payload extraction is only a workaround for duplicate RPM identity.
+# It must not hide a genuinely stale/missing akmods rebuild.
+for kernel_release in "${image_kernels[@]}"; do
+  if [[ -z "${kmod_rpm_by_kernel[${kernel_release}]:-}" ]]; then
+    echo "No kmod-zfs RPM found for base kernel ${kernel_release}. Cached akmods are stale; rebuild akmods." >&2
+    exit 1
+  fi
+done
+
+# Keep one `kmod-zfs` install managed through `rpm-ostree`.
+# Why: that preserves normal RPM ownership for the newest kernel release, which
+# is the kernel Fedora-family images should boot first after compose.
+primary_kernel_release="$(printf '%s\n' "${image_kernels[@]}" | sort -V | tail -n1)"
+primary_kmod_rpm="${kmod_rpm_by_kernel[${primary_kernel_release}]}"
+install_rpms=("${managed_rpms[@]}" "${primary_kmod_rpm}")
+rpm-ostree install "${install_rpms[@]}"
+
+# Apply remaining kernel-module payloads directly into the image root.
+# Why: extra `kmod-zfs` RPM files have the same RPM name/version/release/arch as
+# the primary install, so `rpm-ostree` cannot keep them side-by-side as separate
+# package installs even though their `/lib/modules/<kernel_release>` paths differ.
+# Goal: preserve ZFS modules for every shipped base-image kernel, not only one.
+if [[ "${#image_kernels[@]}" -gt 1 ]]; then
+  if ! command -v rpm2cpio >/dev/null || ! command -v cpio >/dev/null; then
+    echo "rpm2cpio/cpio are required to unpack extra kmod-zfs payloads" >&2
+    exit 1
+  fi
+fi
+for kernel_release in "${image_kernels[@]}"; do
+  kmod_rpm="${kmod_rpm_by_kernel[${kernel_release}]}"
+  if [[ "${kmod_rpm}" == "${primary_kmod_rpm}" ]]; then
+    continue
+  fi
+  (
+    cd /
+    rpm2cpio "${kmod_rpm}" | cpio -idmu --quiet
+  )
+done
 
 # Fail closed if the cached kmods do not match the kernel(s) from the base image.
 # This prevents publishing an image where `kmod-zfs` is installed but `modprobe zfs` fails.
