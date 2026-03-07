@@ -111,6 +111,7 @@ Action:
 3. Run candidate-only tests (`promote_to_stable=false`) until compatibility is restored.
 4. If needed, replay last known-good locked inputs for deterministic troubleshooting.
 5. If the log shows `podman manifest create ... main-<fedora> ... already in use` during a multi-kernel rebuild, the failure is in manifest sequencing, not kernel-version detection.
+6. If a later candidate image build reports `No ZFS module for base kernel <kernel_release>` even though akmods just published that kernel tag, inspect whether the multi-kernel akmods rebuild reused stale Buildah layers from the earlier kernel iteration.
 
 ### Pattern B: Candidate Image Build Fails (Akmods Succeeded)
 

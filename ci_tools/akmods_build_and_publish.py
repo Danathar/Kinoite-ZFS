@@ -9,6 +9,7 @@ Goal: Publish the akmods image and manifest used by later build steps.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from ci_tools.common import CiToolError, kernel_releases_from_env, optional_env, require_env, run_cmd
@@ -135,6 +136,15 @@ def main() -> None:
 
     # Authenticate once, then publish one kernel-specific payload at a time.
     # This keeps the loop readable in logs and avoids repeated login churn.
+    #
+    # Disable Buildah layer caching for the multi-kernel loop. Upstream `just
+    # build` mounts the host-side RPM cache directory into the build. When that
+    # directory changes between kernel iterations, cached container layers can
+    # otherwise be reused even though the mounted RPM payload changed. The
+    # result is a tag whose labels mention the newer kernel while the files
+    # inside still come from the earlier kernel build.
+    os.environ["BUILDAH_LAYERS"] = "false"
+    print("Disabled Buildah layer cache for multi-kernel akmods rebuild.")
     run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
     for kernel_release in kernel_releases:
         build_and_push_kernel_release(kernel_release)

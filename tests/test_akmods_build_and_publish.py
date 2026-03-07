@@ -94,7 +94,9 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
                 ):
                     with patch.object(script, "write_kernel_cache_file") as write_cache:
                         with patch.object(script, "run_cmd") as run_cmd:
-                            script.main()
+                            with patch.dict(script.os.environ, {}, clear=False):
+                                script.main()
+                                self.assertEqual(script.os.environ["BUILDAH_LAYERS"], "false")
 
         self.assertEqual(
             write_cache.call_args_list,

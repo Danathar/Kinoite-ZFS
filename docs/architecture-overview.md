@@ -104,6 +104,7 @@ The workflow checks cached akmods images for `kmod-zfs` RPMs that match every ke
 2. If no, it rebuilds and publishes the Fedora-wide cache again so it contains RPMs for every installed base-image kernel.
 3. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
 4. In multi-kernel rebuilds, the wrapper publishes per-kernel image tags first and creates the shared manifest only after the loop, because the upstream manifest target reuses fixed local names like `main-<fedora>`.
+5. That same multi-kernel path disables Buildah layer caching so each kernel build sees the updated mounted RPM cache instead of reusing stale filesystem layers from the previous kernel iteration.
 
 This avoids publishing images with outdated kernel modules.
 
