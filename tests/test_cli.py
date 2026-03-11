@@ -24,8 +24,6 @@ class CliTests(unittest.TestCase):
             "main-publish-candidate-akmods-alias",
             "main-promote-stable",
             "beta-compute-branch-metadata",
-            "beta-detect-fedora-version",
-            "beta-check-branch-akmods-cache",
             "beta-publish-branch-akmods-alias",
             "beta-configure-branch-recipe",
             "akmods-clone-pinned",

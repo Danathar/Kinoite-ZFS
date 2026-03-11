@@ -127,7 +127,13 @@ This avoids publishing images with outdated kernel modules.
 
 ### 3. Candidate Image Build
 
-The workflow rewrites recipe/containerfile inputs before candidate compose (candidate image build stage) to:
+The workflow now creates a generated build workspace before candidate compose
+(candidate image build stage).
+
+`Generated build workspace` here means a transient directory created during CI
+that BlueBuild treats as its local working directory for this one run.
+
+Within that generated workspace, the workflow:
 
 1. Pin `base-image` + `image-version` to the resolved immutable base tag for this run.
 2. Use the candidate-repo Fedora-wide akmods cache tag (`main-<fedora>`), which can carry RPMs for more than one installed kernel.
@@ -135,6 +141,9 @@ The workflow rewrites recipe/containerfile inputs before candidate compose (cand
    stable and candidate repo names are trusted in the final image:
    - `ghcr.io/danathar/kinoite-zfs`
    - `ghcr.io/danathar/kinoite-zfs-candidate`
+
+The canonical repo files stay unchanged. The build action's `working_directory`
+input points at that generated workspace instead of the checked-in repo root.
 
 The build validates ZFS module presence for kernel directories before image publish.
 

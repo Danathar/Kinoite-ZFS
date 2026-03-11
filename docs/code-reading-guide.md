@@ -53,7 +53,7 @@ Read these in this sequence to match `build.yml`:
 5. Configure akmods target image path: [`ci_tools/akmods_configure_zfs_target.py`](../ci_tools/akmods_configure_zfs_target.py)
 6. Build/publish akmods image: [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py)
 7. Publish candidate akmods alias tags: [`ci_tools/main_publish_candidate_akmods_alias.py`](../ci_tools/main_publish_candidate_akmods_alias.py)
-8. Rewrite recipe/container inputs for candidate build: [`ci_tools/main_configure_candidate_recipe.py`](../ci_tools/main_configure_candidate_recipe.py)
+8. Generate transient build inputs for candidate build: [`ci_tools/main_configure_candidate_recipe.py`](../ci_tools/main_configure_candidate_recipe.py)
 9. Promote candidate to stable tags: [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
 
 ### 4. Branch Workflow Modules (Read In Job Order)
@@ -61,18 +61,25 @@ Read these in this sequence to match `build.yml`:
 Read these in this sequence to match `build-beta.yml`:
 
 1. Compute branch-safe tag parts: [`ci_tools/beta_compute_branch_metadata.py`](../ci_tools/beta_compute_branch_metadata.py)
-2. Detect Fedora version from base stream: [`ci_tools/beta_detect_fedora_version.py`](../ci_tools/beta_detect_fedora_version.py)
-3. Check shared akmods availability: [`ci_tools/beta_check_branch_akmods_cache.py`](../ci_tools/beta_check_branch_akmods_cache.py)
+2. Resolve base inputs from the same stream `main` uses: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
+3. Check shared akmods availability: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
 4. Publish branch alias tag in candidate repo: [`ci_tools/beta_publish_branch_akmods_alias.py`](../ci_tools/beta_publish_branch_akmods_alias.py)
-5. Rewrite recipe for branch alias source: [`ci_tools/beta_configure_branch_recipe.py`](../ci_tools/beta_configure_branch_recipe.py)
+5. Generate branch/PR build inputs: [`ci_tools/beta_configure_branch_recipe.py`](../ci_tools/beta_configure_branch_recipe.py)
 
 ### 5. Build Inputs Used By Python Modules
 
 Read these next so you can connect Python edits to actual build files:
 
-1. Recipe file rewritten during runs: [`recipes/recipe.yml`](../recipes/recipe.yml)
-2. Akmods containerfile rewritten during runs: [`containerfiles/zfs-akmods/Containerfile`](../containerfiles/zfs-akmods/Containerfile)
-3. Optional lock replay file: [`ci/inputs.lock.json`](../ci/inputs.lock.json)
+1. Canonical recipe source copied into generated workspace: [`recipes/recipe.yml`](../recipes/recipe.yml)
+2. Canonical akmods containerfile source copied into generated workspace: [`containerfiles/zfs-akmods/Containerfile`](../containerfiles/zfs-akmods/Containerfile)
+3. Generated workspace builder: [`ci_tools/generated_build_context.py`](../ci_tools/generated_build_context.py)
+4. Optional lock replay file: [`ci/inputs.lock.json`](../ci/inputs.lock.json)
+
+Important terms:
+
+1. `working directory`: the folder a build tool treats as its local root for file lookups.
+2. `generated workspace`: a transient directory created during CI so the build can use run-specific files without editing tracked source files.
+3. `build context`: the set of local files made visible to the build tool for one run.
 
 ### 6. Tests (How Logic Is Verified)
 

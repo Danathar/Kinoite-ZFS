@@ -91,6 +91,7 @@ jobs:
         uses: blue-build/github-action@v1.11.0
         with:
           recipe: recipe.yml
+          working_directory: .generated/bluebuild/
           # PR validation should not publish artifacts.
           push: false
           # PR validation should not require signing secrets.

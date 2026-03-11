@@ -1,25 +1,18 @@
 """
 Script: ci_tools/main_configure_candidate_recipe.py
-What: Rewrites recipe and containerfile values before candidate image build.
-Doing: Pins base image tag and a candidate-scoped Fedora-wide `AKMODS_IMAGE` tag.
-Why: Prevents input drift during longer runs.
-Goal: Build the candidate image from one consistent base + akmods set.
+What: Prepares a generated BlueBuild workspace before candidate image build.
+Doing: Copies canonical build files into a transient directory, then pins base + candidate akmods values there.
+Why: Prevents input drift during longer runs without mutating checked-in source files.
+Goal: Build the candidate image from one consistent generated input set.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from ci_tools.common import (
     normalize_owner,
-    print_lines_starting_with,
-    replace_line_starting_with,
     require_env,
 )
-
-
-RECIPE_FILE = Path("recipes/recipe.yml")
-ZFS_CONTAINERFILE = Path("containerfiles/zfs-akmods/Containerfile")
+from ci_tools.generated_build_context import BuildContextConfig, prepare_generated_build_context
 
 
 def main() -> None:
@@ -31,31 +24,21 @@ def main() -> None:
     base_image_name = require_env("BASE_IMAGE_NAME")
     base_image_tag = require_env("BASE_IMAGE_TAG")
 
-    # Candidate images are pushed to a dedicated repository so the candidate step
-    # cannot overwrite stable `kinoite-zfs:latest` directly.
-    replace_line_starting_with(RECIPE_FILE, "name:", f"name: {candidate_image_name}")
-
-    # Pin the base image name and immutable tag for this run.
-    replace_line_starting_with(RECIPE_FILE, "base-image:", f"base-image: {base_image_name}")
-    replace_line_starting_with(RECIPE_FILE, "image-version:", f"image-version: {base_image_tag}")
-
     # Point ZFS package install at the candidate-repo Fedora-wide cache tag.
     # "Fedora-wide" here means one cache image that can carry RPMs for more
     # than one installed kernel in the same base image. The workflow copies
     # this tag into the candidate repo earlier in the same run, so compose does
     # not depend on whatever happens to be in the stable repo later.
-    akmods_line = (
-        "AKMODS_IMAGE=\""
-        f"ghcr.io/{image_org}/{akmods_repo}:main-${{FEDORA_VERSION}}"
-        "\""
+    prepare_generated_build_context(
+        BuildContextConfig(
+            # Candidate images are pushed to a dedicated repository so this step
+            # cannot overwrite stable `kinoite-zfs:latest` directly.
+            image_name=candidate_image_name,
+            base_image_name=base_image_name,
+            base_image_tag=base_image_tag,
+            akmods_image=f"ghcr.io/{image_org}/{akmods_repo}:main-${{FEDORA_VERSION}}",
+        )
     )
-    replace_line_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=", akmods_line)
-
-    # Print changed lines so logs clearly show the final effective values.
-    print_lines_starting_with(RECIPE_FILE, "name:")
-    print_lines_starting_with(RECIPE_FILE, "base-image:")
-    print_lines_starting_with(RECIPE_FILE, "image-version:")
-    print_lines_starting_with(ZFS_CONTAINERFILE, "AKMODS_IMAGE=")
 
 
 if __name__ == "__main__":
