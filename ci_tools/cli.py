@@ -25,10 +25,9 @@ def command_map() -> dict[str, Callable[[], None]]:
     from ci_tools.akmods_clone_pinned import main as akmods_clone_pinned
     from ci_tools.akmods_configure_zfs_target import main as akmods_configure_zfs_target
     from ci_tools.beta_compute_branch_metadata import main as beta_compute_branch_metadata
-    from ci_tools.beta_configure_branch_recipe import main as beta_configure_branch_recipe
+    from ci_tools.configure_generated_build_context import main as configure_generated_build_context
     from ci_tools.beta_publish_branch_akmods_alias import main as beta_publish_branch_akmods_alias
     from ci_tools.main_check_candidate_akmods_cache import main as main_check_candidate_akmods_cache
-    from ci_tools.main_configure_candidate_recipe import main as main_configure_candidate_recipe
     from ci_tools.main_publish_candidate_akmods_alias import (
         main as main_publish_candidate_akmods_alias,
     )
@@ -40,11 +39,10 @@ def command_map() -> dict[str, Callable[[], None]]:
         "main-resolve-build-inputs": main_resolve_build_inputs,
         "main-write-build-inputs-manifest": main_write_build_inputs_manifest,
         "main-check-candidate-akmods-cache": main_check_candidate_akmods_cache,
-        "main-configure-candidate-recipe": main_configure_candidate_recipe,
+        "configure-generated-build-context": configure_generated_build_context,
         "main-publish-candidate-akmods-alias": main_publish_candidate_akmods_alias,
         "main-promote-stable": main_promote_stable,
         "beta-compute-branch-metadata": beta_compute_branch_metadata,
-        "beta-configure-branch-recipe": beta_configure_branch_recipe,
         "beta-publish-branch-akmods-alias": beta_publish_branch_akmods_alias,
         "akmods-clone-pinned": akmods_clone_pinned,
         "akmods-configure-zfs-target": akmods_configure_zfs_target,

@@ -53,7 +53,7 @@ Read these in this sequence to match `build.yml`:
 5. Configure akmods target image path: [`ci_tools/akmods_configure_zfs_target.py`](../ci_tools/akmods_configure_zfs_target.py)
 6. Build/publish akmods image: [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py)
 7. Publish candidate akmods alias tags: [`ci_tools/main_publish_candidate_akmods_alias.py`](../ci_tools/main_publish_candidate_akmods_alias.py)
-8. Generate transient build inputs for candidate build: [`ci_tools/main_configure_candidate_recipe.py`](../ci_tools/main_configure_candidate_recipe.py)
+8. Generate transient build inputs for candidate build: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
 9. Promote candidate to stable tags: [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
 
 ### 4. Branch Workflow Modules (Read In Job Order)
@@ -64,7 +64,7 @@ Read these in this sequence to match `build-beta.yml`:
 2. Resolve base inputs from the same stream `main` uses: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
 3. Check shared akmods availability: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
 4. Publish branch alias tag in candidate repo: [`ci_tools/beta_publish_branch_akmods_alias.py`](../ci_tools/beta_publish_branch_akmods_alias.py)
-5. Generate branch/PR build inputs: [`ci_tools/beta_configure_branch_recipe.py`](../ci_tools/beta_configure_branch_recipe.py)
+5. Generate branch/PR build inputs: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
 
 ### 5. Build Inputs Used By Python Modules
 
@@ -90,6 +90,7 @@ Read tests last to confirm expected behavior:
 3. Candidate alias behavior: [`tests/test_main_publish_candidate_akmods_alias.py`](../tests/test_main_publish_candidate_akmods_alias.py)
 4. Akmods build env behavior: [`tests/test_akmods_build_and_publish.py`](../tests/test_akmods_build_and_publish.py)
 5. Branch metadata behavior: [`tests/test_beta_compute_branch_metadata.py`](../tests/test_beta_compute_branch_metadata.py)
+6. Shared generated-build-context behavior: [`tests/test_configure_generated_build_context.py`](../tests/test_configure_generated_build_context.py)
 
 ## Trace One Value End-To-End (`kernel_release`)
 
