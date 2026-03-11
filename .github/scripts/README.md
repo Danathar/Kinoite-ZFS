@@ -23,6 +23,7 @@ If a term is unfamiliar, check the shared glossary first:
 
 | Local action | Purpose |
 |---|---|
+| [`.github/actions/prepare-main-build-inputs/action.yml`](../actions/prepare-main-build-inputs/action.yml) | Wrap the repeated environment-to-Python wiring that resolves pinned main-workflow inputs, uploads the build-input manifest artifact, and records whether shared akmods cache reuse is safe. |
 | [`.github/actions/prepare-validation-build/action.yml`](../actions/prepare-validation-build/action.yml) | Wrap the repeated environment-to-Python wiring that resolves pinned non-main inputs and verifies the shared akmods source before compose. |
 | [`.github/actions/configure-generated-build-context/action.yml`](../actions/configure-generated-build-context/action.yml) | Wrap the repeated environment-to-Python wiring that generates the transient BlueBuild workspace for one run. |
 | [`.github/actions/run-bluebuild/action.yml`](../actions/run-bluebuild/action.yml) | Wrap the repeated BlueBuild compose step for publish and validation modes. |
