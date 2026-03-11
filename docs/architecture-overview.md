@@ -176,6 +176,9 @@ Promotion is a separate gated job:
 6. Relies on the in-image policy normalization from compose time so signed host
    switches can move between candidate and stable repository names.
 
+The stable signing step now lives in a Python helper instead of inline shell:
+[`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
+
 If candidate fails, stable tags are not changed.
 
 ### 5. Replay Mode

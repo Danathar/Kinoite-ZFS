@@ -33,6 +33,7 @@ def command_map() -> dict[str, Callable[[], None]]:
         main as main_publish_candidate_akmods_alias,
     )
     from ci_tools.main_promote_stable import main as main_promote_stable
+    from ci_tools.main_sign_promoted_stable import main as main_sign_promoted_stable
     from ci_tools.main_resolve_build_inputs import main as main_resolve_build_inputs
     from ci_tools.main_write_build_inputs_manifest import main as main_write_build_inputs_manifest
 
@@ -44,6 +45,7 @@ def command_map() -> dict[str, Callable[[], None]]:
         "prepare-validation-build": prepare_validation_build,
         "main-publish-candidate-akmods-alias": main_publish_candidate_akmods_alias,
         "main-promote-stable": main_promote_stable,
+        "main-sign-promoted-stable": main_sign_promoted_stable,
         "beta-compute-branch-metadata": beta_compute_branch_metadata,
         "beta-publish-branch-akmods-alias": beta_publish_branch_akmods_alias,
         "akmods-clone-pinned": akmods_clone_pinned,

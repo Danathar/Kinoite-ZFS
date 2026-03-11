@@ -141,6 +141,7 @@ Promotion runs only after successful candidate akmods and candidate image jobs:
 2. Publishes immutable stable audit tag (`stable-<run>-<sha>`).
 3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source cache image.
 4. Re-signs the promoted stable image digest so signature-required host rebases keep working.
+5. Runs that signing/verification flow through a Python helper now, so promotion behavior is testable without reading workflow shell inline.
 
 If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
 
