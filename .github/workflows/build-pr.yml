@@ -31,7 +31,7 @@ jobs:
       base_image_name: ${{ steps.inputs.outputs.base_image_name }}
       base_image_tag: ${{ steps.inputs.outputs.base_image_tag }}
     container:
-      image: ${{ env.DEFAULT_BUILD_CONTAINER_IMAGE }}
+      image: ghcr.io/ublue-os/devcontainer:latest
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
       - uses: actions/checkout@v6
