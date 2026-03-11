@@ -57,6 +57,7 @@ Read these in this sequence to match `build.yml`:
 7. Publish candidate akmods alias tags: [`ci_tools/main_publish_candidate_akmods_alias.py`](../ci_tools/main_publish_candidate_akmods_alias.py)
 8. Generate transient build inputs for candidate build: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
 9. Promote candidate to stable tags: [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
+10. Re-sign promoted stable digest in the stable repository path: [`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
 
 ### 4. Branch Workflow Modules (Read In Job Order)
 
@@ -95,6 +96,7 @@ Read tests last to confirm expected behavior:
 5. Branch metadata behavior: [`tests/test_beta_compute_branch_metadata.py`](../tests/test_beta_compute_branch_metadata.py)
 6. Shared generated-build-context behavior: [`tests/test_configure_generated_build_context.py`](../tests/test_configure_generated_build_context.py)
 7. Shared non-main validation prep behavior: [`tests/test_prepare_validation_build.py`](../tests/test_prepare_validation_build.py)
+8. Promotion signing behavior: [`tests/test_main_sign_promoted_stable.py`](../tests/test_main_sign_promoted_stable.py)
 
 ## Trace One Value End-To-End (`kernel_release`)
 

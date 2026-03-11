@@ -63,15 +63,23 @@ def run_cmd(
     *,
     capture_output: bool = True,
     cwd: str | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> str:
     """Run a command and return stdout, raising a readable error on failure."""
     try:
+        command_env = None
+        if env is not None:
+            # Command-specific env overrides let helpers inject secrets or one-off
+            # flags without mutating global process env for the rest of the job.
+            command_env = dict(os.environ)
+            command_env.update(env)
         result = subprocess.run(
             list(args),
             check=True,
             text=True,
             capture_output=capture_output,
             cwd=cwd,
+            env=command_env,
         )
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
