@@ -154,6 +154,10 @@ two install paths on purpose:
    `rpm-ostree install`.
 2. Additional kernel-specific `kmod-zfs` RPM payloads are unpacked directly into
    the image root and then `depmod -a <kernel>` runs for each base kernel.
+3. The compose-time RPM/kernel mapping now lives in
+   [containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py](/var/home/dbaggett/git/zfs_migration/containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py)
+   instead of one long inline shell block, so the multi-kernel workaround can be
+   unit-tested separately from the Containerfile wrapper.
 
 Why this exists:
 

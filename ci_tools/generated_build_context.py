@@ -102,7 +102,10 @@ def prepare_generated_build_context(config: BuildContextConfig) -> None:
     GENERATED_CONTAINERFILE.parent.mkdir(parents=True, exist_ok=True)
 
     shutil.copy2(CANONICAL_RECIPE_FILE, GENERATED_RECIPE_FILE)
-    shutil.copy2(CANONICAL_CONTAINERFILE, GENERATED_CONTAINERFILE)
+    # Copy the whole local containerfile snippet directory, not only the main
+    # Containerfile. That lets the snippet keep small companion helpers nearby
+    # without forcing CI to mutate or synthesize them later.
+    _copy_tree(CANONICAL_CONTAINERFILE.parent, GENERATED_CONTAINERFILE.parent)
     _copy_tree(CANONICAL_FILES_DIR, GENERATED_FILES_DIR)
     shutil.copy2(CANONICAL_COSIGN_PUB, GENERATED_COSIGN_PUB)
 
