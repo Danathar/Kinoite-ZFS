@@ -189,6 +189,7 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 1. `main` workflow (`build.yml`): candidate build + gated promotion.
 2. Branch workflow (`build-beta.yml`): isolated branch testing.
 3. PR workflow (`build-pr.yml`): validation only, no push.
+4. Branch and PR workflows now share one read-only validation prep command before compose, so both paths pin the same inputs and fail closed on stale shared akmods caches.
 
 ## Implementation Note: Workflow Scripts
 

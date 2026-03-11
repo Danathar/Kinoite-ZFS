@@ -61,10 +61,11 @@ Read these in this sequence to match `build.yml`:
 Read these in this sequence to match `build-beta.yml`:
 
 1. Compute branch-safe tag parts: [`ci_tools/beta_compute_branch_metadata.py`](../ci_tools/beta_compute_branch_metadata.py)
-2. Resolve base inputs from the same stream `main` uses: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
-3. Check shared akmods availability: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
-4. Publish branch alias tag in candidate repo: [`ci_tools/beta_publish_branch_akmods_alias.py`](../ci_tools/beta_publish_branch_akmods_alias.py)
-5. Generate branch/PR build inputs: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
+2. Shared read-only validation prep (input resolution + shared-cache verification): [`ci_tools/prepare_validation_build.py`](../ci_tools/prepare_validation_build.py)
+3. Underlying input resolver reused by that shared prep command: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
+4. Underlying akmods cache checker reused by that shared prep command: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
+5. Publish branch alias tag in candidate repo: [`ci_tools/beta_publish_branch_akmods_alias.py`](../ci_tools/beta_publish_branch_akmods_alias.py)
+6. Generate branch/PR build inputs: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
 
 ### 5. Build Inputs Used By Python Modules
 
@@ -91,6 +92,7 @@ Read tests last to confirm expected behavior:
 4. Akmods build env behavior: [`tests/test_akmods_build_and_publish.py`](../tests/test_akmods_build_and_publish.py)
 5. Branch metadata behavior: [`tests/test_beta_compute_branch_metadata.py`](../tests/test_beta_compute_branch_metadata.py)
 6. Shared generated-build-context behavior: [`tests/test_configure_generated_build_context.py`](../tests/test_configure_generated_build_context.py)
+7. Shared non-main validation prep behavior: [`tests/test_prepare_validation_build.py`](../tests/test_prepare_validation_build.py)
 
 ## Trace One Value End-To-End (`kernel_release`)
 
