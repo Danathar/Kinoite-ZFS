@@ -21,6 +21,7 @@ class CliTests(unittest.TestCase):
             "main-write-build-inputs-manifest",
             "main-check-candidate-akmods-cache",
             "configure-generated-build-context",
+            "prepare-validation-build",
             "main-publish-candidate-akmods-alias",
             "main-promote-stable",
             "beta-compute-branch-metadata",

@@ -48,11 +48,11 @@ jobs:
     needs: prepare-branch-metadata
     runs-on: ubuntu-24.04
     outputs:
-      fedora_version: ${{ steps.inputs.outputs.version }}
-      kernel_release: ${{ steps.inputs.outputs.kernel_release }}
-      kernel_releases: ${{ steps.inputs.outputs.kernel_releases }}
-      base_image_name: ${{ steps.inputs.outputs.base_image_name }}
-      base_image_tag: ${{ steps.inputs.outputs.base_image_tag }}
+      fedora_version: ${{ steps.prepare.outputs.version }}
+      kernel_release: ${{ steps.prepare.outputs.kernel_release }}
+      kernel_releases: ${{ steps.prepare.outputs.kernel_releases }}
+      base_image_name: ${{ steps.prepare.outputs.base_image_name }}
+      base_image_tag: ${{ steps.prepare.outputs.base_image_tag }}
     permissions:
       contents: read
       # Needed to copy/publish branch alias tags in ghcr.io/<owner>/akmods-zfs-candidate:*.
@@ -63,8 +63,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Resolve build inputs for this branch run
-        id: inputs
+      - name: Resolve branch inputs and verify shared akmods source
+        id: prepare
         shell: bash
         env:
           USE_INPUT_LOCK: "false"
@@ -73,35 +73,11 @@ jobs:
           DEFAULT_BASE_IMAGE: ${{ env.DEFAULT_BASE_IMAGE }}
           DEFAULT_ZFS_MINOR_VERSION: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
           DEFAULT_AKMODS_REF: ${{ env.AKMODS_UPSTREAM_REF }}
-        run: |
-          python3 -m ci_tools.cli main-resolve-build-inputs
-
-      - name: Check for existing shared self-hosted zfs akmods image
-        id: akmods
-        shell: bash
-        env:
-          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
-          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
-          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
           # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
           # Branch workflow intentionally treats this as read-only input.
           AKMODS_REPO: akmods-zfs
         run: |
-          python3 -m ci_tools.cli main-check-candidate-akmods-cache
-
-      - name: Stop when shared akmods source is missing or stale
-        # Branch workflow is intentionally read-only for shared akmods tags.
-        # If the shared source cache is missing/stale, fail closed and rebuild it
-        # from the main workflow instead of mutating shared tags from a test branch.
-        if: steps.akmods.outputs.exists != 'true'
-        shell: bash
-        env:
-          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
-          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
-        run: |
-          echo "Shared akmods source tag akmods-zfs:main-${FEDORA_VERSION} is missing or stale for kernels ${KERNEL_RELEASES}." >&2
-          echo "Run main workflow (Build And Promote Main Image) with rebuild_akmods=true, then rerun this branch workflow." >&2
-          exit 1
+          python3 -m ci_tools.cli prepare-validation-build
 
       - name: Publish branch cache alias in candidate repo
         # Compose step means the final image build step below (`Build Custom Image`).
@@ -115,7 +91,7 @@ jobs:
         # so compose can pull reliably without touching stable tags.
         shell: bash
         env:
-          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          FEDORA_VERSION: ${{ steps.prepare.outputs.version }}
           SOURCE_AKMODS_REPO: akmods-zfs
           DEST_AKMODS_REPO: akmods-zfs-candidate
           DEST_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}

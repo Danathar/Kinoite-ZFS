@@ -191,8 +191,10 @@ Triggers:
 Key behavior:
 
 1. Computes branch-safe public alias tag prefix.
-2. Checks for shared akmods source tag `akmods-zfs:main-<fedora>`.
-3. Fails closed if that source tag is missing/stale (branch runs do not rebuild shared cache tags).
+2. Uses one shared read-only validation prep command to:
+   - resolve the same pinned inputs `main` uses
+   - verify the shared akmods source tag `akmods-zfs:main-<fedora>`
+3. Fails closed if that shared source tag is missing/stale (branch runs do not rebuild shared cache tags).
 4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
 5. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
 6. Builds/publishes branch-tagged image.
@@ -208,9 +210,10 @@ Key behavior:
 
 1. Build only; no push.
 2. No signing requirement.
-3. Reuses the same input-resolution and cache-validation path as `main`.
-4. Uses the same shared generated-build-context command as branch/main builds.
-5. Ignores markdown/docs-only changes.
+3. Uses the same shared read-only validation prep command as the branch workflow, so PRs resolve/pin the same inputs before build.
+4. Reuses the same input-resolution and cache-validation logic as `main`, but without any publish side effects.
+5. Uses the same shared generated-build-context command as branch/main builds.
+6. Ignores markdown/docs-only changes.
 
 ## Kernel Compatibility Risk Handling
 

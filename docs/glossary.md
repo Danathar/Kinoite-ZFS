@@ -19,6 +19,7 @@ This page defines terms used across this repository's docs and workflow comments
 - `working directory` (build working directory): the folder a build tool treats as its local root when it looks up recipe files, containerfiles, and other local inputs.
 - `build context`: the set of local files made available to the build tool for one run.
 - `generated workspace`: a transient directory created during CI so a run can use generated or pinned files without editing checked-in source files.
+- `read-only validation` (workflow mode): a workflow path that proves the build still works while intentionally avoiding writes to shared release tags or shared cache tags.
 - `package visibility` (registry): who can read a container package/tag. This is separate from source repo visibility, so a public code repo can still have package paths that require auth.
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
 - `Fedora stream` / `kernel stream`: the ongoing flow of new kernel releases in Fedora over time (for example one nightly run may see a newer kernel than yesterday).

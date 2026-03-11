@@ -25,19 +25,19 @@ jobs:
     name: Resolve PR Build Inputs
     runs-on: ubuntu-24.04
     outputs:
-      fedora_version: ${{ steps.inputs.outputs.version }}
-      kernel_release: ${{ steps.inputs.outputs.kernel_release }}
-      kernel_releases: ${{ steps.inputs.outputs.kernel_releases }}
-      base_image_name: ${{ steps.inputs.outputs.base_image_name }}
-      base_image_tag: ${{ steps.inputs.outputs.base_image_tag }}
+      fedora_version: ${{ steps.prepare.outputs.version }}
+      kernel_release: ${{ steps.prepare.outputs.kernel_release }}
+      kernel_releases: ${{ steps.prepare.outputs.kernel_releases }}
+      base_image_name: ${{ steps.prepare.outputs.base_image_name }}
+      base_image_tag: ${{ steps.prepare.outputs.base_image_tag }}
     container:
       image: ghcr.io/ublue-os/devcontainer:latest
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
       - uses: actions/checkout@v6
 
-      - name: Resolve build inputs for this PR run
-        id: inputs
+      - name: Resolve PR inputs and verify shared akmods source
+        id: prepare
         shell: bash
         env:
           USE_INPUT_LOCK: "false"
@@ -46,30 +46,9 @@ jobs:
           DEFAULT_BASE_IMAGE: ${{ env.DEFAULT_BASE_IMAGE }}
           DEFAULT_ZFS_MINOR_VERSION: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
           DEFAULT_AKMODS_REF: ${{ env.AKMODS_UPSTREAM_REF }}
-        run: |
-          python3 -m ci_tools.cli main-resolve-build-inputs
-
-      - name: Check for existing shared self-hosted zfs akmods image
-        id: akmods
-        shell: bash
-        env:
-          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
-          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
-          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
           AKMODS_REPO: akmods-zfs
         run: |
-          python3 -m ci_tools.cli main-check-candidate-akmods-cache
-
-      - name: Stop when shared akmods source is missing or stale
-        if: steps.akmods.outputs.exists != 'true'
-        shell: bash
-        env:
-          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
-          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
-        run: |
-          echo "Shared akmods source tag akmods-zfs:main-${FEDORA_VERSION} is missing or stale for kernels ${KERNEL_RELEASES}." >&2
-          echo "Run main workflow (Build And Promote Main Image) with rebuild_akmods=true, then rerun this PR workflow." >&2
-          exit 1
+          python3 -m ci_tools.cli prepare-validation-build
 
   build-pr:
     needs: prepare-pr-build

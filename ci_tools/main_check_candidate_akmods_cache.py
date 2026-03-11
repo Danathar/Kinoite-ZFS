@@ -7,6 +7,7 @@ Goal: Control main-workflow rebuild decisions.
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
 import tempfile
 from pathlib import Path
 
@@ -22,6 +23,27 @@ from ci_tools.common import (
     unpack_layer_tarballs,
     write_github_outputs,
 )
+
+
+@dataclass(frozen=True)
+class AkmodsCacheStatus:
+    """
+    Result of checking one shared akmods cache image against required kernels.
+
+    `image_exists` tells us whether the source tag is present at all.
+    `missing_releases` is the fail-closed list of kernels not covered by that
+    image. A reusable cache must satisfy both conditions.
+    """
+
+    source_image: str
+    image_exists: bool
+    missing_releases: tuple[str, ...]
+
+    @property
+    def reusable(self) -> bool:
+        """True only when the cache exists and covers every required kernel."""
+
+        return self.image_exists and not self.missing_releases
 
 
 def _has_kernel_matching_rpm(root_dir: Path, kernel_release: str) -> bool:
@@ -44,6 +66,46 @@ def _missing_kernel_releases(root_dir: Path, kernel_releases: list[str]) -> list
     return [release for release in kernel_releases if not _has_kernel_matching_rpm(root_dir, release)]
 
 
+def inspect_candidate_akmods_cache(
+    *,
+    image_org: str,
+    source_repo: str,
+    fedora_version: str,
+    kernel_releases: list[str],
+) -> AkmodsCacheStatus:
+    """
+    Inspect one shared akmods cache image and report whether it is reusable.
+
+    This helper is shared by the main workflow and the read-only validation
+    workflows so they all make the same cache-reuse decision.
+    """
+
+    source_image = f"ghcr.io/{image_org}/{source_repo}:main-{fedora_version}"
+    if not skopeo_exists(f"docker://{source_image}"):
+        return AkmodsCacheStatus(
+            source_image=source_image,
+            image_exists=False,
+            missing_releases=tuple(kernel_releases),
+        )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        akmods_dir = root / "akmods"
+        # `skopeo copy ... dir:<path>` saves image layers so we can inspect files.
+        skopeo_copy(f"docker://{source_image}", f"dir:{akmods_dir}")
+
+        layer_files = load_layer_files_from_oci_layout(akmods_dir)
+        # Extract all filesystem layers into one temp tree for file checks.
+        unpack_layer_tarballs(layer_files, root)
+
+        missing_releases = _missing_kernel_releases(root, kernel_releases)
+        return AkmodsCacheStatus(
+            source_image=source_image,
+            image_exists=True,
+            missing_releases=tuple(missing_releases),
+        )
+
+
 def main() -> None:
     # Workflow-provided inputs.
     # Normalize owner means: convert to lowercase for consistent registry paths.
@@ -62,8 +124,14 @@ def main() -> None:
     # Source cache image reference for this Fedora major stream.
     # If source cache is missing/stale, workflow needs an akmods rebuild.
     # "Stale" means cache content was built for an older kernel release.
-    source_image = f"ghcr.io/{image_org}/{source_repo}:main-{fedora_version}"
-    if not skopeo_exists(f"docker://{source_image}"):
+    status = inspect_candidate_akmods_cache(
+        image_org=image_org,
+        source_repo=source_repo,
+        fedora_version=fedora_version,
+        kernel_releases=kernel_releases,
+    )
+
+    if not status.image_exists:
         # Source cache image is missing, so downstream build must rebuild it.
         # We write `exists=false` to GitHub step outputs so workflow `if:` rules
         # can react without parsing log text.
@@ -71,32 +139,22 @@ def main() -> None:
         print(f"No existing source akmods cache image for Fedora {fedora_version}; rebuild is required.")
         return
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        akmods_dir = root / "akmods"
-        # `skopeo copy ... dir:<path>` saves image layers so we can inspect files.
-        skopeo_copy(f"docker://{source_image}", f"dir:{akmods_dir}")
+    if status.reusable:
+        # `exists=true` means this cache can be safely reused.
+        write_github_outputs({"exists": "true"})
+        print(
+            f"Found matching {status.source_image} kmods for kernels {' '.join(kernel_releases)}; "
+            "akmods rebuild can be skipped."
+        )
+        return
 
-        layer_files = load_layer_files_from_oci_layout(akmods_dir)
-        # Extract all filesystem layers into one temp tree for file checks.
-        unpack_layer_tarballs(layer_files, root)
-
-        missing_releases = _missing_kernel_releases(root, kernel_releases)
-        if not missing_releases:
-            # `exists=true` means this cache can be safely reused.
-            write_github_outputs({"exists": "true"})
-            print(
-                f"Found matching {source_image} kmods for kernels {' '.join(kernel_releases)}; "
-                "akmods rebuild can be skipped."
-            )
-        else:
-            # `exists=false` here means the cache exists but is stale (wrong kernel).
-            write_github_outputs({"exists": "false"})
-            print(
-                f"Cached {source_image} is present but missing kmods for kernels "
-                f"{' '.join(missing_releases)}; "
-                "akmods rebuild is required."
-            )
+    # `exists=false` here means the cache exists but is stale (wrong kernel).
+    write_github_outputs({"exists": "false"})
+    print(
+        f"Cached {status.source_image} is present but missing kmods for kernels "
+        f"{' '.join(status.missing_releases)}; "
+        "akmods rebuild is required."
+    )
 
 
 if __name__ == "__main__":

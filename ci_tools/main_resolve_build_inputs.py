@@ -8,6 +8,7 @@ Goal: Provide trusted base/build/kernel values for downstream steps.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import re
 from pathlib import Path
@@ -28,6 +29,48 @@ from ci_tools.common import (
 TAG_FROM_REF_RE = re.compile(r"^[^@]+:([^/@]+)$")
 DATE_STAMPED_TAG_RE = re.compile(r"-[0-9]{8}(\.[0-9]+)?$")
 VERSION_LABEL_RE = re.compile(r"^[0-9]+\.[0-9]{8}(\.[0-9]+)?$")
+
+
+@dataclass(frozen=True)
+class ResolvedBuildInputs:
+    """
+    Resolved values that downstream workflow jobs need for one build run.
+
+    We keep this as a dataclass so multiple commands can share the same resolved
+    values without each command re-implementing the environment and registry
+    lookup flow.
+    """
+
+    version: str
+    kernel_release: str
+    kernel_releases: tuple[str, ...]
+    base_image_ref: str
+    base_image_name: str
+    base_image_tag: str
+    base_image_pinned: str
+    base_image_digest: str
+    build_container_ref: str
+    build_container_pinned: str
+    build_container_digest: str
+    zfs_minor_version: str
+    akmods_upstream_ref: str
+    use_input_lock: bool
+    lock_file_path: str
+
+
+@dataclass(frozen=True)
+class BuildInputResolution:
+    """
+    Full resolution result, including debug-only metadata used in logs.
+
+    `label_kernel_release` and `candidate_tags` help explain why a particular
+    immutable base tag was selected, but only `inputs` needs to travel to later
+    workflow steps.
+    """
+
+    inputs: ResolvedBuildInputs
+    label_kernel_release: str
+    candidate_tags: tuple[str, ...]
 
 
 def extract_source_tag(image_ref: str) -> str:
@@ -118,7 +161,45 @@ def detect_base_image_kernel_releases(image_ref: str) -> list[str]:
     return kernel_releases
 
 
-def main() -> None:
+def write_resolved_build_outputs(inputs: ResolvedBuildInputs) -> None:
+    """
+    Export resolved build values to GitHub step outputs.
+
+    Keeping this in one helper ensures every workflow path writes the same
+    output names, which keeps downstream jobs honest across main, branch, and
+    PR validation.
+    """
+
+    write_github_outputs(
+        {
+            "version": inputs.version,
+            "kernel_release": inputs.kernel_release,
+            "kernel_releases": " ".join(inputs.kernel_releases),
+            "base_image_ref": inputs.base_image_ref,
+            "base_image_name": inputs.base_image_name,
+            "base_image_tag": inputs.base_image_tag,
+            "base_image_pinned": inputs.base_image_pinned,
+            "base_image_digest": inputs.base_image_digest,
+            "build_container_ref": inputs.build_container_ref,
+            "build_container_pinned": inputs.build_container_pinned,
+            "build_container_digest": inputs.build_container_digest,
+            "zfs_minor_version": inputs.zfs_minor_version,
+            "akmods_upstream_ref": inputs.akmods_upstream_ref,
+            "use_input_lock": "true" if inputs.use_input_lock else "false",
+            "lock_file_path": inputs.lock_file_path,
+        }
+    )
+
+
+def resolve_build_inputs() -> BuildInputResolution:
+    """
+    Resolve one complete set of build inputs from env and registry state.
+
+    This is the core logic behind the main workflow and the non-main validation
+    workflows. Sharing it here means every path pins the same base image, build
+    container, Fedora version, and kernel list.
+    """
+
     # Workflow inputs are supplied through environment variables.
     use_input_lock = optional_env("USE_INPUT_LOCK", "false").lower() == "true"
     lock_file_path = require_env("LOCK_FILE")
@@ -213,43 +294,52 @@ def main() -> None:
 
     build_container_pinned = f"{build_container_name}@{build_container_digest}"
 
-    # Export resolved values for downstream workflow steps.
-    write_github_outputs(
-        {
-            "version": fedora_version,
-            "kernel_release": kernel_release,
-            "kernel_releases": " ".join(kernel_releases),
-            "base_image_ref": base_image_ref,
-            "base_image_name": base_image_name,
-            "base_image_tag": base_image_tag,
-            "base_image_pinned": base_image_pinned,
-            "base_image_digest": base_image_digest,
-            "build_container_ref": build_container_ref,
-            "build_container_pinned": build_container_pinned,
-            "build_container_digest": build_container_digest,
-            "zfs_minor_version": zfs_minor_version,
-            "akmods_upstream_ref": akmods_upstream_ref,
-            "use_input_lock": "true" if use_input_lock else "false",
-            "lock_file_path": lock_file_path,
-        }
+    return BuildInputResolution(
+        inputs=ResolvedBuildInputs(
+            version=fedora_version,
+            kernel_release=kernel_release,
+            kernel_releases=tuple(kernel_releases),
+            base_image_ref=base_image_ref,
+            base_image_name=base_image_name,
+            base_image_tag=base_image_tag,
+            base_image_pinned=base_image_pinned,
+            base_image_digest=base_image_digest,
+            build_container_ref=build_container_ref,
+            build_container_pinned=build_container_pinned,
+            build_container_digest=build_container_digest,
+            zfs_minor_version=zfs_minor_version,
+            akmods_upstream_ref=akmods_upstream_ref,
+            use_input_lock=use_input_lock,
+            lock_file_path=lock_file_path,
+        ),
+        label_kernel_release=label_kernel_release,
+        candidate_tags=tuple(candidate_tags),
     )
 
-    print(f"Resolved base image: {base_image_pinned}")
-    print(f"Resolved base image tag: {base_image_name}:{base_image_tag}")
-    print(f"Resolved build container: {build_container_pinned}")
-    if label_kernel_release != kernel_release:
+
+def main() -> None:
+    resolution = resolve_build_inputs()
+    inputs = resolution.inputs
+
+    # Export resolved values for downstream workflow steps.
+    write_resolved_build_outputs(inputs)
+
+    print(f"Resolved base image: {inputs.base_image_pinned}")
+    print(f"Resolved base image tag: {inputs.base_image_name}:{inputs.base_image_tag}")
+    print(f"Resolved build container: {inputs.build_container_pinned}")
+    if resolution.label_kernel_release != inputs.kernel_release:
         print(
             "Base image label/kernel directory mismatch: "
-            f"label={label_kernel_release} newest_dir={kernel_release}"
+            f"label={resolution.label_kernel_release} newest_dir={inputs.kernel_release}"
         )
-    print(f"Kernel release: {kernel_release}")
-    print(f"Kernel releases in base image: {' '.join(kernel_releases)}")
-    print(f"Fedora version: {fedora_version}")
-    print(f"ZFS minor version: {zfs_minor_version}")
+    print(f"Kernel release: {inputs.kernel_release}")
+    print(f"Kernel releases in base image: {' '.join(inputs.kernel_releases)}")
+    print(f"Fedora version: {inputs.version}")
+    print(f"ZFS minor version: {inputs.zfs_minor_version}")
 
     # Helpful for debugging: shows exactly which tags were considered.
-    if candidate_tags:
-        print(f"Base-tag candidates checked: {' '.join(candidate_tags)}")
+    if resolution.candidate_tags:
+        print(f"Base-tag candidates checked: {' '.join(resolution.candidate_tags)}")
 
 
 if __name__ == "__main__":

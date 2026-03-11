@@ -28,6 +28,7 @@ def command_map() -> dict[str, Callable[[], None]]:
     from ci_tools.configure_generated_build_context import main as configure_generated_build_context
     from ci_tools.beta_publish_branch_akmods_alias import main as beta_publish_branch_akmods_alias
     from ci_tools.main_check_candidate_akmods_cache import main as main_check_candidate_akmods_cache
+    from ci_tools.prepare_validation_build import main as prepare_validation_build
     from ci_tools.main_publish_candidate_akmods_alias import (
         main as main_publish_candidate_akmods_alias,
     )
@@ -40,6 +41,7 @@ def command_map() -> dict[str, Callable[[], None]]:
         "main-write-build-inputs-manifest": main_write_build_inputs_manifest,
         "main-check-candidate-akmods-cache": main_check_candidate_akmods_cache,
         "configure-generated-build-context": configure_generated_build_context,
+        "prepare-validation-build": prepare_validation_build,
         "main-publish-candidate-akmods-alias": main_publish_candidate_akmods_alias,
         "main-promote-stable": main_promote_stable,
         "beta-compute-branch-metadata": beta_compute_branch_metadata,
