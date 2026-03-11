@@ -36,17 +36,19 @@ Now read how workflow command names map to Python modules.
 
 1. Dispatcher: [`ci_tools/cli.py`](../ci_tools/cli.py)
 2. Shared helpers: [`ci_tools/common.py`](../ci_tools/common.py)
-3. Shared BlueBuild wrapper action: [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
-4. Shared stable-promotion wrapper action: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
-5. Shared generated-workspace wrapper action: [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
+3. Shared validation-prep wrapper action: [`.github/actions/prepare-validation-build/action.yml`](../.github/actions/prepare-validation-build/action.yml)
+4. Shared BlueBuild wrapper action: [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
+5. Shared stable-promotion wrapper action: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
+6. Shared generated-workspace wrapper action: [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
 
 What to look for:
 
 1. Command map in `cli.py` (string command -> Python function).
 2. Common helpers in `common.py` (`require_env`, `skopeo_*`, `write_github_output`).
-3. The local composite action that wraps the repeated BlueBuild `uses:` blocks for publish and validation builds.
-4. The local composite action that wraps the repeated install/promote/sign steps for the main promotion job.
-5. The local composite action that wraps the repeated environment-to-Python wiring for generated run-local recipe/container inputs.
+3. The local composite action that wraps the repeated environment-to-Python wiring for non-main validation prep.
+4. The local composite action that wraps the repeated BlueBuild `uses:` blocks for publish and validation builds.
+5. The local composite action that wraps the repeated install/promote/sign steps for the main promotion job.
+6. The local composite action that wraps the repeated environment-to-Python wiring for generated run-local recipe/container inputs.
 
 ### 3. Main Workflow Modules (Read In Job Order)
 
@@ -70,11 +72,12 @@ Read these in this sequence to match `build.yml`:
 Read these in this sequence to match `build-beta.yml`:
 
 1. Compute branch-safe tag parts: [`ci_tools/beta_compute_branch_metadata.py`](../ci_tools/beta_compute_branch_metadata.py)
-2. Shared read-only validation prep (input resolution + shared-cache verification): [`ci_tools/prepare_validation_build.py`](../ci_tools/prepare_validation_build.py)
-3. Underlying input resolver reused by that shared prep command: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
-4. Underlying akmods cache checker reused by that shared prep command: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
-5. Publish branch alias tag in candidate repo: [`ci_tools/beta_publish_branch_akmods_alias.py`](../ci_tools/beta_publish_branch_akmods_alias.py)
-6. Generate branch/PR build inputs: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
+2. Shared validation-prep wrapper action that feeds workflow env into the Python helper: [`.github/actions/prepare-validation-build/action.yml`](../.github/actions/prepare-validation-build/action.yml)
+3. Shared read-only validation prep (input resolution + shared-cache verification): [`ci_tools/prepare_validation_build.py`](../ci_tools/prepare_validation_build.py)
+4. Underlying input resolver reused by that shared prep command: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
+5. Underlying akmods cache checker reused by that shared prep command: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
+6. Publish branch alias tag in candidate repo: [`ci_tools/beta_publish_branch_akmods_alias.py`](../ci_tools/beta_publish_branch_akmods_alias.py)
+7. Generate branch/PR build inputs: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
 
 ### 5. Build Inputs Used By Python Modules
 

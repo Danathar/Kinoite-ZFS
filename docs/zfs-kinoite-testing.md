@@ -194,16 +194,17 @@ Triggers:
 Key behavior:
 
 1. Computes branch-safe public alias tag prefix.
-2. Uses one shared read-only validation prep command to:
+2. Uses one shared local validation-prep action to:
    - resolve the same pinned inputs `main` uses
    - verify the shared akmods source tag `akmods-zfs:main-<fedora>`
 3. Fails closed if that shared source tag is missing/stale (branch runs do not rebuild shared cache tags).
 4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
-5. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
-6. Calls one shared local composite action to feed branch-specific values into the generated-workspace helper, instead of repeating the same shell/env block in every workflow.
-7. Calls one shared local composite action to run the actual BlueBuild compose step, including the one-time retry behavior used by publish-mode builds.
-8. Builds/publishes branch-tagged image.
-9. Ignores markdown/docs-only changes.
+5. That local validation-prep action still calls the shared Python command `prepare-validation-build`, so the actual input-resolution and cache-validation behavior stays centralized.
+6. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
+7. Calls one shared local composite action to feed branch-specific values into the generated-workspace helper, instead of repeating the same shell/env block in every workflow.
+8. Calls one shared local composite action to run the actual BlueBuild compose step, including the one-time retry behavior used by publish-mode builds.
+9. Builds/publishes branch-tagged image.
+10. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-pr.yml`](../.github/workflows/build-pr.yml) (PR Validation)
 
@@ -215,7 +216,7 @@ Key behavior:
 
 1. Build only; no push.
 2. No signing requirement.
-3. Uses the same shared read-only validation prep command as the branch workflow, so PRs resolve/pin the same inputs before build.
+3. Uses the same shared local validation-prep action as the branch workflow, so PRs resolve/pin the same inputs before build.
 4. Reuses the same input-resolution and cache-validation logic as `main`, but without any publish side effects.
 5. Uses the same generated-workspace wrapper action as branch/main builds.
 6. Calls the same local compose wrapper action as publish workflows, but in validation mode (`push: false`, `--no-sign`).
