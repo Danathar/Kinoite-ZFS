@@ -209,6 +209,8 @@ and also use local composite actions for the repeated workflow glue:
    [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
 2. Stable-promotion wrapper:
    [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
+3. Generated-workspace wrapper:
+   [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
 
 The behavior lives in Python modules under `ci_tools/` plus those local
 workflow helper actions.
@@ -218,7 +220,7 @@ Why this setup:
 1. Keep workflow YAML focused on job wiring.
 2. Keep logic in code that is easier to read and unit-test.
 3. Keep workflow command dispatch centralized in one CLI entrypoint.
-4. Keep repeated workflow wiring in local reusable actions instead of copying the same setup/install blocks across workflow files.
+4. Keep repeated workflow wiring in local reusable actions instead of copying the same setup/install/configure blocks across workflow files.
 
 Term note used in code/docs:
 

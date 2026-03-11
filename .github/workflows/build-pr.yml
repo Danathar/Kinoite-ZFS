@@ -56,15 +56,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set resolved base tag and shared akmods source in recipe
-        shell: bash
-        env:
-          AKMODS_REPO: akmods-zfs
-          AKMODS_TAG_PREFIX: main
-          BASE_IMAGE_NAME: ${{ needs.prepare-pr-build.outputs.base_image_name }}
-          BASE_IMAGE_TAG: ${{ needs.prepare-pr-build.outputs.base_image_tag }}
-        run: |
-          python3 -m ci_tools.cli configure-generated-build-context
+      - name: Configure generated PR build workspace
+        uses: ./.github/actions/configure-generated-build-context
+        with:
+          akmods_repo: akmods-zfs
+          akmods_tag_prefix: main
+          base_image_name: ${{ needs.prepare-pr-build.outputs.base_image_name }}
+          base_image_tag: ${{ needs.prepare-pr-build.outputs.base_image_tag }}
 
       - name: Build image for PR validation (no push)
         uses: ./.github/actions/run-bluebuild

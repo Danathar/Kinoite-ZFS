@@ -113,15 +113,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set branch akmods source in recipe
-        shell: bash
-        env:
-          AKMODS_REPO: akmods-zfs-candidate
-          AKMODS_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
-          BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
-          BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
-        run: |
-          python3 -m ci_tools.cli configure-generated-build-context
+      - name: Configure generated branch build workspace
+        uses: ./.github/actions/configure-generated-build-context
+        with:
+          akmods_repo: akmods-zfs-candidate
+          akmods_tag_prefix: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
+          base_image_name: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
+          base_image_tag: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
 
       - name: Build Custom Image
         uses: ./.github/actions/run-bluebuild

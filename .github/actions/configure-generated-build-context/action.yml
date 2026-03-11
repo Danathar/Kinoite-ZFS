@@ -1,0 +1,37 @@
+name: Configure Generated Build Context
+description: Create the transient BlueBuild workspace for one image build run.
+
+inputs:
+  base_image_name:
+    description: Base image repository name copied into the generated recipe.
+    required: true
+  base_image_tag:
+    description: Base image tag copied into the generated recipe.
+    required: true
+  akmods_repo:
+    description: Akmods repository name used to populate the AKMODS_IMAGE reference.
+    required: true
+  image_name:
+    description: Optional final image/repository name written into the generated recipe.
+    required: false
+    default: ""
+  akmods_tag_prefix:
+    description: Optional akmods tag prefix written into the generated Containerfile reference.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Generate transient BlueBuild workspace
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.image_name }}
+        BASE_IMAGE_NAME: ${{ inputs.base_image_name }}
+        BASE_IMAGE_TAG: ${{ inputs.base_image_tag }}
+        AKMODS_REPO: ${{ inputs.akmods_repo }}
+        AKMODS_TAG_PREFIX: ${{ inputs.akmods_tag_prefix }}
+      run: |
+        # The workflow must check out the repo before calling this action so the
+        # Python helper can read the canonical recipe/Containerfile sources.
+        python3 -m ci_tools.cli configure-generated-build-context
