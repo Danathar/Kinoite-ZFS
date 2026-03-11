@@ -40,6 +40,32 @@ helper = _load_helper_module()
 
 
 class InstallZfsFromAkmodsCacheTests(unittest.TestCase):
+    def test_resolve_akmods_image_prefers_explicit_override(self) -> None:
+        image_ref = helper.resolve_akmods_image(
+            environ={"AKMODS_IMAGE": "ghcr.io/example/akmods-zfs:manual"},
+            run_cmd=lambda _args: "43\n",
+        )
+
+        self.assertEqual(image_ref, "ghcr.io/example/akmods-zfs:manual")
+
+    def test_resolve_akmods_image_renders_template_with_detected_fedora(self) -> None:
+        image_ref = helper.resolve_akmods_image(
+            environ={
+                "AKMODS_IMAGE_TEMPLATE": "ghcr.io/example/akmods-zfs-candidate:main-{fedora}"
+            },
+            run_cmd=lambda _args: "43\n",
+        )
+
+        self.assertEqual(image_ref, "ghcr.io/example/akmods-zfs-candidate:main-43")
+
+    def test_resolve_akmods_image_uses_default_template_when_unset(self) -> None:
+        image_ref = helper.resolve_akmods_image(
+            environ={},
+            run_cmd=lambda _args: "43\n",
+        )
+
+        self.assertEqual(image_ref, "ghcr.io/danathar/akmods-zfs:main-43")
+
     def test_load_layer_files_from_oci_layout_reads_manifest_layers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             layout_dir = Path(temp_dir)

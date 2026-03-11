@@ -55,7 +55,7 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
             encoding="utf-8",
         )
         (root / "containerfiles" / "zfs-akmods" / "Containerfile").write_text(
-            'AKMODS_IMAGE="ghcr.io/example/akmods-zfs:main-${FEDORA_VERSION}"\n',
+            'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"\n',
             encoding="utf-8",
         )
         (root / "files" / "scripts" / "ensure-repo-signing-policy.sh").write_text(
@@ -94,7 +94,7 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
             self.assertIn("image-version: latest-20260311.1\n", generated_recipe)
             self.assertEqual(
                 generated_containerfile,
-                'AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs-candidate:main-${FEDORA_VERSION}"\n',
+                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:main-{fedora}"\n',
             )
 
     def test_generates_branch_context_when_branch_tag_prefix_is_supplied(self) -> None:
@@ -126,7 +126,7 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
             self.assertIn("image-version: 43-20260311.1\n", generated_recipe)
             self.assertEqual(
                 generated_containerfile,
-                'AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs-candidate:br-feature-test-${FEDORA_VERSION}"\n',
+                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:br-feature-test-{fedora}"\n',
             )
 
     def test_defaults_to_main_prefix_when_wrapper_passes_empty_tag_prefix(self) -> None:
@@ -157,7 +157,7 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
 
             self.assertEqual(
                 generated_containerfile,
-                'AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs-candidate:main-${FEDORA_VERSION}"\n',
+                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:main-{fedora}"\n',
             )
 
 
