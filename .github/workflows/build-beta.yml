@@ -150,7 +150,7 @@ jobs:
       - name: Build Custom Image (attempt 1)
         id: build_custom_image_attempt_1
         continue-on-error: true
-        uses: blue-build/github-action@v1.11.0
+        uses: blue-build/github-action@v1.11.1
         with:
           recipe: recipe.yml
           working_directory: .generated/bluebuild/
@@ -163,7 +163,7 @@ jobs:
 
       - name: Build Custom Image (retry after transient registry error)
         if: steps.build_custom_image_attempt_1.outcome == 'failure'
-        uses: blue-build/github-action@v1.11.0
+        uses: blue-build/github-action@v1.11.1
         with:
           recipe: recipe.yml
           working_directory: .generated/bluebuild/

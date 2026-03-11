@@ -254,7 +254,7 @@ jobs:
       - name: Build Candidate Image (attempt 1)
         id: build_candidate_attempt_1
         continue-on-error: true
-        uses: blue-build/github-action@v1.11.0
+        uses: blue-build/github-action@v1.11.1
         with:
           recipe: recipe.yml
           # The action's working directory is the folder it treats as the local
@@ -270,7 +270,7 @@ jobs:
 
       - name: Build Candidate Image (retry after transient registry error)
         if: steps.build_candidate_attempt_1.outcome == 'failure'
-        uses: blue-build/github-action@v1.11.0
+        uses: blue-build/github-action@v1.11.1
         with:
           recipe: recipe.yml
           working_directory: .generated/bluebuild/
