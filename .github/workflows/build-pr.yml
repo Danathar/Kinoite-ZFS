@@ -38,17 +38,13 @@ jobs:
 
       - name: Resolve PR inputs and verify shared akmods source
         id: prepare
-        shell: bash
-        env:
-          USE_INPUT_LOCK: "false"
-          LOCK_FILE: ci/inputs.lock.json
-          BUILD_CONTAINER_REF: ${{ env.DEFAULT_BUILD_CONTAINER_IMAGE }}
-          DEFAULT_BASE_IMAGE: ${{ env.DEFAULT_BASE_IMAGE }}
-          DEFAULT_ZFS_MINOR_VERSION: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
-          DEFAULT_AKMODS_REF: ${{ env.AKMODS_UPSTREAM_REF }}
-          AKMODS_REPO: akmods-zfs
-        run: |
-          python3 -m ci_tools.cli prepare-validation-build
+        uses: ./.github/actions/prepare-validation-build
+        with:
+          akmods_repo: akmods-zfs
+          default_base_image: ${{ env.DEFAULT_BASE_IMAGE }}
+          default_build_container_image: ${{ env.DEFAULT_BUILD_CONTAINER_IMAGE }}
+          default_zfs_minor_version: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
+          default_akmods_ref: ${{ env.AKMODS_UPSTREAM_REF }}
 
   build-pr:
     needs: prepare-pr-build

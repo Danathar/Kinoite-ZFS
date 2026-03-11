@@ -1,0 +1,96 @@
+name: Prepare Validation Build
+description: Resolve main-equivalent inputs and verify the shared akmods source for read-only validation runs.
+
+inputs:
+  akmods_repo:
+    description: Shared akmods repository name to inspect before compose.
+    required: true
+  default_base_image:
+    description: Moving base-image ref used when lock replay is off.
+    required: true
+  default_build_container_image:
+    description: Builder image ref used for input resolution in validation mode.
+    required: true
+  default_zfs_minor_version:
+    description: Default OpenZFS minor version used when lock replay is off.
+    required: true
+  default_akmods_ref:
+    description: Default pinned upstream akmods fork ref used when lock replay is off.
+    required: true
+  use_input_lock:
+    description: Set to true to replay inputs from the lock file instead of moving tags.
+    required: false
+    default: "false"
+  lock_file:
+    description: Repo-relative lock file path used when replay mode is enabled.
+    required: false
+    default: ci/inputs.lock.json
+
+outputs:
+  version:
+    description: Fedora major version derived from the resolved base-image kernel.
+    value: ${{ steps.prepare.outputs.version }}
+  kernel_release:
+    description: Newest installed kernel release found in the resolved base image.
+    value: ${{ steps.prepare.outputs.kernel_release }}
+  kernel_releases:
+    description: Space-separated list of every installed kernel release found in the base image.
+    value: ${{ steps.prepare.outputs.kernel_releases }}
+  base_image_ref:
+    description: Input base-image ref used for registry inspection before pinning.
+    value: ${{ steps.prepare.outputs.base_image_ref }}
+  base_image_name:
+    description: Registry/name portion of the resolved base image.
+    value: ${{ steps.prepare.outputs.base_image_name }}
+  base_image_tag:
+    description: Stable tag selected for this run after digest verification.
+    value: ${{ steps.prepare.outputs.base_image_tag }}
+  base_image_pinned:
+    description: Digest-pinned base-image ref used by downstream jobs.
+    value: ${{ steps.prepare.outputs.base_image_pinned }}
+  base_image_digest:
+    description: Immutable digest for the resolved base image.
+    value: ${{ steps.prepare.outputs.base_image_digest }}
+  build_container_ref:
+    description: Builder image ref used for the run before digest pinning.
+    value: ${{ steps.prepare.outputs.build_container_ref }}
+  build_container_pinned:
+    description: Digest-pinned builder image ref used for the run.
+    value: ${{ steps.prepare.outputs.build_container_pinned }}
+  build_container_digest:
+    description: Immutable digest for the resolved builder image.
+    value: ${{ steps.prepare.outputs.build_container_digest }}
+  zfs_minor_version:
+    description: OpenZFS minor version selected for this run.
+    value: ${{ steps.prepare.outputs.zfs_minor_version }}
+  akmods_upstream_ref:
+    description: Exact upstream akmods fork commit selected for this run.
+    value: ${{ steps.prepare.outputs.akmods_upstream_ref }}
+  use_input_lock:
+    description: Whether this run resolved inputs in lock replay mode.
+    value: ${{ steps.prepare.outputs.use_input_lock }}
+  lock_file_path:
+    description: Lock file path recorded in the resolved inputs.
+    value: ${{ steps.prepare.outputs.lock_file_path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve pinned validation inputs and verify shared akmods cache
+      id: prepare
+      shell: bash
+      env:
+        # This action only wraps workflow wiring. The real behavior still lives in
+        # `ci_tools/prepare_validation_build.py`, which expects the same env
+        # contract whether the caller is a branch run or a PR run.
+        # Callers must run `actions/checkout` first because the Python module is
+        # loaded from this repository's working tree.
+        USE_INPUT_LOCK: ${{ inputs.use_input_lock }}
+        LOCK_FILE: ${{ inputs.lock_file }}
+        BUILD_CONTAINER_REF: ${{ inputs.default_build_container_image }}
+        DEFAULT_BASE_IMAGE: ${{ inputs.default_base_image }}
+        DEFAULT_ZFS_MINOR_VERSION: ${{ inputs.default_zfs_minor_version }}
+        DEFAULT_AKMODS_REF: ${{ inputs.default_akmods_ref }}
+        AKMODS_REPO: ${{ inputs.akmods_repo }}
+      run: |
+        python3 -m ci_tools.cli prepare-validation-build

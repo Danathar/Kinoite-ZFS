@@ -198,7 +198,7 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 1. `main` workflow (`build.yml`): candidate build + gated promotion.
 2. Branch workflow (`build-beta.yml`): isolated branch testing.
 3. PR workflow (`build-pr.yml`): validation only, no push.
-4. Branch and PR workflows now share one read-only validation prep command before compose, so both paths pin the same inputs and fail closed on stale shared akmods caches.
+4. Branch and PR workflows now share one read-only validation prep wrapper before compose, so both paths pin the same inputs and fail closed on stale shared akmods caches.
 
 ## Implementation Note: Workflow Scripts
 
@@ -209,7 +209,9 @@ and also use local composite actions for the repeated workflow glue:
    [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
 2. Stable-promotion wrapper:
    [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
-3. Generated-workspace wrapper:
+3. Validation-prep wrapper:
+   [`.github/actions/prepare-validation-build/action.yml`](../.github/actions/prepare-validation-build/action.yml)
+4. Generated-workspace wrapper:
    [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
 
 The behavior lives in Python modules under `ci_tools/` plus those local
