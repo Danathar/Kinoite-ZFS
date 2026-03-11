@@ -36,11 +36,13 @@ Now read how workflow command names map to Python modules.
 
 1. Dispatcher: [`ci_tools/cli.py`](../ci_tools/cli.py)
 2. Shared helpers: [`ci_tools/common.py`](../ci_tools/common.py)
+3. Shared BlueBuild wrapper action: [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
 
 What to look for:
 
 1. Command map in `cli.py` (string command -> Python function).
 2. Common helpers in `common.py` (`require_env`, `skopeo_*`, `write_github_output`).
+3. The local composite action that wraps the repeated BlueBuild `uses:` blocks for publish and validation builds.
 
 ### 3. Main Workflow Modules (Read In Job Order)
 

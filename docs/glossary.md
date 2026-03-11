@@ -12,6 +12,7 @@ This page defines terms used across this repository's docs and workflow comments
 - `artifact`: a file/package/output saved by a workflow run so you can inspect or reuse it later.
 - `manifest`: a structured data file that records what a run produced or which exact inputs it used.
 - `workflow`: one named GitHub Actions automation file (for example `build.yml`) that defines jobs and steps.
+- `composite action` (GitHub Actions): a local reusable action that bundles several workflow steps behind one `uses:` line so multiple workflows can share the same behavior.
 - `workflow metadata`: run details like run ID, run number, branch/ref, commit SHA, and triggering user.
 - `workflow run`: one execution of a GitHub Actions workflow from start to finish (one run has its own run ID and logs).
 - `pipeline`: the ordered set of jobs/steps in a workflow run (for example: resolve inputs -> build candidate -> promote stable).
