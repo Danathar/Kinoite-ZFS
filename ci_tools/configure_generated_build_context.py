@@ -38,7 +38,7 @@ def main() -> None:
             image_name=image_name,
             base_image_name=base_image_name,
             base_image_tag=base_image_tag,
-            akmods_image=f"ghcr.io/{image_org}/{akmods_repo}:{akmods_tag_prefix}-${{FEDORA_VERSION}}",
+            akmods_image_template=f"ghcr.io/{image_org}/{akmods_repo}:{akmods_tag_prefix}-{{fedora}}",
         )
     )
 

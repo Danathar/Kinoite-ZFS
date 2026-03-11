@@ -23,6 +23,7 @@ LAYOUT_DIR = Path("/tmp/akmods-zfs")
 EXTRACT_ROOT = Path("/tmp")
 RPM_SEARCH_ROOT = EXTRACT_ROOT / "rpms" / "kmods" / "zfs"
 MODULES_ROOT = Path("/lib/modules")
+DEFAULT_AKMODS_IMAGE_TEMPLATE = "ghcr.io/danathar/akmods-zfs:main-{fedora}"
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,48 @@ def image_kernels_from_modules_root(modules_root: Path = MODULES_ROOT) -> list[s
     if not kernels:
         raise RuntimeError(f"No kernel directories found in {modules_root}")
     return kernels
+
+
+def fedora_major_version(*, run_cmd=_run_cmd) -> str:
+    """
+    Resolve Fedora major from the build root itself.
+
+    Why use `rpm -E %fedora` here instead of shell glue in the Containerfile:
+    1. The helper already owns the runtime decision-making for this step.
+    2. This keeps the Containerfile declarative.
+    3. It preserves the exact Fedora detection behavior the old bash wrapper used.
+    """
+
+    fedora_version = run_cmd(["rpm", "-E", "%fedora"]).strip()
+    if not fedora_version:
+        raise RuntimeError("Could not determine Fedora major version from rpm -E %fedora")
+    return fedora_version
+
+
+def resolve_akmods_image(
+    *,
+    environ: os._Environ[str] | dict[str, str] = os.environ,
+    run_cmd=_run_cmd,
+) -> str:
+    """
+    Compute the akmods image reference used for this compose run.
+
+    Resolution order:
+    1. `AKMODS_IMAGE` keeps a direct escape hatch for debugging or one-off runs.
+    2. `AKMODS_IMAGE_TEMPLATE` lets CI declare which repo/tag-prefix to use.
+    3. The helper fills in `{fedora}` itself so the Containerfile does not need
+       an inline shell wrapper just to compute the Fedora-specific suffix.
+    """
+
+    explicit_image = environ.get("AKMODS_IMAGE", "").strip()
+    if explicit_image:
+        return explicit_image
+
+    image_template = environ.get("AKMODS_IMAGE_TEMPLATE", "").strip()
+    if not image_template:
+        image_template = DEFAULT_AKMODS_IMAGE_TEMPLATE
+
+    return image_template.format(fedora=fedora_major_version(run_cmd=run_cmd))
 
 
 def copy_oci_layout_from_registry(image_ref: str, layout_dir: Path = LAYOUT_DIR) -> None:
@@ -346,16 +389,13 @@ def validate_installed_modules(
 def main() -> None:
     """Apply the cached akmods image to the build root."""
 
-    image_ref = os.environ.get("AKMODS_IMAGE", "").strip()
-    if not image_ref:
-        raise RuntimeError("AKMODS_IMAGE must be set before running the helper")
-
     _require_command("python3")
     _require_command("rpm")
     _require_command("rpm-ostree")
     _require_command("skopeo")
     _require_command("depmod")
 
+    image_ref = resolve_akmods_image()
     image_kernels = image_kernels_from_modules_root()
     copy_oci_layout_from_registry(image_ref)
     layer_files = load_layer_files_from_oci_layout(LAYOUT_DIR)

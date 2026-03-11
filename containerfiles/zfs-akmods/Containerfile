@@ -4,13 +4,11 @@
 # a dedicated COPY keeps the helper path explicit and reproducible.
 COPY ./containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py /usr/local/libexec/kinoite-zfs/
 
-RUN bash -euxo pipefail <<'EOF_INNER'
-# Detect Fedora major from build root so we select the matching akmods tag.
-FEDORA_VERSION="$(rpm -E %fedora)"
-AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs:main-${FEDORA_VERSION}"
+# Declarative default for the compose-time akmods source image.
+# Why: the helper resolves Fedora version itself, so the Containerfile only needs
+# to declare the repo/tag-prefix template and then run Python directly.
+ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs:main-{fedora}"
 
 # Keep the multi-kernel cache logic in a dedicated helper so the Containerfile
 # stays readable and the RPM/kernel mapping rules can be unit-tested.
-export AKMODS_IMAGE
-python3 /usr/local/libexec/kinoite-zfs/install_zfs_from_akmods_cache.py
-EOF_INNER
+RUN python3 /usr/local/libexec/kinoite-zfs/install_zfs_from_akmods_cache.py

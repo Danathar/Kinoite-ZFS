@@ -116,11 +116,14 @@ Within that generated workspace, CI then:
 3. Runs the helper at
    [containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py](/var/home/dbaggett/git/zfs_migration/containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py)
    so the multi-kernel decision logic stays outside the inline Containerfile text.
-4. That helper extracts ZFS RPMs from image layers.
-5. The helper installs shared ZFS userspace RPMs and one primary `kmod-zfs` RPM via `rpm-ostree install`.
-6. If the base image ships fallback kernels too, the helper unpacks the remaining kernel-specific `kmod-zfs` RPM payloads directly into the image root.
-7. The helper verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
-8. The helper runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
+4. The Containerfile now passes that helper a declarative `AKMODS_IMAGE_TEMPLATE`
+   value, and the helper itself resolves the Fedora-specific suffix from the
+   build root instead of relying on an inline bash wrapper.
+5. That helper extracts ZFS RPMs from image layers.
+6. The helper installs shared ZFS userspace RPMs and one primary `kmod-zfs` RPM via `rpm-ostree install`.
+7. If the base image ships fallback kernels too, the helper unpacks the remaining kernel-specific `kmod-zfs` RPM payloads directly into the image root.
+8. The helper verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
+9. The helper runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
 
 If module files do not match kernel directories, candidate build fails immediately.
 

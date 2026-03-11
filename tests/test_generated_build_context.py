@@ -48,7 +48,7 @@ class GeneratedBuildContextTests(unittest.TestCase):
                 encoding="utf-8",
             )
             canonical_containerfile.write_text(
-                'AKMODS_IMAGE="ghcr.io/example/akmods-zfs:main-${FEDORA_VERSION}"\n',
+                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"\n',
                 encoding="utf-8",
             )
             canonical_helper.write_text(
@@ -120,7 +120,7 @@ class GeneratedBuildContextTests(unittest.TestCase):
                         image_name="kinoite-zfs-candidate",
                         base_image_name="ghcr.io/ublue-os/kinoite-main",
                         base_image_tag="latest-20260311.1",
-                        akmods_image="ghcr.io/danathar/akmods-zfs-candidate:main-${FEDORA_VERSION}",
+                        akmods_image_template="ghcr.io/danathar/akmods-zfs-candidate:main-{fedora}",
                     )
                 )
 
@@ -132,7 +132,7 @@ class GeneratedBuildContextTests(unittest.TestCase):
             )
             self.assertEqual(
                 canonical_containerfile.read_text(encoding="utf-8"),
-                'AKMODS_IMAGE="ghcr.io/example/akmods-zfs:main-${FEDORA_VERSION}"\n',
+                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"\n',
             )
 
             # Generated outputs carry the run-specific values instead.
@@ -150,7 +150,7 @@ class GeneratedBuildContextTests(unittest.TestCase):
             self.assertIn("image-version: latest-20260311.1\n", generated_recipe_text)
             self.assertEqual(
                 generated_containerfile_text,
-                'AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs-candidate:main-${FEDORA_VERSION}"\n',
+                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:main-{fedora}"\n',
             )
 
             # Files BlueBuild needs at build time are present in the generated workspace.

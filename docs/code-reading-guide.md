@@ -97,6 +97,7 @@ Important terms:
 1. `working directory`: the folder a build tool treats as its local root for file lookups.
 2. `generated workspace`: a transient directory created during CI so the build can use run-specific files without editing tracked source files.
 3. `build context`: the set of local files made visible to the build tool for one run.
+4. `AKMODS_IMAGE_TEMPLATE`: the declarative containerfile setting that tells the compose-time helper which akmods repo/tag-prefix to use before it fills in the Fedora version for the current build root.
 
 ### 6. Tests (How Logic Is Verified)
 

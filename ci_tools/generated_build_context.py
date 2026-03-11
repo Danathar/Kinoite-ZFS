@@ -45,7 +45,7 @@ class BuildContextConfig:
 
     base_image_name: str
     base_image_tag: str
-    akmods_image: str
+    akmods_image_template: str
     image_name: str | None = None
 
 
@@ -129,12 +129,12 @@ def prepare_generated_build_context(config: BuildContextConfig) -> None:
     )
     replace_line_starting_with(
         GENERATED_CONTAINERFILE,
-        "AKMODS_IMAGE=",
-        f'AKMODS_IMAGE="{config.akmods_image}"',
+        "ENV AKMODS_IMAGE_TEMPLATE=",
+        f'ENV AKMODS_IMAGE_TEMPLATE="{config.akmods_image_template}"',
     )
 
     print(f"Generated build workspace: {GENERATED_WORKSPACE_DIR}")
     print_lines_starting_with(GENERATED_RECIPE_FILE, "name:")
     print_lines_starting_with(GENERATED_RECIPE_FILE, "base-image:")
     print_lines_starting_with(GENERATED_RECIPE_FILE, "image-version:")
-    print_lines_starting_with(GENERATED_CONTAINERFILE, "AKMODS_IMAGE=")
+    print_lines_starting_with(GENERATED_CONTAINERFILE, "ENV AKMODS_IMAGE_TEMPLATE=")
