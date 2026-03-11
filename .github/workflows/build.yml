@@ -283,36 +283,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install skopeo
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y skopeo
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v4.1.0
-
-      - name: Promote candidate image and akmods cache to stable tags
-        shell: bash
-        env:
-          REGISTRY_ACTOR: ${{ github.actor }}
-          REGISTRY_TOKEN: ${{ github.token }}
-          FEDORA_VERSION: ${{ needs.build-zfs-akmods.outputs.fedora_version }}
-          CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          CANDIDATE_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
-          STABLE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
-        run: |
-          python3 -m ci_tools.cli main-promote-stable
-
-      - name: Sign promoted stable image digest
-        shell: bash
-        env:
-          IMAGE_ORG: ${{ github.repository_owner }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          REGISTRY_ACTOR: ${{ github.actor }}
-          REGISTRY_TOKEN: ${{ github.token }}
-          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-        run: |
-          python3 -m ci_tools.cli main-sign-promoted-stable
+      - name: Promote candidate image, align stable akmods, and sign stable digest
+        uses: ./.github/actions/promote-stable
+        with:
+          registry_actor: ${{ github.actor }}
+          registry_token: ${{ github.token }}
+          fedora_version: ${{ needs.build-zfs-akmods.outputs.fedora_version }}
+          candidate_image_name: ${{ env.CANDIDATE_IMAGE_NAME }}
+          image_name: ${{ env.IMAGE_NAME }}
+          candidate_akmods_repo: ${{ env.CANDIDATE_AKMODS_REPO }}
+          stable_akmods_repo: ${{ env.STABLE_AKMODS_REPO }}
+          image_org: ${{ github.repository_owner }}
+          cosign_private_key: ${{ secrets.SIGNING_SECRET }}

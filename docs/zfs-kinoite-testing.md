@@ -141,7 +141,8 @@ Promotion runs only after successful candidate akmods and candidate image jobs:
 2. Publishes immutable stable audit tag (`stable-<run>-<sha>`).
 3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source cache image.
 4. Re-signs the promoted stable image digest so signature-required host rebases keep working.
-5. Runs that signing/verification flow through a Python helper now, so promotion behavior is testable without reading workflow shell inline.
+5. Runs the promotion/install/signing workflow glue through one local composite action, so `build.yml` only declares the job boundary and required inputs.
+6. Runs the actual copy/sign behavior through Python helpers, so promotion behavior is testable without reading long workflow shell inline.
 
 If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
 
@@ -177,10 +178,11 @@ Key behavior:
 4. Builds/publishes candidate image.
 5. Promotes candidate artifacts to stable tags only on success.
 6. Re-signs the promoted stable digest after candidate-to-stable copy.
-7. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-8. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-9. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
-10. Ignores markdown/docs-only changes.
+7. Uses one local promotion action to install `skopeo`, install `cosign`, then call the two Python promotion helpers in order.
+8. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+9. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+10. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
+11. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
 
