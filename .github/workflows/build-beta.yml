@@ -145,7 +145,7 @@ jobs:
           BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
         run: |
-          python3 -m ci_tools.cli beta-configure-branch-recipe
+          python3 -m ci_tools.cli configure-generated-build-context
 
       - name: Build Custom Image (attempt 1)
         id: build_custom_image_attempt_1

@@ -242,14 +242,14 @@ jobs:
       - name: Set candidate akmods source and pin base tag in recipe
         shell: bash
         env:
-          CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
+          IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
           BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
           # Candidate image build pulls from the candidate-repo Fedora-wide
           # akmods cache tag copied earlier in this workflow.
           AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
         run: |
-          python3 -m ci_tools.cli main-configure-candidate-recipe
+          python3 -m ci_tools.cli configure-generated-build-context
 
       - name: Build Candidate Image (attempt 1)
         id: build_candidate_attempt_1

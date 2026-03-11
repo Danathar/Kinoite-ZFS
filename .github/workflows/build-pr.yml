@@ -85,7 +85,7 @@ jobs:
           BASE_IMAGE_NAME: ${{ needs.prepare-pr-build.outputs.base_image_name }}
           BASE_IMAGE_TAG: ${{ needs.prepare-pr-build.outputs.base_image_tag }}
         run: |
-          python3 -m ci_tools.cli beta-configure-branch-recipe
+          python3 -m ci_tools.cli configure-generated-build-context
 
       - name: Build image for PR validation (no push)
         uses: blue-build/github-action@v1.11.0

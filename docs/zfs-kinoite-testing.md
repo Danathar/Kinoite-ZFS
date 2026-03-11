@@ -194,7 +194,7 @@ Key behavior:
 2. Checks for shared akmods source tag `akmods-zfs:main-<fedora>`.
 3. Fails closed if that source tag is missing/stale (branch runs do not rebuild shared cache tags).
 4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
-5. Generates a branch-local build workspace that consumes that branch-scoped alias tag.
+5. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
 6. Builds/publishes branch-tagged image.
 7. Ignores markdown/docs-only changes.
 
@@ -209,7 +209,7 @@ Key behavior:
 1. Build only; no push.
 2. No signing requirement.
 3. Reuses the same input-resolution and cache-validation path as `main`.
-4. Generates the same transient build workspace shape as branch/main builds.
+4. Uses the same shared generated-build-context command as branch/main builds.
 5. Ignores markdown/docs-only changes.
 
 ## Kernel Compatibility Risk Handling
