@@ -88,8 +88,9 @@ Read these next so you can connect Python edits to actual build files:
 
 1. Canonical recipe source copied into generated workspace: [`recipes/recipe.yml`](../recipes/recipe.yml)
 2. Canonical akmods containerfile source copied into generated workspace: [`containerfiles/zfs-akmods/Containerfile`](../containerfiles/zfs-akmods/Containerfile)
-3. Generated workspace builder: [`ci_tools/generated_build_context.py`](../ci_tools/generated_build_context.py)
-4. Optional lock replay file: [`ci/inputs.lock.json`](../ci/inputs.lock.json)
+3. Canonical compose-time helper copied alongside that Containerfile snippet: [`containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py`](../containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py)
+4. Generated workspace builder: [`ci_tools/generated_build_context.py`](../ci_tools/generated_build_context.py)
+5. Optional lock replay file: [`ci/inputs.lock.json`](../ci/inputs.lock.json)
 
 Important terms:
 

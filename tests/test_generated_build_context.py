@@ -23,6 +23,9 @@ class GeneratedBuildContextTests(unittest.TestCase):
             root = Path(temp_dir)
             canonical_recipe = root / "recipes" / "recipe.yml"
             canonical_containerfile = root / "containerfiles" / "zfs-akmods" / "Containerfile"
+            canonical_helper = (
+                root / "containerfiles" / "zfs-akmods" / "install_zfs_from_akmods_cache.py"
+            )
             canonical_files_dir = root / "files" / "scripts"
             canonical_modules_dir = root / "modules"
             canonical_cosign_pub = root / "cosign.pub"
@@ -46,6 +49,10 @@ class GeneratedBuildContextTests(unittest.TestCase):
             )
             canonical_containerfile.write_text(
                 'AKMODS_IMAGE="ghcr.io/example/akmods-zfs:main-${FEDORA_VERSION}"\n',
+                encoding="utf-8",
+            )
+            canonical_helper.write_text(
+                "#!/usr/bin/env python3\nprint('helper')\n",
                 encoding="utf-8",
             )
             (canonical_files_dir / "ensure-repo-signing-policy.sh").write_text(
@@ -150,6 +157,14 @@ class GeneratedBuildContextTests(unittest.TestCase):
             self.assertTrue((generated_root / "files" / "scripts" / "ensure-repo-signing-policy.sh").exists())
             self.assertTrue((generated_root / "modules" / ".gitkeep").exists())
             self.assertTrue((generated_root / "cosign.pub").exists())
+            self.assertTrue(
+                (
+                    generated_root
+                    / "containerfiles"
+                    / "zfs-akmods"
+                    / "install_zfs_from_akmods_cache.py"
+                ).exists()
+            )
 
 
 if __name__ == "__main__":
