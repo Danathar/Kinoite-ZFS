@@ -67,15 +67,8 @@ jobs:
           python3 -m ci_tools.cli configure-generated-build-context
 
       - name: Build image for PR validation (no push)
-        uses: blue-build/github-action@v1.11.0
+        uses: ./.github/actions/run-bluebuild
         with:
-          recipe: recipe.yml
+          mode: validate
           working_directory: .generated/bluebuild/
-          # PR validation should not publish artifacts.
-          push: false
-          # PR validation should not require signing secrets.
-          build_opts: --no-sign
           registry_token: ${{ github.token }}
-          maximize_build_space: true
-          # Keep recipe/containerfile edits from the previous step.
-          skip_checkout: true

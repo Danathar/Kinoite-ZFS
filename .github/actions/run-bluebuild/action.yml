@@ -1,0 +1,98 @@
+name: Run BlueBuild
+description: Run the shared BlueBuild image-build action in publish or validation mode.
+
+inputs:
+  mode:
+    description: |
+      Build mode:
+      - `publish`: signed build that can push artifacts and optionally retries once
+      - `validate`: no-push, no-sign PR validation build
+    required: true
+  recipe:
+    description: Recipe file path relative to the working directory.
+    required: false
+    default: recipe.yml
+  working_directory:
+    description: |
+      Build working directory.
+      "Working directory" here means the local folder the BlueBuild action treats
+      as its build root when it looks up recipe files and containerfiles.
+    required: false
+    default: .generated/bluebuild/
+  registry_token:
+    description: Registry token passed through to the underlying BlueBuild action.
+    required: true
+  cosign_private_key:
+    description: Signing key used only in `publish` mode.
+    required: false
+    default: ""
+  pr_event_number:
+    description: GitHub PR number forwarded to BlueBuild when available.
+    required: false
+    default: ""
+  maximize_build_space:
+    description: Whether BlueBuild should try to reclaim additional disk space first.
+    required: false
+    default: "true"
+  skip_checkout:
+    description: |
+      Whether the underlying action should skip its own checkout step.
+      We keep this on so generated workspace edits from previous steps survive.
+    required: false
+    default: "true"
+  retry_on_failure:
+    description: Retry one time after a publish-mode transient failure.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Build image (publish mode, attempt 1)
+      id: publish_attempt_1
+      if: ${{ inputs.mode == 'publish' }}
+      continue-on-error: true
+      uses: blue-build/github-action@v1.11.0
+      with:
+        recipe: ${{ inputs.recipe }}
+        working_directory: ${{ inputs.working_directory }}
+        cosign_private_key: ${{ inputs.cosign_private_key }}
+        registry_token: ${{ inputs.registry_token }}
+        pr_event_number: ${{ inputs.pr_event_number }}
+        maximize_build_space: ${{ inputs.maximize_build_space }}
+        skip_checkout: ${{ inputs.skip_checkout }}
+
+    - name: Build image (publish mode, retry after transient registry error)
+      id: publish_retry
+      if: ${{ inputs.mode == 'publish' && inputs.retry_on_failure == 'true' && steps.publish_attempt_1.outcome == 'failure' }}
+      uses: blue-build/github-action@v1.11.0
+      with:
+        recipe: ${{ inputs.recipe }}
+        working_directory: ${{ inputs.working_directory }}
+        cosign_private_key: ${{ inputs.cosign_private_key }}
+        registry_token: ${{ inputs.registry_token }}
+        pr_event_number: ${{ inputs.pr_event_number }}
+        maximize_build_space: ${{ inputs.maximize_build_space }}
+        skip_checkout: ${{ inputs.skip_checkout }}
+
+    - name: Fail when publish mode does not recover
+      if: ${{ inputs.mode == 'publish' && steps.publish_attempt_1.outcome == 'failure' && steps.publish_retry.outcome != 'success' }}
+      shell: bash
+      run: |
+        echo "BlueBuild publish mode failed and did not recover on retry." >&2
+        exit 1
+
+    - name: Build image (validation mode)
+      if: ${{ inputs.mode == 'validate' }}
+      uses: blue-build/github-action@v1.11.0
+      with:
+        recipe: ${{ inputs.recipe }}
+        working_directory: ${{ inputs.working_directory }}
+        # Validation mode is the read-only PR path:
+        # - do not push artifacts
+        # - do not require signing secrets
+        push: false
+        build_opts: --no-sign
+        registry_token: ${{ inputs.registry_token }}
+        maximize_build_space: ${{ inputs.maximize_build_space }}
+        skip_checkout: ${{ inputs.skip_checkout }}

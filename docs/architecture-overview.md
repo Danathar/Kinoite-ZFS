@@ -193,14 +193,19 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 
 ## Implementation Note: Workflow Scripts
 
-Workflow jobs call Python commands directly (`python3 -m ci_tools.cli <command>`).
-The behavior lives in Python modules under `ci_tools/`.
+Workflow jobs call Python commands directly (`python3 -m ci_tools.cli <command>`)
+and also use one local composite action for the repeated BlueBuild build step:
+[`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml).
+
+The behavior lives in Python modules under `ci_tools/` plus that one local
+workflow helper action.
 
 Why this setup:
 
 1. Keep workflow YAML focused on job wiring.
 2. Keep logic in code that is easier to read and unit-test.
 3. Keep workflow command dispatch centralized in one CLI entrypoint.
+4. Keep repeated BlueBuild action wiring in one local reusable action instead of copying the same `uses:` block across multiple workflows.
 
 Term note used in code/docs:
 

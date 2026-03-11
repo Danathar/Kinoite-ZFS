@@ -123,29 +123,12 @@ jobs:
         run: |
           python3 -m ci_tools.cli configure-generated-build-context
 
-      - name: Build Custom Image (attempt 1)
-        id: build_custom_image_attempt_1
-        continue-on-error: true
-        uses: blue-build/github-action@v1.11.0
+      - name: Build Custom Image
+        uses: ./.github/actions/run-bluebuild
         with:
-          recipe: recipe.yml
+          mode: publish
           working_directory: .generated/bluebuild/
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
-          maximize_build_space: true
-          # Keep recipe/containerfile edits from the previous step.
-          skip_checkout: true
-
-      - name: Build Custom Image (retry after transient registry error)
-        if: steps.build_custom_image_attempt_1.outcome == 'failure'
-        uses: blue-build/github-action@v1.11.0
-        with:
-          recipe: recipe.yml
-          working_directory: .generated/bluebuild/
-          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
-          registry_token: ${{ github.token }}
-          pr_event_number: ${{ github.event.number }}
-          maximize_build_space: true
-          # Keep recipe/containerfile edits from the previous step.
-          skip_checkout: true
+          retry_on_failure: "true"

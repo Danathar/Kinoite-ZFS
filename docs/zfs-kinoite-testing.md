@@ -197,8 +197,9 @@ Key behavior:
 3. Fails closed if that shared source tag is missing/stale (branch runs do not rebuild shared cache tags).
 4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
 5. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
-6. Builds/publishes branch-tagged image.
-7. Ignores markdown/docs-only changes.
+6. Calls one shared local composite action to run the actual BlueBuild compose step, including the one-time retry behavior used by publish-mode builds.
+7. Builds/publishes branch-tagged image.
+8. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-pr.yml`](../.github/workflows/build-pr.yml) (PR Validation)
 
@@ -213,7 +214,8 @@ Key behavior:
 3. Uses the same shared read-only validation prep command as the branch workflow, so PRs resolve/pin the same inputs before build.
 4. Reuses the same input-resolution and cache-validation logic as `main`, but without any publish side effects.
 5. Uses the same shared generated-build-context command as branch/main builds.
-6. Ignores markdown/docs-only changes.
+6. Calls the same local composite action as publish workflows, but in validation mode (`push: false`, `--no-sign`).
+7. Ignores markdown/docs-only changes.
 
 ## Kernel Compatibility Risk Handling
 
