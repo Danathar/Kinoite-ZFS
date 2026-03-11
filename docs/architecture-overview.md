@@ -176,8 +176,14 @@ Promotion is a separate gated job:
 6. Relies on the in-image policy normalization from compose time so signed host
    switches can move between candidate and stable repository names.
 
-The stable signing step now lives in a Python helper instead of inline shell:
-[`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
+The promotion job now uses one local composite action for its repeated workflow
+glue:
+[`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
+
+That local action still calls the same Python helpers:
+
+1. [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
+2. [`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
 
 If candidate fails, stable tags are not changed.
 
@@ -197,18 +203,22 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 ## Implementation Note: Workflow Scripts
 
 Workflow jobs call Python commands directly (`python3 -m ci_tools.cli <command>`)
-and also use one local composite action for the repeated BlueBuild build step:
-[`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml).
+and also use local composite actions for the repeated workflow glue:
 
-The behavior lives in Python modules under `ci_tools/` plus that one local
-workflow helper action.
+1. BlueBuild compose wrapper:
+   [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
+2. Stable-promotion wrapper:
+   [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
+
+The behavior lives in Python modules under `ci_tools/` plus those local
+workflow helper actions.
 
 Why this setup:
 
 1. Keep workflow YAML focused on job wiring.
 2. Keep logic in code that is easier to read and unit-test.
 3. Keep workflow command dispatch centralized in one CLI entrypoint.
-4. Keep repeated BlueBuild action wiring in one local reusable action instead of copying the same `uses:` block across multiple workflows.
+4. Keep repeated workflow wiring in local reusable actions instead of copying the same setup/install blocks across workflow files.
 
 Term note used in code/docs:
 

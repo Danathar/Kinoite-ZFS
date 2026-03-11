@@ -1,0 +1,72 @@
+name: Promote Stable
+description: Promote candidate image artifacts to stable tags and sign the promoted stable digest.
+
+inputs:
+  registry_actor:
+    description: Registry username/token actor used for authenticated image copy and inspect operations.
+    required: true
+  registry_token:
+    description: Registry token used for authenticated image copy and inspect operations.
+    required: true
+  fedora_version:
+    description: Fedora major version used to build the stable akmods cache tag name.
+    required: true
+  candidate_image_name:
+    description: Candidate image repository name that currently holds the passing build output.
+    required: true
+  image_name:
+    description: Stable image repository name whose `latest` tag will be updated.
+    required: true
+  candidate_akmods_repo:
+    description: Candidate akmods repository name used as the promotion source.
+    required: true
+  stable_akmods_repo:
+    description: Stable akmods repository name updated during promotion.
+    required: true
+  image_org:
+    description: Registry namespace/owner segment in GHCR image paths.
+    required: true
+  cosign_private_key:
+    description: Private signing key used to sign the promoted stable digest.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install skopeo
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update
+        sudo apt-get install -y skopeo
+
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v4.1.0
+
+    - name: Promote candidate image and akmods cache to stable tags
+      shell: bash
+      env:
+        REGISTRY_ACTOR: ${{ inputs.registry_actor }}
+        REGISTRY_TOKEN: ${{ inputs.registry_token }}
+        FEDORA_VERSION: ${{ inputs.fedora_version }}
+        CANDIDATE_IMAGE_NAME: ${{ inputs.candidate_image_name }}
+        IMAGE_NAME: ${{ inputs.image_name }}
+        CANDIDATE_AKMODS_REPO: ${{ inputs.candidate_akmods_repo }}
+        STABLE_AKMODS_REPO: ${{ inputs.stable_akmods_repo }}
+      run: |
+        # The action assumes the workflow has already checked out this repo so
+        # the shared Python CLI entrypoint and helper modules are available.
+        python3 -m ci_tools.cli main-promote-stable
+
+    - name: Sign promoted stable image digest
+      shell: bash
+      env:
+        IMAGE_ORG: ${{ inputs.image_org }}
+        IMAGE_NAME: ${{ inputs.image_name }}
+        REGISTRY_ACTOR: ${{ inputs.registry_actor }}
+        REGISTRY_TOKEN: ${{ inputs.registry_token }}
+        COSIGN_PRIVATE_KEY: ${{ inputs.cosign_private_key }}
+      run: |
+        # Signing happens after the copy step because signatures attach to the
+        # final stable digest, not the candidate source tag that existed earlier.
+        python3 -m ci_tools.cli main-sign-promoted-stable

@@ -37,12 +37,14 @@ Now read how workflow command names map to Python modules.
 1. Dispatcher: [`ci_tools/cli.py`](../ci_tools/cli.py)
 2. Shared helpers: [`ci_tools/common.py`](../ci_tools/common.py)
 3. Shared BlueBuild wrapper action: [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
+4. Shared stable-promotion wrapper action: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
 
 What to look for:
 
 1. Command map in `cli.py` (string command -> Python function).
 2. Common helpers in `common.py` (`require_env`, `skopeo_*`, `write_github_output`).
 3. The local composite action that wraps the repeated BlueBuild `uses:` blocks for publish and validation builds.
+4. The local composite action that wraps the repeated install/promote/sign steps for the main promotion job.
 
 ### 3. Main Workflow Modules (Read In Job Order)
 
@@ -56,8 +58,9 @@ Read these in this sequence to match `build.yml`:
 6. Build/publish akmods image: [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py)
 7. Publish candidate akmods alias tags: [`ci_tools/main_publish_candidate_akmods_alias.py`](../ci_tools/main_publish_candidate_akmods_alias.py)
 8. Generate transient build inputs for candidate build: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
-9. Promote candidate to stable tags: [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
-10. Re-sign promoted stable digest in the stable repository path: [`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
+9. Promotion wrapper action that installs required tools and dispatches the promotion helpers: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
+10. Promote candidate to stable tags: [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
+11. Re-sign promoted stable digest in the stable repository path: [`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
 
 ### 4. Branch Workflow Modules (Read In Job Order)
 
