@@ -129,6 +129,37 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
                 'AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs-candidate:br-feature-test-${FEDORA_VERSION}"\n',
             )
 
+    def test_defaults_to_main_prefix_when_wrapper_passes_empty_tag_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_canonical_inputs(root)
+
+            env = {
+                "GITHUB_REPOSITORY_OWNER": "Danathar",
+                "IMAGE_NAME": "kinoite-zfs-candidate",
+                "AKMODS_REPO": "akmods-zfs-candidate",
+                # Composite actions can pass an empty optional input as an empty
+                # env var. This must still behave like the historical main-flow
+                # default, not produce `:-${FEDORA_VERSION}`.
+                "AKMODS_TAG_PREFIX": "",
+                "BASE_IMAGE_NAME": "ghcr.io/ublue-os/kinoite-main",
+                "BASE_IMAGE_TAG": "latest-20260311.1",
+            }
+            with ExitStack() as stack:
+                for patcher in _patch_generated_paths(root):
+                    stack.enter_context(patcher)
+                stack.enter_context(mock.patch.dict(os.environ, env, clear=False))
+                configure_generated_build_context.main()
+
+            generated_containerfile = (
+                root / ".generated" / "bluebuild" / "containerfiles" / "zfs-akmods" / "Containerfile"
+            ).read_text(encoding="utf-8")
+
+            self.assertEqual(
+                generated_containerfile,
+                'AKMODS_IMAGE="ghcr.io/danathar/akmods-zfs-candidate:main-${FEDORA_VERSION}"\n',
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

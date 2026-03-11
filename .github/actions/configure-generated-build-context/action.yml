@@ -18,7 +18,7 @@ inputs:
   akmods_tag_prefix:
     description: Optional akmods tag prefix written into the generated Containerfile reference.
     required: false
-    default: ""
+    default: "main"
 
 runs:
   using: composite
@@ -30,6 +30,9 @@ runs:
         BASE_IMAGE_NAME: ${{ inputs.base_image_name }}
         BASE_IMAGE_TAG: ${{ inputs.base_image_tag }}
         AKMODS_REPO: ${{ inputs.akmods_repo }}
+        # Candidate and PR flows use the shared Fedora-wide `main-<fedora>` akmods
+        # tag prefix unless a caller explicitly overrides it (for example branch
+        # runs that need a branch-scoped alias tag).
         AKMODS_TAG_PREFIX: ${{ inputs.akmods_tag_prefix }}
       run: |
         # The workflow must check out the repo before calling this action so the

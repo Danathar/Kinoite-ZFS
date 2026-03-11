@@ -28,7 +28,10 @@ def main() -> None:
     #   akmods tag prefix used by candidate and PR validation. Branch runs set a
     #   branch-scoped prefix so their compose input stays isolated.
     image_name = optional_env("IMAGE_NAME").strip() or None
-    akmods_tag_prefix = optional_env("AKMODS_TAG_PREFIX", "main")
+    # Treat an empty string the same as "unset" so workflow wrappers can safely
+    # forward optional inputs without accidentally erasing the shared `main`
+    # prefix used by candidate and PR builds.
+    akmods_tag_prefix = optional_env("AKMODS_TAG_PREFIX").strip() or "main"
 
     prepare_generated_build_context(
         BuildContextConfig(
