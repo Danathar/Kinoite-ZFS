@@ -21,6 +21,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  # Keep branch validation on the same moving defaults as `main`.
+  AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
+  DEFAULT_BASE_IMAGE: ghcr.io/ublue-os/kinoite-main:latest
+  DEFAULT_BUILD_CONTAINER_IMAGE: ghcr.io/ublue-os/devcontainer:latest
+  DEFAULT_ZFS_MINOR_VERSION: "2.4"
+
 jobs:
   prepare-branch-metadata:
     name: Compute Branch Tags
@@ -40,33 +47,47 @@ jobs:
     name: Build Self-Hosted ZFS Akmods (branch)
     needs: prepare-branch-metadata
     runs-on: ubuntu-24.04
+    outputs:
+      fedora_version: ${{ steps.inputs.outputs.version }}
+      kernel_release: ${{ steps.inputs.outputs.kernel_release }}
+      kernel_releases: ${{ steps.inputs.outputs.kernel_releases }}
+      base_image_name: ${{ steps.inputs.outputs.base_image_name }}
+      base_image_tag: ${{ steps.inputs.outputs.base_image_tag }}
     permissions:
       contents: read
       # Needed to copy/publish branch alias tags in ghcr.io/<owner>/akmods-zfs-candidate:*.
       packages: write
     container:
-      image: ghcr.io/ublue-os/devcontainer:latest
+      image: ${{ env.DEFAULT_BUILD_CONTAINER_IMAGE }}
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
       - uses: actions/checkout@v6
 
-      - name: Detect Fedora major version for Kinoite latest
-        id: fedora
+      - name: Resolve build inputs for this branch run
+        id: inputs
         shell: bash
+        env:
+          USE_INPUT_LOCK: "false"
+          LOCK_FILE: ci/inputs.lock.json
+          BUILD_CONTAINER_REF: ${{ env.DEFAULT_BUILD_CONTAINER_IMAGE }}
+          DEFAULT_BASE_IMAGE: ${{ env.DEFAULT_BASE_IMAGE }}
+          DEFAULT_ZFS_MINOR_VERSION: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
+          DEFAULT_AKMODS_REF: ${{ env.AKMODS_UPSTREAM_REF }}
         run: |
-          python3 -m ci_tools.cli beta-detect-fedora-version
+          python3 -m ci_tools.cli main-resolve-build-inputs
 
       - name: Check for existing shared self-hosted zfs akmods image
         id: akmods
         shell: bash
         env:
-          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
-          KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          KERNEL_RELEASE: ${{ steps.inputs.outputs.kernel_release }}
+          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
           # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
           # Branch workflow intentionally treats this as read-only input.
           AKMODS_REPO: akmods-zfs
         run: |
-          python3 -m ci_tools.cli beta-check-branch-akmods-cache
+          python3 -m ci_tools.cli main-check-candidate-akmods-cache
 
       - name: Stop when shared akmods source is missing or stale
         # Branch workflow is intentionally read-only for shared akmods tags.
@@ -75,10 +96,10 @@ jobs:
         if: steps.akmods.outputs.exists != 'true'
         shell: bash
         env:
-          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
-          KERNEL_RELEASE: ${{ steps.fedora.outputs.kernel_release }}
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
+          KERNEL_RELEASES: ${{ steps.inputs.outputs.kernel_releases }}
         run: |
-          echo "Shared akmods source tag akmods-zfs:main-${FEDORA_VERSION} is missing or stale for kernel ${KERNEL_RELEASE}." >&2
+          echo "Shared akmods source tag akmods-zfs:main-${FEDORA_VERSION} is missing or stale for kernels ${KERNEL_RELEASES}." >&2
           echo "Run main workflow (Build And Promote Main Image) with rebuild_akmods=true, then rerun this branch workflow." >&2
           exit 1
 
@@ -94,7 +115,7 @@ jobs:
         # so compose can pull reliably without touching stable tags.
         shell: bash
         env:
-          FEDORA_VERSION: ${{ steps.fedora.outputs.version }}
+          FEDORA_VERSION: ${{ steps.inputs.outputs.version }}
           SOURCE_AKMODS_REPO: akmods-zfs
           DEST_AKMODS_REPO: akmods-zfs-candidate
           DEST_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
@@ -121,6 +142,8 @@ jobs:
         env:
           AKMODS_REPO: akmods-zfs-candidate
           AKMODS_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
+          BASE_IMAGE_NAME: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
+          BASE_IMAGE_TAG: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
         run: |
           python3 -m ci_tools.cli beta-configure-branch-recipe
 
