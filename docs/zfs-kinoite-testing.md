@@ -172,16 +172,19 @@ Triggers:
 
 Key behavior:
 
-1. Detects every installed kernel shipped in the pinned base image.
-2. Validates and (when needed) rebuilds the shared Fedora-wide akmods cache so it contains RPMs for all of those kernels.
-3. Copies shared akmods tags into candidate akmods alias tags.
-4. Builds/publishes candidate image.
-5. Promotes candidate artifacts to stable tags only on success.
-6. Re-signs the promoted stable digest after candidate-to-stable copy.
-7. Uses one local promotion action to install `skopeo`, install `cosign`, then call the two Python promotion helpers in order.
-8. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-9. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-10. Uploads a per-run build input manifest artifact (`build-inputs-<run_id>`).
+1. Uses one shared local main-prep action to:
+   - resolve and pin the exact base image, builder image, kernel release, and ZFS version for the run
+   - upload a build-input manifest artifact (`build-inputs-<run_id>`) so the same inputs can be replayed later
+   - check whether the shared `akmods-zfs:main-<fedora>` cache already covers the base-image kernel set
+2. Keeps the rebuild-or-reuse decision visible in workflow YAML after that prep action, so operators can still read the control flow directly in `build.yml`.
+3. Validates and (when needed) rebuilds the shared Fedora-wide akmods cache so it contains RPMs for all of the pinned base-image kernels.
+4. Copies shared akmods tags into candidate akmods alias tags.
+5. Builds/publishes candidate image.
+6. Promotes candidate artifacts to stable tags only on success.
+7. Re-signs the promoted stable digest after candidate-to-stable copy.
+8. Uses one local promotion action to install `skopeo`, install `cosign`, then call the two Python promotion helpers in order.
+9. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+10. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
 11. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
