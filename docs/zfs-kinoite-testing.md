@@ -22,6 +22,7 @@ This is intentionally designed for iterative validation before adopting any appr
 2. ZFS kernel module compatibility can lag behind new Fedora kernel releases.
 3. Branch testing must never overwrite production (`main`) image tags or akmods caches.
 4. CI must detect stale ZFS module caches and rebuild when needed.
+5. CI should avoid mutating checked-in build source files in place.
 
 ## Repository Components
 
@@ -98,7 +99,17 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 
 ### 4. Build Candidate Kinoite Image
 
-[`recipes/recipe.yml`](../recipes/recipe.yml) and [`containerfiles/zfs-akmods/Containerfile`](../containerfiles/zfs-akmods/Containerfile) are rewritten in-run to pin base + akmods inputs, then:
+CI now copies [`recipes/recipe.yml`](../recipes/recipe.yml),
+[`containerfiles/zfs-akmods/Containerfile`](../containerfiles/zfs-akmods/Containerfile),
+the local [`files/`](../files) tree, and [`cosign.pub`](../cosign.pub) into a
+generated build workspace before compose.
+
+`Generated build workspace` here means a transient directory created during CI
+for one build job. BlueBuild uses that directory as its `working directory`
+(the folder it treats as the local build root), so the canonical repo files do
+not need to be edited in place.
+
+Within that generated workspace, CI then:
 
 1. Pins `base-image`/`image-version` to the resolved immutable base tag from input resolution.
 2. Pulls the akmods cache image for the resolved kernel release.
@@ -183,7 +194,7 @@ Key behavior:
 2. Checks for shared akmods source tag `akmods-zfs:main-<fedora>`.
 3. Fails closed if that source tag is missing/stale (branch runs do not rebuild shared cache tags).
 4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
-5. Rewrites [`recipes/recipe.yml`](../recipes/recipe.yml) in-run to consume that branch-scoped alias tag.
+5. Generates a branch-local build workspace that consumes that branch-scoped alias tag.
 6. Builds/publishes branch-tagged image.
 7. Ignores markdown/docs-only changes.
 
@@ -197,7 +208,9 @@ Key behavior:
 
 1. Build only; no push.
 2. No signing requirement.
-3. Ignores markdown/docs-only changes.
+3. Reuses the same input-resolution and cache-validation path as `main`.
+4. Generates the same transient build workspace shape as branch/main builds.
+5. Ignores markdown/docs-only changes.
 
 ## Kernel Compatibility Risk Handling
 
@@ -302,7 +315,7 @@ Mitigation implemented:
 
 1. Added lock replay inputs to [`.github/workflows/build.yml`](../.github/workflows/build.yml) (`use_input_lock`, `lock_file`, `build_container_image`).
 2. Added deterministic input resolution step that records immutable digests for base image and builder container.
-3. Candidate image flow now pins `base-image`/`image-version` to a resolved immutable base tag, rewrites `AKMODS_IMAGE` to the candidate-repo Fedora-wide cache tag, and validates exact-module presence for every kernel directory in the base image.
+3. Candidate image flow now pins `base-image`/`image-version` to a resolved immutable base tag inside a generated build workspace, points `AKMODS_IMAGE` at the candidate-repo Fedora-wide cache tag there, and validates exact-module presence for every kernel directory in the base image.
 4. Added build input manifest artifact upload (`build-inputs-<run_id>`) for audit and reproducible reruns.
 5. Added repository lock file [`ci/inputs.lock.json`](../ci/inputs.lock.json) for replay mode.
 6. Akmods build now seeds upstream cache metadata (`cache.json`) from resolved `KERNEL_RELEASE`.

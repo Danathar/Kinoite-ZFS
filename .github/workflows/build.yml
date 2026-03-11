@@ -257,6 +257,10 @@ jobs:
         uses: blue-build/github-action@v1.11.0
         with:
           recipe: recipe.yml
+          # The action's working directory is the folder it treats as the local
+          # build root. We point it at the generated workspace so BlueBuild reads
+          # transient run-specific files instead of the checked-in source files.
+          working_directory: .generated/bluebuild/
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
@@ -269,6 +273,7 @@ jobs:
         uses: blue-build/github-action@v1.11.0
         with:
           recipe: recipe.yml
+          working_directory: .generated/bluebuild/
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}

@@ -16,6 +16,9 @@ This page defines terms used across this repository's docs and workflow comments
 - `workflow run`: one execution of a GitHub Actions workflow from start to finish (one run has its own run ID and logs).
 - `pipeline`: the ordered set of jobs/steps in a workflow run (for example: resolve inputs -> build candidate -> promote stable).
 - `compose` / `compose step`: the image build step that combines the base image + configured modules/packages into the final publishable image.
+- `working directory` (build working directory): the folder a build tool treats as its local root when it looks up recipe files, containerfiles, and other local inputs.
+- `build context`: the set of local files made available to the build tool for one run.
+- `generated workspace`: a transient directory created during CI so a run can use generated or pinned files without editing checked-in source files.
 - `package visibility` (registry): who can read a container package/tag. This is separate from source repo visibility, so a public code repo can still have package paths that require auth.
 - `build-inputs` artifact: JSON file saved per run with the exact inputs that run used.
 - `Fedora stream` / `kernel stream`: the ongoing flow of new kernel releases in Fedora over time (for example one nightly run may see a newer kernel than yesterday).

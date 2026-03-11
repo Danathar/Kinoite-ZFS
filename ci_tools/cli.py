@@ -24,10 +24,8 @@ def command_map() -> dict[str, Callable[[], None]]:
     from ci_tools.akmods_build_and_publish import main as akmods_build_and_publish
     from ci_tools.akmods_clone_pinned import main as akmods_clone_pinned
     from ci_tools.akmods_configure_zfs_target import main as akmods_configure_zfs_target
-    from ci_tools.beta_check_branch_akmods_cache import main as beta_check_branch_akmods_cache
     from ci_tools.beta_compute_branch_metadata import main as beta_compute_branch_metadata
     from ci_tools.beta_configure_branch_recipe import main as beta_configure_branch_recipe
-    from ci_tools.beta_detect_fedora_version import main as beta_detect_fedora_version
     from ci_tools.beta_publish_branch_akmods_alias import main as beta_publish_branch_akmods_alias
     from ci_tools.main_check_candidate_akmods_cache import main as main_check_candidate_akmods_cache
     from ci_tools.main_configure_candidate_recipe import main as main_configure_candidate_recipe
@@ -46,8 +44,6 @@ def command_map() -> dict[str, Callable[[], None]]:
         "main-publish-candidate-akmods-alias": main_publish_candidate_akmods_alias,
         "main-promote-stable": main_promote_stable,
         "beta-compute-branch-metadata": beta_compute_branch_metadata,
-        "beta-detect-fedora-version": beta_detect_fedora_version,
-        "beta-check-branch-akmods-cache": beta_check_branch_akmods_cache,
         "beta-configure-branch-recipe": beta_configure_branch_recipe,
         "beta-publish-branch-akmods-alias": beta_publish_branch_akmods_alias,
         "akmods-clone-pinned": akmods_clone_pinned,
