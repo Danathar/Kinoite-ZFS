@@ -13,7 +13,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from ci_tools.akmods_clone_pinned import patch_self_hosted_podman_builds
+from ci_tools.akmods_clone_pinned import (
+    patch_repo_scoped_akmods_name,
+    patch_self_hosted_podman_builds,
+)
 from ci_tools.common import CiToolError
 
 
@@ -53,6 +56,33 @@ class AkmodsClonePinnedTests(unittest.TestCase):
                     "Failed to patch cloned akmods Justfile",
                 ):
                     patch_self_hosted_podman_builds()
+
+    def test_patch_repo_scoped_akmods_name_uses_images_yaml_name_field(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            justfile = Path(temp_dir) / "Justfile"
+            justfile.write_text(
+                "akmods_name := 'akmods' + if akmods_target != 'common' { '-' +akmods_target } else { '' }\n",
+                encoding="utf-8",
+            )
+
+            with patch("ci_tools.akmods_clone_pinned.AKMODS_JUSTFILE", justfile):
+                patch_repo_scoped_akmods_name()
+
+            updated = justfile.read_text(encoding="utf-8")
+            self.assertIn('.images.$1[\\"$2\\"].$3.name', updated)
+            self.assertNotIn("akmods_name := 'akmods' + if akmods_target != 'common'", updated)
+
+    def test_patch_repo_scoped_akmods_name_fails_when_upstream_shape_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            justfile = Path(temp_dir) / "Justfile"
+            justfile.write_text("akmods_name := env('AKMODS_NAME', 'custom')\n", encoding="utf-8")
+
+            with patch("ci_tools.akmods_clone_pinned.AKMODS_JUSTFILE", justfile):
+                with self.assertRaisesRegex(
+                    CiToolError,
+                    "Failed to patch cloned akmods Justfile for repo-scoped publish names",
+                ):
+                    patch_repo_scoped_akmods_name()
 
 
 if __name__ == "__main__":

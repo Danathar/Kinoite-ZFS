@@ -41,6 +41,32 @@ def patch_self_hosted_podman_builds() -> None:
     print("Patched cloned akmods Justfile for self-hosted Podman SELinux mounts.")
 
 
+def patch_repo_scoped_akmods_name() -> None:
+    """
+    Patch the cloned akmods Justfile to honor the configured image name.
+
+    Upstream derives `akmods_name` only from the target type (for example
+    `akmods-zfs`), which makes this repo publish into the shared package used by
+    other projects. We rewrite that one line so the local clone reads the
+    already-configured `images.yaml` name field instead.
+    """
+    original = AKMODS_JUSTFILE.read_text(encoding="utf-8")
+    target = "akmods_name := 'akmods' + if akmods_target != 'common' { '-' +akmods_target } else { '' }"
+    replacement = (
+        "akmods_name := shell('yq \".images.$1[\\\"$2\\\"].$3.name\" images.yaml', "
+        "version, kernel_flavor, akmods_target)"
+    )
+    updated = original.replace(target, replacement)
+
+    if updated == original:
+        raise CiToolError(
+            "Failed to patch cloned akmods Justfile for repo-scoped publish names"
+        )
+
+    AKMODS_JUSTFILE.write_text(updated, encoding="utf-8")
+    print("Patched cloned akmods Justfile to honor repo-scoped image names.")
+
+
 def main() -> None:
     # Workflow inputs that define exactly which akmods source to use.
     upstream_repo = require_env("AKMODS_UPSTREAM_REPO")
@@ -65,6 +91,7 @@ def main() -> None:
         raise CiToolError(f"Pinned ref mismatch: expected {upstream_ref}, got {resolved_ref}")
 
     patch_self_hosted_podman_builds()
+    patch_repo_scoped_akmods_name()
     print(f"Using pinned akmods ref: {resolved_ref}")
 
 
