@@ -77,7 +77,12 @@ env:
 jobs:
   build-zfs-akmods:
     name: Build Self-Hosted ZFS Akmods (candidate)
-    runs-on: ubuntu-24.04
+    # Only trusted branch/main jobs target the dedicated repo-scoped runner VM.
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - kinoite-zfs-builder
     outputs:
       fedora_version: ${{ steps.prepare.outputs.version }}
       kernel_release: ${{ steps.prepare.outputs.kernel_release }}

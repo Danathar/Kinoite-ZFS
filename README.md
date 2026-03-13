@@ -13,6 +13,18 @@
 
 This repository exists to test and validate ZFS support on Kinoite images built with BlueBuild.
 
+> [!WARNING]
+> This repository is wired to a dedicated local self-hosted GitHub Actions runner.
+> Do not template or fork it as-is unless you are also replacing that runner
+> configuration in [`.github/workflows/build.yml`](.github/workflows/build.yml)
+> and [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml).
+> The PR workflow intentionally stays on GitHub-hosted runners, but trusted
+> branch and main builds now expect the `kinoite-zfs-builder` runner label.
+>
+> If you want a repo to fork or template, use
+> [`Danathar/zfs-kinoite-containerfile`](https://github.com/Danathar/zfs-kinoite-containerfile)
+> instead. That is the newer repo for this project direction.
+
 If you are new to ZFS:
 
 - ZFS is a filesystem + volume manager focused on data integrity and storage management features (for example checksums, snapshots, and pooled storage).
@@ -25,7 +37,7 @@ Core goal:
 - Build matching ZFS akmods against that kernel.
 - Install those ZFS RPMs directly into the final image.
 - Catch kernel/module mismatches during CI (automated GitHub Actions workflow runs), before rebasing a host (`rebasing` here means switching an existing atomic host to a newly built container image).
-- Keep the workflow (the GitHub Actions automation file that defines jobs and steps) reusable as a template so users can adapt it to other Universal Blue or Fedora Atomic images if they want ZFS support there.
+- Keep the workflow maintainable for this repository's own image stream.
 
 ## If You Are New To Akmods And Atomic Images
 
@@ -76,7 +88,7 @@ As of February 27, 2026:
 
 1. There are active discussions about possible future ZFS scope changes in some Universal Blue images (for example Aurora issue [#1765](https://github.com/ublue-os/aurora/issues/1765)).
 2. The linked issue is currently open and framed as consideration/planning discussion, not a finalized global removal action.
-3. A practical goal of this repository is continuity: if upstream image defaults change, this workflow can still be used as a starting template for self-maintained ZFS-enabled images.
+3. A practical goal of this repository is continuity for this specific image stream if upstream image defaults change.
 
 If you are new to some of the terms used below, read the glossary first:
 
