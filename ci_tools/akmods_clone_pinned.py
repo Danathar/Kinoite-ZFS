@@ -15,6 +15,30 @@ from ci_tools.common import CiToolError, require_env, run_cmd
 
 
 AKMODS_WORKTREE = Path("/tmp/akmods")
+AKMODS_JUSTFILE = AKMODS_WORKTREE / "Justfile"
+
+
+def patch_self_hosted_podman_builds() -> None:
+    """
+    Patch the cloned akmods Justfile for nested Podman-on-SELinux runners.
+
+    On the Bluefin self-hosted runner, upstream `podman build` needs
+    `--security-opt label=disable` when it bind-mounts the fetched kernel RPM
+    cache. We patch only the local cloned worktree used by this repository so
+    the shared `Danathar/akmods` source repo and other consumers stay unchanged.
+    """
+    original = AKMODS_JUSTFILE.read_text(encoding="utf-8")
+    target = "--volume {{ KCPATH }}:/tmp/kernel_cache:ro"
+    replacement = "--security-opt label=disable --volume {{ KCPATH }}:/tmp/kernel_cache:ro"
+    updated = original.replace(target, replacement)
+
+    if updated == original:
+        raise CiToolError(
+            "Failed to patch cloned akmods Justfile for self-hosted Podman mounts"
+        )
+
+    AKMODS_JUSTFILE.write_text(updated, encoding="utf-8")
+    print("Patched cloned akmods Justfile for self-hosted Podman SELinux mounts.")
 
 
 def main() -> None:
@@ -40,6 +64,7 @@ def main() -> None:
     if resolved_ref != upstream_ref:
         raise CiToolError(f"Pinned ref mismatch: expected {upstream_ref}, got {resolved_ref}")
 
+    patch_self_hosted_podman_builds()
     print(f"Using pinned akmods ref: {resolved_ref}")
 
 
