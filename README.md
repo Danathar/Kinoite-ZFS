@@ -25,6 +25,11 @@ This repository exists to test and validate ZFS support on Kinoite images built 
 > [`Danathar/zfs-kinoite-containerfile`](https://github.com/Danathar/zfs-kinoite-containerfile)
 > instead. That is the newer repo for this project direction.
 >
+> If you still want to adapt this old BlueBuild repo to your own dedicated
+> Bluefin self-hosted runner VM, read
+> [`docs/self-hosted-runner.md`](docs/self-hosted-runner.md) first and replace
+> the repo scope, runner labels, and GHCR package names deliberately.
+>
 > This BlueBuild repo also uses its own dedicated akmods package names so it no
 > longer shares the `akmods-zfs` GHCR cache namespace with that newer repo.
 
