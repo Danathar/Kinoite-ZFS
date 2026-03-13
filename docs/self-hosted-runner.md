@@ -7,25 +7,29 @@ consumes that shared akmods source.
 
 ## What Uses The Runner
 
-Only the trusted akmods build jobs in [build.yml](../.github/workflows/build.yml)
-and [build-beta.yml](../.github/workflows/build-beta.yml)
-target the self-hosted label.
+The trusted akmods build jobs and the trusted BlueBuild image-build jobs in
+[build.yml](../.github/workflows/build.yml) and
+[build-beta.yml](../.github/workflows/build-beta.yml) target the self-hosted
+label.
 
 The PR workflow in [build-pr.yml](../.github/workflows/build-pr.yml)
 stays on GitHub-hosted runners so public pull requests never execute on the VM.
 
 ## Runner Layout
 
-- Container image: `ghcr.io/myoung34/docker-github-actions-runner:ubuntu-noble`
+- Container image: local `kinoite-zfs-runner:local` built from `ghcr.io/myoung34/docker-github-actions-runner:ubuntu-noble`
 - Repo scope: `Danathar/Kinoite-ZFS`
 - Custom labels: `kinoite-zfs-builder`, `kinoite-zfs-trusted`
+- Runner install dir: `~/.local/share/kinoite-zfs-runner/actions-runner`
 - Persistent work dir: `~/.local/share/kinoite-zfs-runner/work`
-- Persistent config dir: `~/.local/share/kinoite-zfs-runner/config`
+- Tool cache dir: `~/.local/share/kinoite-zfs-runner/toolcache`
 
 The runner container mounts the host Docker socket because the trusted jobs use
 GitHub Actions `container:` jobs. The work directory is mounted at the same path
 inside and outside the container so sibling job containers can see the checked
-out workspace.
+out workspace. The runner binary and tool cache also live at host-visible paths
+under the same runner home so GitHub can mount those paths into sibling job
+containers without writing to the immutable `/` on Bluefin.
 
 ## Bootstrap
 

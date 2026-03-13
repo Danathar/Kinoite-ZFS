@@ -22,7 +22,7 @@ on:
     inputs:
       rebuild_akmods:
         # Ignore cache checks and always rebuild akmods.
-        description: Force rebuild of candidate self-hosted akmods-zfs
+        description: Force rebuild of the self-hosted akmods cache used by this repo
         required: false
         default: false
         type: boolean
@@ -66,8 +66,9 @@ env:
   # - Stable `kinoite-zfs:latest` is updated only in the promote job.
   IMAGE_NAME: kinoite-zfs
   CANDIDATE_IMAGE_NAME: kinoite-zfs-candidate
-  CANDIDATE_AKMODS_REPO: akmods-zfs-candidate
-  STABLE_AKMODS_REPO: akmods-zfs
+  # Keep this repo's akmods cache separate from the newer Containerfile repo.
+  CANDIDATE_AKMODS_REPO: kinoite-zfs-bluebuild-akmods-candidate
+  STABLE_AKMODS_REPO: kinoite-zfs-bluebuild-akmods
 
   # Default moving inputs used when lock mode is off.
   DEFAULT_BASE_IMAGE: ghcr.io/ublue-os/kinoite-main:latest
@@ -121,7 +122,7 @@ jobs:
           default_base_image: ${{ env.DEFAULT_BASE_IMAGE }}
           default_zfs_minor_version: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
           default_akmods_ref: ${{ env.AKMODS_UPSTREAM_REF }}
-          # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
+          # This repo keeps its own stable self-hosted akmods cache.
           # We inspect that shared source tag here, then copy it into candidate
           # alias tags before compose.
           shared_akmods_repo: ${{ env.STABLE_AKMODS_REPO }}
@@ -177,7 +178,7 @@ jobs:
 
       - name: Publish candidate akmods alias tags
         # Compose step means the candidate image build step (`Build Candidate Image`).
-        # Candidate compose/promotion read from `akmods-zfs-candidate`.
+        # Candidate compose/promotion read from this repo's candidate akmods cache.
         # We copy shared source tags into candidate tags every run so the
         # candidate boundary stays explicit even when upstream push names are fixed.
         shell: bash
@@ -197,7 +198,12 @@ jobs:
     # This job must pass before stable tags are allowed to move.
     # If candidate build fails, users stay on last known-good `latest`.
     needs: build-zfs-akmods
-    runs-on: ubuntu-latest
+    # Candidate compose is trusted heavy work, so keep it on the dedicated runner.
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - kinoite-zfs-builder
     permissions:
       contents: read
       packages: write
@@ -219,6 +225,8 @@ jobs:
         uses: ./.github/actions/run-bluebuild
         with:
           mode: publish
+          # GitHub-hosted disk reclamation is unnecessary on the dedicated runner VM.
+          maximize_build_space: "false"
           # The action's working directory is the folder it treats as the local
           # build root. We point it at the generated workspace so BlueBuild reads
           # transient run-specific files instead of the checked-in source files.

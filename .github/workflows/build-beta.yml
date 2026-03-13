@@ -24,6 +24,8 @@ concurrency:
 env:
   # Keep branch validation on the same moving defaults as `main`.
   AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
+  STABLE_AKMODS_REPO: kinoite-zfs-bluebuild-akmods
+  CANDIDATE_AKMODS_REPO: kinoite-zfs-bluebuild-akmods-candidate
   DEFAULT_BASE_IMAGE: ghcr.io/ublue-os/kinoite-main:latest
   DEFAULT_BUILD_CONTAINER_IMAGE: ghcr.io/ublue-os/devcontainer:latest
   DEFAULT_ZFS_MINOR_VERSION: "2.4"
@@ -60,7 +62,7 @@ jobs:
       base_image_tag: ${{ steps.prepare.outputs.base_image_tag }}
     permissions:
       contents: read
-      # Needed to copy/publish branch alias tags in ghcr.io/<owner>/akmods-zfs-candidate:*.
+      # Needed to copy/publish branch alias tags in this repo's candidate akmods cache.
       packages: write
     container:
       image: ghcr.io/ublue-os/devcontainer:latest
@@ -72,9 +74,9 @@ jobs:
         id: prepare
         uses: ./.github/actions/prepare-validation-build
         with:
-          # Upstream akmods publish currently writes zfs tags to `akmods-zfs`.
+          # Branch validation reads the repo-scoped shared cache produced by `main`.
           # Branch workflow intentionally treats this as read-only input.
-          akmods_repo: akmods-zfs
+          akmods_repo: ${{ env.STABLE_AKMODS_REPO }}
           default_base_image: ${{ env.DEFAULT_BASE_IMAGE }}
           default_build_container_image: ${{ env.DEFAULT_BUILD_CONTAINER_IMAGE }}
           default_zfs_minor_version: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
@@ -93,8 +95,8 @@ jobs:
         shell: bash
         env:
           FEDORA_VERSION: ${{ steps.prepare.outputs.version }}
-          SOURCE_AKMODS_REPO: akmods-zfs
-          DEST_AKMODS_REPO: akmods-zfs-candidate
+          SOURCE_AKMODS_REPO: ${{ env.STABLE_AKMODS_REPO }}
+          DEST_AKMODS_REPO: ${{ env.CANDIDATE_AKMODS_REPO }}
           DEST_TAG_PREFIX: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
           REGISTRY_ACTOR: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
@@ -106,7 +108,12 @@ jobs:
     needs:
       - prepare-branch-metadata
       - build-zfs-akmods
-    runs-on: ubuntu-latest
+    # Branch compose is trusted heavy work, so keep it on the dedicated runner.
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - kinoite-zfs-builder
     permissions:
       contents: read
       packages: write
@@ -117,7 +124,7 @@ jobs:
       - name: Configure generated branch build workspace
         uses: ./.github/actions/configure-generated-build-context
         with:
-          akmods_repo: akmods-zfs-candidate
+          akmods_repo: ${{ env.CANDIDATE_AKMODS_REPO }}
           akmods_tag_prefix: ${{ needs.prepare-branch-metadata.outputs.akmods_public_tag_prefix }}
           base_image_name: ${{ needs.build-zfs-akmods.outputs.base_image_name }}
           base_image_tag: ${{ needs.build-zfs-akmods.outputs.base_image_tag }}
@@ -126,6 +133,7 @@ jobs:
         uses: ./.github/actions/run-bluebuild
         with:
           mode: publish
+          maximize_build_space: "false"
           working_directory: .generated/bluebuild/
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}

@@ -24,6 +24,9 @@ This repository exists to test and validate ZFS support on Kinoite images built 
 > If you want a repo to fork or template, use
 > [`Danathar/zfs-kinoite-containerfile`](https://github.com/Danathar/zfs-kinoite-containerfile)
 > instead. That is the newer repo for this project direction.
+>
+> This BlueBuild repo also uses its own dedicated akmods package names so it no
+> longer shares the `akmods-zfs` GHCR cache namespace with that newer repo.
 
 If you are new to ZFS:
 
@@ -111,19 +114,19 @@ If you want the full technical design and workflow details, read:
 - Candidate image (pre-promotion):
   - `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
 - Candidate akmods cache image (pre-promotion):
-  - `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
+  - `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:main-<fedora>`
 - Stable image (promoted only after candidate success):
   - `ghcr.io/danathar/kinoite-zfs:latest`
 - Stable image audit tag (immutable per promotion):
   - `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
 - Stable akmods cache image (promoted from candidate cache):
-  - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+  - `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-<fedora>`
 - Branch test image:
   - `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
 - Shared akmods source tag used by branch alias step:
-  - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+  - `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-<fedora>`
 - Branch akmods compose alias (branch-scoped public tag):
-  - `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
+  - `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:br-<branch>-<fedora>`
 
 Candidate and branch artifacts are isolated so test runs do not overwrite stable `ghcr.io/danathar/kinoite-zfs:latest`.
 
@@ -155,7 +158,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
-  - Copies shared akmods source tags into branch-scoped public alias tags in `akmods-zfs-candidate` for compose (branch image build step).
+  - Copies shared akmods source tags into branch-scoped public alias tags in `kinoite-zfs-bluebuild-akmods-candidate` for compose (branch image build step).
   - Fails closed if shared akmods source tags are missing/stale (so test branches do not mutate shared cache tags).
   - Runs on branch pushes and manual dispatch.
 - [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)

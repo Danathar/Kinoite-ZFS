@@ -16,6 +16,7 @@ permissions:
 env:
   # Keep PR validation on the same moving defaults as `main`.
   AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
+  STABLE_AKMODS_REPO: kinoite-zfs-bluebuild-akmods
   DEFAULT_BASE_IMAGE: ghcr.io/ublue-os/kinoite-main:latest
   DEFAULT_BUILD_CONTAINER_IMAGE: ghcr.io/ublue-os/devcontainer:latest
   DEFAULT_ZFS_MINOR_VERSION: "2.4"
@@ -40,7 +41,7 @@ jobs:
         id: prepare
         uses: ./.github/actions/prepare-validation-build
         with:
-          akmods_repo: akmods-zfs
+          akmods_repo: ${{ env.STABLE_AKMODS_REPO }}
           default_base_image: ${{ env.DEFAULT_BASE_IMAGE }}
           default_build_container_image: ${{ env.DEFAULT_BUILD_CONTAINER_IMAGE }}
           default_zfs_minor_version: ${{ env.DEFAULT_ZFS_MINOR_VERSION }}
@@ -55,7 +56,7 @@ jobs:
       - name: Configure generated PR build workspace
         uses: ./.github/actions/configure-generated-build-context
         with:
-          akmods_repo: akmods-zfs
+          akmods_repo: ${{ env.STABLE_AKMODS_REPO }}
           akmods_tag_prefix: main
           base_image_name: ${{ needs.prepare-pr-build.outputs.base_image_name }}
           base_image_tag: ${{ needs.prepare-pr-build.outputs.base_image_tag }}

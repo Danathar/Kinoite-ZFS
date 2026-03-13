@@ -7,8 +7,9 @@ COMPOSE_FILE="${SCRIPT_DIR}/compose.yml"
 : "${GITHUB_REPOSITORY:=Danathar/Kinoite-ZFS}"
 : "${REPO_URL:=https://github.com/${GITHUB_REPOSITORY}}"
 : "${RUNNER_HOME:=${HOME}/.local/share/kinoite-zfs-runner}"
+: "${RUNNER_INSTALL_DIR:=${RUNNER_HOME}/actions-runner}"
 : "${RUNNER_WORKDIR:=${RUNNER_HOME}/work}"
-: "${RUNNER_CONFIG_DIR:=${RUNNER_HOME}/config}"
+: "${RUNNER_TOOLCACHE_DIR:=${RUNNER_HOME}/toolcache}"
 : "${RUNNER_LABELS:=kinoite-zfs-builder,kinoite-zfs-trusted}"
 
 DEFAULT_HOSTNAME="$(hostname -s 2>/dev/null || hostname)"
@@ -32,8 +33,9 @@ export_compose_env() {
   export REPO_URL
   export RUNNER_NAME
   export RUNNER_LABELS
+  export RUNNER_INSTALL_DIR
   export RUNNER_WORKDIR
-  export RUNNER_CONFIG_DIR
+  export RUNNER_TOOLCACHE_DIR
   export RUNNER_TOKEN="${RUNNER_TOKEN:-unused}"
 }
 
@@ -43,7 +45,7 @@ compose() {
 }
 
 ensure_dirs() {
-  mkdir -p "${RUNNER_WORKDIR}" "${RUNNER_CONFIG_DIR}"
+  mkdir -p "${RUNNER_INSTALL_DIR}" "${RUNNER_WORKDIR}" "${RUNNER_TOOLCACHE_DIR}"
 }
 
 fetch_registration_token() {
@@ -66,7 +68,7 @@ cmd_up() {
   ensure_dirs
   export RUNNER_TOKEN
   RUNNER_TOKEN="$(fetch_registration_token)"
-  compose up -d
+  compose up -d --build
   unset RUNNER_TOKEN
   compose ps
   runner_summary

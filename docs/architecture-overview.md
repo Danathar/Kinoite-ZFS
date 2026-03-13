@@ -48,11 +48,11 @@ We publish two output groups:
 
 1. Candidate outputs (test stage):
    - Run-scoped image source tag in candidate repo: `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
-   - Candidate akmods cache tag used by compose: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
-   - Newest-kernel candidate akmods debug tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
+   - Candidate akmods cache tag used by compose: `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:main-<fedora>`
+   - Newest-kernel candidate akmods debug tag: `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:main-<fedora>-<kernel_release>`
 2. Stable outputs (updated only after candidate success):
    - `ghcr.io/danathar/kinoite-zfs:latest`
-   - `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+   - `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-<fedora>`
 
 Branch builds are isolated (`br-<branch>-<fedora>` tags on branch image outputs plus branch-scoped akmods alias tags in candidate repo) so experiments do not overwrite stable images.
 

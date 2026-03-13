@@ -60,7 +60,7 @@ Candidate failure should not move stable tags. Verify directly:
 # Check stable image digest and kernel label.
 skopeo inspect docker://ghcr.io/danathar/kinoite-zfs:latest | jq -r '.Digest,.Labels["ostree.linux"]'
 # Check stable akmods digest.
-skopeo inspect docker://ghcr.io/danathar/akmods-zfs:main-43 | jq -r '.Digest'
+skopeo inspect docker://ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43 | jq -r '.Digest'
 ```
 
 Compare these values with the last known good promotion run.
@@ -132,7 +132,7 @@ Action:
 1. Re-run candidate with `rebuild_akmods=true`.
 2. Verify candidate compose pins `image-version` to the resolved immutable base tag from `build-inputs.json`.
 3. Verify `build-inputs.json` records every kernel shipped in the base image under `inputs.kernel_releases`.
-4. Verify candidate compose references candidate akmods `AKMODS_IMAGE` tag `ghcr.io/<owner>/akmods-zfs-candidate:main-<fedora>`.
+4. Verify candidate compose references candidate akmods `AKMODS_IMAGE` tag `ghcr.io/<owner>/kinoite-zfs-bluebuild-akmods-candidate:main-<fedora>`.
 5. Verify akmods logs show one `Pinned akmods kernel release to <kernel_release>` line for each base-image kernel that required a cache rebuild.
 6. If the cache image already contains every expected `kmod-zfs-<kernel_release>-*.rpm` file, inspect whether those RPM files share the same internal RPM identity (`rpm -qp --qf '%{NAME} %{VERSION}-%{RELEASE} %{ARCH}\n' ...`). If they do, candidate compose must install only one `kmod-zfs` package through `rpm-ostree` and unpack the remaining kernel-specific payloads directly.
 7. Deferred refactor option to keep documented here for later: replace the current shared-image compatibility shim with a broader downstream design that consumes multiple kernel-specific akmods tags directly instead of one merged `main-<fedora>` tag.
@@ -148,7 +148,7 @@ Typical signal:
 Likely cause:
 
 1. Registry transient issue, auth issue, or partial copy failure.
-2. Candidate akmods tag missing for that Fedora version (`akmods-zfs-candidate:main-<fedora>`).
+2. Candidate akmods tag missing for that Fedora version (`kinoite-zfs-bluebuild-akmods-candidate:main-<fedora>`).
 3. Stable digest signing failed after promotion copy (for example missing signing secret or signature upload failure).
 
 Action:

@@ -42,17 +42,17 @@ This is intentionally designed for iterative validation before adopting any appr
 ### Main Artifacts
 
 1. Candidate source image tag: `ghcr.io/danathar/kinoite-zfs-candidate:<shortsha>-<fedora>`
-2. Candidate akmods cache tag used by compose: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>`
-3. Candidate akmods newest-kernel debug tag: `ghcr.io/danathar/akmods-zfs-candidate:main-<fedora>-<kernel_release>`
+2. Candidate akmods cache tag used by compose: `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:main-<fedora>`
+3. Candidate akmods newest-kernel debug tag: `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:main-<fedora>-<kernel_release>`
 4. Stable OS image: `ghcr.io/danathar/kinoite-zfs:latest`
 5. Stable OS audit tag: `ghcr.io/danathar/kinoite-zfs:stable-<run>-<sha>`
-6. Stable akmods cache image: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
+6. Stable akmods cache image: `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-<fedora>`
 
 ### Branch Artifacts
 
 1. OS image: `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
-2. Shared akmods source tag: `ghcr.io/danathar/akmods-zfs:main-<fedora>`
-3. Branch-scoped public compose alias (the alias tag read by the branch compose step): `ghcr.io/danathar/akmods-zfs-candidate:br-<branch>-<fedora>`
+2. Shared akmods source tag: `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-<fedora>`
+3. Branch-scoped public compose alias (the alias tag read by the branch compose step): `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:br-<branch>-<fedora>`
 
 Branch artifacts are isolated at the image tag level and at the branch alias tag level in candidate repo, so test images do not overwrite stable image tags.
 
@@ -181,7 +181,7 @@ Key behavior:
 1. Uses one shared local main-prep action to:
    - resolve and pin the exact base image, builder image, kernel release, and ZFS version for the run
    - upload a build-input manifest artifact (`build-inputs-<run_id>`) so the same inputs can be replayed later
-   - check whether the shared `akmods-zfs:main-<fedora>` cache already covers the base-image kernel set
+   - check whether the shared `kinoite-zfs-bluebuild-akmods:main-<fedora>` cache already covers the base-image kernel set
 2. Keeps the rebuild-or-reuse decision visible in workflow YAML after that prep action, so operators can still read the control flow directly in `build.yml`.
 3. Validates and (when needed) rebuilds the shared Fedora-wide akmods cache so it contains RPMs for all of the pinned base-image kernels.
 4. Copies shared akmods tags into candidate akmods alias tags.
@@ -205,9 +205,9 @@ Key behavior:
 1. Computes branch-safe public alias tag prefix.
 2. Uses one shared local validation-prep action to:
    - resolve the same pinned inputs `main` uses
-   - verify the shared akmods source tag `akmods-zfs:main-<fedora>`
+   - verify the shared akmods source tag `kinoite-zfs-bluebuild-akmods:main-<fedora>`
 3. Fails closed if that shared source tag is missing/stale (branch runs do not rebuild shared cache tags).
-4. Copies a branch-scoped alias tag into `akmods-zfs-candidate` so compose can pull from a public path.
+4. Copies a branch-scoped alias tag into `kinoite-zfs-bluebuild-akmods-candidate` so compose can pull from a public path.
 5. That local validation-prep action still calls the shared Python command `prepare-validation-build`, so the actual input-resolution and cache-validation behavior stays centralized.
 6. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
 7. Calls one shared local composite action to feed branch-specific values into the generated-workspace helper, instead of repeating the same shell/env block in every workflow.

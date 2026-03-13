@@ -1,17 +1,21 @@
 services:
   runner:
-    image: ghcr.io/myoung34/docker-github-actions-runner:ubuntu-noble
+    build:
+      context: ../..
+      dockerfile: ci/github-runner/Dockerfile
+    image: kinoite-zfs-runner:local
     container_name: kinoite-zfs-runner
-    pull_policy: always
     restart: unless-stopped
     environment:
+      ACTIONS_RUNNER_DIR: ${RUNNER_INSTALL_DIR}
+      AGENT_TOOLSDIRECTORY: ${RUNNER_TOOLCACHE_DIR}
+      IMAGE_ACTIONS_RUNNER_DIR: /opt/actions-runner-image
       RUN_AS_ROOT: "true"
       RUNNER_SCOPE: repo
       REPO_URL: ${REPO_URL}
       RUNNER_NAME: ${RUNNER_NAME}
       LABELS: ${RUNNER_LABELS}
       RUNNER_WORKDIR: ${RUNNER_WORKDIR}
-      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: ${RUNNER_CONFIG_DIR}
       DISABLE_AUTOMATIC_DEREGISTRATION: "true"
       DISABLE_AUTO_UPDATE: "1"
       UNSET_CONFIG_VARS: "true"
@@ -19,5 +23,6 @@ services:
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${RUNNER_INSTALL_DIR}:${RUNNER_INSTALL_DIR}
       - ${RUNNER_WORKDIR}:${RUNNER_WORKDIR}
-      - ${RUNNER_CONFIG_DIR}:${RUNNER_CONFIG_DIR}
+      - ${RUNNER_TOOLCACHE_DIR}:${RUNNER_TOOLCACHE_DIR}
