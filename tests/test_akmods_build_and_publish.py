@@ -18,6 +18,7 @@ from ci_tools.akmods_build_and_publish import (
     build_kernel_cache_document,
     kernel_major_minor_patch,
     kernel_name_for_flavor,
+    manifest_tag_for_kernel_release,
     merged_cache_missing_kernel_releases,
 )
 
@@ -33,6 +34,14 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
     def test_kernel_major_minor_patch(self) -> None:
         value = kernel_major_minor_patch("6.18.12-200.fc43.x86_64")
         self.assertEqual(value, "6.18.12-200")
+
+    def test_manifest_tag_for_kernel_release_strips_arch_suffix(self) -> None:
+        value = manifest_tag_for_kernel_release(
+            kernel_flavor="main",
+            akmods_version="43",
+            kernel_release="6.19.6-200.fc43.x86_64",
+        )
+        self.assertEqual(value, "main-43-6.19.6-200.fc43")
 
     def test_build_kernel_cache_document_default_path(self) -> None:
         payload, cache_path, upstream_build_root = build_kernel_cache_document(
@@ -159,18 +168,74 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
                     return_value=["6.18.16-200.fc43.x86_64"],
                 ):
                     with patch.object(script, "build_and_push_kernel_release") as build_release:
-                        with patch.object(script, "run_cmd") as run_cmd:
-                            script.main()
+                        with patch.object(script, "clear_local_manifest_targets") as clear_targets:
+                            with patch.object(script, "run_cmd") as run_cmd:
+                                script.main()
 
         build_release.assert_called_once_with(
             "6.18.16-200.fc43.x86_64",
             shared_cache_path=True,
         )
+        clear_targets.assert_called_once_with(kernel_release="6.18.16-200.fc43.x86_64")
         self.assertEqual(
             run_cmd.call_args_list,
             [
                 call(["just", "login"], cwd=str(Path(tempdir)), capture_output=False),
                 call(["just", "manifest"], cwd=str(Path(tempdir)), capture_output=False),
+            ],
+        )
+
+    def test_clear_local_manifest_targets_removes_shared_and_kernel_refs(self) -> None:
+        recorded: list[list[str]] = []
+
+        def fake_run(args: list[str], **_kwargs: object) -> object:
+            recorded.append(args)
+
+            class Result:
+                returncode = 1 if args[:3] == ["podman", "manifest", "rm"] else 0
+
+            return Result()
+
+        with patch.dict(
+            script.os.environ,
+            {
+                "AKMODS_KERNEL": "main",
+                "AKMODS_VERSION": "43",
+                "AKMODS_REPO": "kinoite-zfs-bluebuild-akmods",
+                "GITHUB_REPOSITORY_OWNER": "Danathar",
+            },
+            clear=False,
+        ):
+            with patch.object(script.subprocess, "run", side_effect=fake_run):
+                script.clear_local_manifest_targets(
+                    kernel_release="6.19.6-200.fc43.x86_64"
+                )
+
+        self.assertEqual(
+            recorded,
+            [
+                [
+                    "podman",
+                    "manifest",
+                    "rm",
+                    "ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+                ],
+                [
+                    "podman",
+                    "rmi",
+                    "ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+                ],
+                [
+                    "podman",
+                    "manifest",
+                    "rm",
+                    "ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43-6.19.6-200.fc43",
+                ],
+                [
+                    "podman",
+                    "rmi",
+                    "ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43-6.19.6-200.fc43",
+                ],
             ],
         )
 

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -30,6 +32,7 @@ from ci_tools.common import (
 
 
 AKMODS_WORKTREE = Path("/tmp/akmods")
+ARCH_SUFFIX_RE = re.compile(r"\.(x86_64|aarch64)$")
 
 
 def kernel_name_for_flavor(kernel_flavor: str) -> str:
@@ -156,6 +159,61 @@ def build_and_push_kernel_release(kernel_release: str, *, shared_cache_path: boo
     # images, because upstream's shared-cache flow assumes one kernel per build.
     run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
     run_cmd(["just", "push"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+
+
+def manifest_tag_for_kernel_release(
+    *,
+    kernel_flavor: str,
+    akmods_version: str,
+    kernel_release: str,
+) -> str:
+    """Match upstream manifest tag naming for one kernel-specific image."""
+    stripped_release = ARCH_SUFFIX_RE.sub("", kernel_release)
+    return f"{kernel_flavor}-{akmods_version}-{stripped_release}"
+
+
+def drop_local_podman_reference(image_ref: str) -> None:
+    """
+    Remove a local Podman manifest or image tag if it exists.
+
+    The self-hosted runner persists local Podman state between jobs. Upstream
+    `just manifest` reuses stable names like `main-43`, so we clear any stale
+    local manifest or image tag first to keep manifest creation idempotent.
+    """
+    for command in (["podman", "manifest", "rm", image_ref], ["podman", "rmi", image_ref]):
+        result = subprocess.run(
+            command,
+            check=False,
+            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode == 0:
+            print(f"Removed stale local Podman reference: {image_ref}")
+            break
+
+
+def clear_local_manifest_targets(*, kernel_release: str | None) -> None:
+    """Delete local manifest/image names that upstream `just manifest` will reuse."""
+    kernel_flavor = require_env("AKMODS_KERNEL")
+    akmods_version = require_env("AKMODS_VERSION")
+    akmods_repo = require_env("AKMODS_REPO")
+    image_org = normalize_owner(require_env("GITHUB_REPOSITORY_OWNER"))
+
+    refs = [f"ghcr.io/{image_org}/{akmods_repo}:{kernel_flavor}-{akmods_version}"]
+    if kernel_release:
+        refs.append(
+            "ghcr.io/"
+            f"{image_org}/{akmods_repo}:"
+            f"{manifest_tag_for_kernel_release(
+                kernel_flavor=kernel_flavor,
+                akmods_version=akmods_version,
+                kernel_release=kernel_release,
+            )}"
+        )
+
+    for ref in refs:
+        drop_local_podman_reference(ref)
 
 
 def merged_cache_missing_kernel_releases(
@@ -290,6 +348,7 @@ def main() -> None:
         run_cmd(["just", "build"], cwd=str(AKMODS_WORKTREE), capture_output=False)
         run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
         run_cmd(["just", "push"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        clear_local_manifest_targets(kernel_release=optional_env("KERNEL_RELEASE").strip() or None)
         run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
         return
 
@@ -299,6 +358,7 @@ def main() -> None:
             kernel_releases[0],
             shared_cache_path=True,
         )
+        clear_local_manifest_targets(kernel_release=kernel_releases[0])
         run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
         return
 

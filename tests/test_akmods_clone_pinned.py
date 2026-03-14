@@ -15,7 +15,6 @@ from unittest.mock import patch
 
 from ci_tools.akmods_clone_pinned import (
     patch_repo_scoped_akmods_name,
-    patch_self_hosted_manifest_reuse,
     patch_self_hosted_podman_builds,
 )
 from ci_tools.common import CiToolError
@@ -72,43 +71,6 @@ class AkmodsClonePinnedTests(unittest.TestCase):
             updated = justfile.read_text(encoding="utf-8")
             self.assertIn('.images.$1[\\"$2\\"].$3.name', updated)
             self.assertNotIn("akmods_name := 'akmods' + if akmods_target != 'common'", updated)
-
-    def test_patch_self_hosted_manifest_reuse_rewrites_both_manifest_creates(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            justfile = Path(temp_dir) / "Justfile"
-            justfile.write_text(
-                "\n".join(
-                    [
-                        "MANIFEST=$({{ podman }} manifest create {{ manifest_image }})",
-                        "MANIFEST=$({{ podman }} manifest create {{ manifest_image_kernel }})",
-                    ]
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-
-            with patch("ci_tools.akmods_clone_pinned.AKMODS_JUSTFILE", justfile):
-                patch_self_hosted_manifest_reuse()
-
-            updated = justfile.read_text(encoding="utf-8")
-            self.assertEqual(updated.count("manifest create --replace"), 2)
-            self.assertNotIn("manifest create {{ manifest_image }})", updated)
-            self.assertNotIn("manifest create {{ manifest_image_kernel }})", updated)
-
-    def test_patch_self_hosted_manifest_reuse_fails_when_upstream_shape_changes(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            justfile = Path(temp_dir) / "Justfile"
-            justfile.write_text(
-                "MANIFEST=$({{ podman }} manifest create {{ manifest_image }})\n",
-                encoding="utf-8",
-            )
-
-            with patch("ci_tools.akmods_clone_pinned.AKMODS_JUSTFILE", justfile):
-                with self.assertRaisesRegex(
-                    CiToolError,
-                    "Failed to patch cloned akmods Justfile for self-hosted manifest reuse",
-                ):
-                    patch_self_hosted_manifest_reuse()
 
     def test_patch_repo_scoped_akmods_name_fails_when_upstream_shape_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
