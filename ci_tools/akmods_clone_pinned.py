@@ -41,6 +41,43 @@ def patch_self_hosted_podman_builds() -> None:
     print("Patched cloned akmods Justfile for self-hosted Podman SELinux mounts.")
 
 
+def patch_self_hosted_manifest_reuse() -> None:
+    """
+    Patch the cloned akmods Justfile to reuse existing local manifest names.
+
+    The self-hosted runner keeps local Podman state between runs. Upstream
+    `just manifest` creates stable manifest names such as `main-43`; on a later
+    scheduled rebuild, `podman manifest create` fails if that name is already
+    present locally from a previous run. We patch only this repo's temporary
+    clone so repeated scheduled runs stay idempotent without changing the shared
+    akmods source repo.
+    """
+    original = AKMODS_JUSTFILE.read_text(encoding="utf-8")
+    replacements = {
+        "MANIFEST=$({{ podman }} manifest create {{ manifest_image }})": (
+            "MANIFEST=$({{ podman }} manifest create --replace {{ manifest_image }})"
+        ),
+        "MANIFEST=$({{ podman }} manifest create {{ manifest_image_kernel }})": (
+            "MANIFEST=$({{ podman }} manifest create --replace {{ manifest_image_kernel }})"
+        ),
+    }
+
+    updated = original
+    replaced_count = 0
+    for target, replacement in replacements.items():
+        if target in updated:
+            updated = updated.replace(target, replacement)
+            replaced_count += 1
+
+    if replaced_count != len(replacements):
+        raise CiToolError(
+            "Failed to patch cloned akmods Justfile for self-hosted manifest reuse"
+        )
+
+    AKMODS_JUSTFILE.write_text(updated, encoding="utf-8")
+    print("Patched cloned akmods Justfile for self-hosted manifest reuse.")
+
+
 def patch_repo_scoped_akmods_name() -> None:
     """
     Patch the cloned akmods Justfile to honor the configured image name.
@@ -91,6 +128,7 @@ def main() -> None:
         raise CiToolError(f"Pinned ref mismatch: expected {upstream_ref}, got {resolved_ref}")
 
     patch_self_hosted_podman_builds()
+    patch_self_hosted_manifest_reuse()
     patch_repo_scoped_akmods_name()
     print(f"Using pinned akmods ref: {resolved_ref}")
 
