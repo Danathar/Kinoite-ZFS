@@ -24,8 +24,6 @@ modules:
       packages:
         - distrobox
 
-  - type: brew
-
   - type: default-flatpaks
     configurations:
       - scope: system

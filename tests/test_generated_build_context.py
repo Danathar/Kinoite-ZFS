@@ -48,7 +48,14 @@ class GeneratedBuildContextTests(unittest.TestCase):
                 encoding="utf-8",
             )
             canonical_containerfile.write_text(
-                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"\n',
+                "\n".join(
+                    [
+                        "COPY --from=ghcr.io/ublue-os/brew:latest /system_files /",
+                        "RUN /usr/bin/systemctl preset brew-setup.service",
+                        'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"',
+                    ]
+                )
+                + "\n",
                 encoding="utf-8",
             )
             canonical_helper.write_text(
@@ -132,7 +139,14 @@ class GeneratedBuildContextTests(unittest.TestCase):
             )
             self.assertEqual(
                 canonical_containerfile.read_text(encoding="utf-8"),
-                'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"\n',
+                "\n".join(
+                    [
+                        "COPY --from=ghcr.io/ublue-os/brew:latest /system_files /",
+                        "RUN /usr/bin/systemctl preset brew-setup.service",
+                        'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"',
+                    ]
+                )
+                + "\n",
             )
 
             # Generated outputs carry the run-specific values instead.
@@ -148,9 +162,17 @@ class GeneratedBuildContextTests(unittest.TestCase):
                 generated_recipe_text,
             )
             self.assertIn("image-version: latest-20260311.1\n", generated_recipe_text)
-            self.assertEqual(
+            self.assertIn(
+                "COPY --from=ghcr.io/ublue-os/brew:latest /system_files /\n",
                 generated_containerfile_text,
+            )
+            self.assertIn(
+                "RUN /usr/bin/systemctl preset brew-setup.service\n",
+                generated_containerfile_text,
+            )
+            self.assertIn(
                 'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:main-{fedora}"\n',
+                generated_containerfile_text,
             )
 
             # Files BlueBuild needs at build time are present in the generated workspace.

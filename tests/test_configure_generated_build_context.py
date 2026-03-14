@@ -55,7 +55,14 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
             encoding="utf-8",
         )
         (root / "containerfiles" / "zfs-akmods" / "Containerfile").write_text(
-            'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"\n',
+            "\n".join(
+                [
+                    "COPY --from=ghcr.io/ublue-os/brew:latest /system_files /",
+                    "RUN /usr/bin/systemctl preset brew-setup.service",
+                    'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/example/akmods-zfs:main-{fedora}"',
+                ]
+            )
+            + "\n",
             encoding="utf-8",
         )
         (root / "files" / "scripts" / "ensure-repo-signing-policy.sh").write_text(
@@ -92,9 +99,17 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
 
             self.assertIn("name: kinoite-zfs-candidate\n", generated_recipe)
             self.assertIn("image-version: latest-20260311.1\n", generated_recipe)
-            self.assertEqual(
+            self.assertIn(
+                "COPY --from=ghcr.io/ublue-os/brew:latest /system_files /\n",
                 generated_containerfile,
+            )
+            self.assertIn(
+                "RUN /usr/bin/systemctl preset brew-setup.service\n",
+                generated_containerfile,
+            )
+            self.assertIn(
                 'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:main-{fedora}"\n',
+                generated_containerfile,
             )
 
     def test_generates_branch_context_when_branch_tag_prefix_is_supplied(self) -> None:
@@ -124,9 +139,13 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
 
             self.assertIn("name: kinoite-zfs\n", generated_recipe)
             self.assertIn("image-version: 43-20260311.1\n", generated_recipe)
-            self.assertEqual(
+            self.assertIn(
+                "COPY --from=ghcr.io/ublue-os/brew:latest /system_files /\n",
                 generated_containerfile,
+            )
+            self.assertIn(
                 'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:br-feature-test-{fedora}"\n',
+                generated_containerfile,
             )
 
     def test_defaults_to_main_prefix_when_wrapper_passes_empty_tag_prefix(self) -> None:
@@ -155,9 +174,13 @@ class ConfigureGeneratedBuildContextTests(unittest.TestCase):
                 root / ".generated" / "bluebuild" / "containerfiles" / "zfs-akmods" / "Containerfile"
             ).read_text(encoding="utf-8")
 
-            self.assertEqual(
+            self.assertIn(
+                "COPY --from=ghcr.io/ublue-os/brew:latest /system_files /\n",
                 generated_containerfile,
+            )
+            self.assertIn(
                 'ENV AKMODS_IMAGE_TEMPLATE="ghcr.io/danathar/akmods-zfs-candidate:main-{fedora}"\n',
+                generated_containerfile,
             )
 
 

@@ -404,6 +404,32 @@ Planned follow-up:
 1. Add automated post-build smoke tests against a booted test VM/image.
 2. Include `modprobe zfs`, `zpool`, and dataset creation checks in that smoke path.
 
+## Issue #6: Self-Hosted Runner Reused Stale Local Podman Manifest State
+
+Problem:
+
+1. Scheduled akmods rebuilds now run on a persistent self-hosted runner instead of disposable GitHub-hosted runners.
+2. The upstream akmods publish flow creates stable local Podman manifest names such as `main-43` before pushing registry tags.
+3. On a reused runner, a stale local manifest or image tag with that same name can still exist from an earlier run.
+4. When that happens, the rebuild path can fail even though the actual akmods build output is valid.
+
+Mitigation implemented:
+
+1. Kept the fix local to this repo instead of changing the shared `Danathar/akmods` source repo.
+2. Added local cleanup in [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py) to remove stale local Podman manifest/image refs immediately before the upstream `just manifest` call in the single-kernel rebuild path.
+3. Added regression coverage in [`tests/test_akmods_build_and_publish.py`](../tests/test_akmods_build_and_publish.py) so future refactors keep the self-hosted runner path idempotent.
+4. Verified the exact failed rebuild path with manual run `23085717686`, which completed successfully after the fix.
+
+Residual risk:
+
+1. Persistent self-hosted runners can still expose other hidden assumptions that were previously masked by GitHub-hosted clean-slate environments.
+2. Local Podman/build cache growth can still require periodic operator cleanup if disk usage becomes a problem.
+
+Planned follow-up:
+
+1. Continue recording self-hosted-runner-specific incidents in this living issue log as they are discovered.
+2. Add a lightweight operator cleanup checklist for runner-local Podman state if repeated disk/state issues appear.
+
 ## How To Test In A VM
 
 Assume VM has a secondary blank disk at `/dev/vdb`.

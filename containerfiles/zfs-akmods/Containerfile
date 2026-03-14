@@ -1,3 +1,14 @@
+# Layer in the prebuilt Universal Blue Homebrew payload instead of using the
+# BlueBuild brew module. The upstream image already carries the tarball, shell
+# integration, tmpfiles, and systemd units intended for bootc-based hosts.
+COPY --from=ghcr.io/ublue-os/brew:latest /system_files /
+RUN --mount=type=cache,dst=/var/cache \
+    --mount=type=cache,dst=/var/log \
+    --mount=type=tmpfs,dst=/tmp \
+    /usr/bin/systemctl preset brew-setup.service && \
+    /usr/bin/systemctl preset brew-update.timer && \
+    /usr/bin/systemctl preset brew-upgrade.timer
+
 #
 # Copy the compose-time helper into the image build root before the RUN step.
 # Why: build-context files are not mounted inside the container during `RUN`, so
