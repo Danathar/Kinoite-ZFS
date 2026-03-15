@@ -159,7 +159,7 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
                             shared_cache_path=False,
                         )
 
-    def test_main_single_kernel_keeps_upstream_manifest_flow(self) -> None:
+    def test_main_single_kernel_builds_kernel_then_merges_shared_cache(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             with patch.object(script, "AKMODS_WORKTREE", Path(tempdir)):
                 with patch.object(
@@ -168,7 +168,10 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
                     return_value=["6.18.16-200.fc43.x86_64"],
                 ):
                     with patch.object(script, "build_and_push_kernel_release") as build_release:
-                        with patch.object(script, "clear_local_manifest_targets") as clear_targets:
+                        with patch.object(
+                            script,
+                            "merge_and_push_shared_cache_image",
+                        ) as merge_shared:
                             with patch.object(script, "run_cmd") as run_cmd:
                                 script.main()
 
@@ -176,11 +179,36 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
             "6.18.16-200.fc43.x86_64",
             shared_cache_path=True,
         )
-        clear_targets.assert_called_once_with(kernel_release="6.18.16-200.fc43.x86_64")
+        merge_shared.assert_called_once_with(
+            kernel_releases=["6.18.16-200.fc43.x86_64"]
+        )
         self.assertEqual(
             run_cmd.call_args_list,
             [
                 call(["just", "login"], cwd=str(Path(tempdir)), capture_output=False),
+            ],
+        )
+
+    def test_main_without_kernel_releases_keeps_upstream_manifest_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            with patch.object(script, "AKMODS_WORKTREE", Path(tempdir)):
+                with patch.object(script, "kernel_releases_from_env", return_value=[]):
+                    with patch.object(script, "clear_local_manifest_targets") as clear_targets:
+                        with patch.object(script, "run_cmd") as run_cmd:
+                            with patch.dict(
+                                script.os.environ,
+                                {"KERNEL_RELEASE": "6.18.16-200.fc43.x86_64"},
+                                clear=False,
+                            ):
+                                script.main()
+
+        clear_targets.assert_called_once_with(kernel_release="6.18.16-200.fc43.x86_64")
+        self.assertEqual(
+            run_cmd.call_args_list,
+            [
+                call(["just", "build"], cwd=str(Path(tempdir)), capture_output=False),
+                call(["just", "login"], cwd=str(Path(tempdir)), capture_output=False),
+                call(["just", "push"], cwd=str(Path(tempdir)), capture_output=False),
                 call(["just", "manifest"], cwd=str(Path(tempdir)), capture_output=False),
             ],
         )

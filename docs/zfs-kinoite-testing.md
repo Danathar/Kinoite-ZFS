@@ -430,6 +430,31 @@ Planned follow-up:
 1. Continue recording self-hosted-runner-specific incidents in this living issue log as they are discovered.
 2. Add a lightweight operator cleanup checklist for runner-local Podman state if repeated disk/state issues appear.
 
+## Issue #7: Single-Kernel Shared Cache Still Relied On Upstream Manifest Assembly
+
+Problem:
+
+1. The repo had already added a custom merge path for multi-kernel akmods cache images, but the single-kernel rebuild path still delegated shared-tag assembly to upstream `just manifest`.
+2. On the persistent self-hosted runner, that upstream path could still see stale local tag state from an earlier kernel even when the new kernel-specific image had been built and pushed correctly.
+3. The result was confusing: the akmods rebuild job succeeded, candidate alias tags were published, but the later candidate image build still failed with `Cached akmods are stale; rebuild akmods.` because the shared `main-<fedora>` cache tag did not actually contain the newest kernel RPM.
+
+Mitigation implemented:
+
+1. Stopped using upstream `just manifest` for the single-kernel rebuild path in [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py).
+2. The single-kernel path now uses the same local merge-and-publish helper that the multi-kernel path already used.
+3. That helper rebuilds the shared Fedora-wide cache image directly from the freshly built local kernel-specific payload, so the shared tag is derived from known-good current-run content instead of whatever manifest state happens to be lying around on the runner.
+4. Updated regression coverage in [`tests/test_akmods_build_and_publish.py`](../tests/test_akmods_build_and_publish.py) so single-kernel runs keep using the custom merge path and the no-kernel fallback path still preserves upstream behavior.
+
+Residual risk:
+
+1. The self-hosted runner still keeps local Podman and Buildah state between runs, so other upstream assumptions could surface later.
+2. Registry tag propagation timing can still matter when one job rebuilds and the next job immediately consumes the new tag.
+
+Planned follow-up:
+
+1. If more registry-timing issues appear, add an explicit post-publish verification step that inspects the shared candidate akmods tag before starting the candidate image build.
+2. Keep converging self-hosted rebuild behavior on repo-local tested helpers instead of upstream shell paths that assume disposable runners.
+
 ## How To Test In A VM
 
 Assume VM has a secondary blank disk at `/dev/vdb`.

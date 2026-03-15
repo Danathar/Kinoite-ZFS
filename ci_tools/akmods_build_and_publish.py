@@ -358,8 +358,14 @@ def main() -> None:
             kernel_releases[0],
             shared_cache_path=True,
         )
-        clear_local_manifest_targets(kernel_release=kernel_releases[0])
-        run_cmd(["just", "manifest"], cwd=str(AKMODS_WORKTREE), capture_output=False)
+        # Build the shared Fedora-wide cache image from the freshly built local
+        # per-kernel payload instead of relying on upstream `just manifest`.
+        #
+        # On a persistent self-hosted runner, upstream manifest assembly can
+        # pick up stale local tag state from prior kernels. Rebuilding the
+        # shared cache image from the current local payload keeps the result
+        # deterministic and matches the multi-kernel path below.
+        merge_and_push_shared_cache_image(kernel_releases=kernel_releases)
         return
 
     # Authenticate once, then publish one kernel-specific payload at a time.
