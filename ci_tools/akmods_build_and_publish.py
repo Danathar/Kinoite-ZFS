@@ -353,6 +353,11 @@ def main() -> None:
         return
 
     if len(kernel_releases) == 1:
+        # The akmods build binds the host-side kernel cache directory into the
+        # container build. On a persistent self-hosted runner, reusing cached
+        # Buildah layers can stamp newer tags onto older mounted RPM content.
+        os.environ["BUILDAH_LAYERS"] = "false"
+        print("Disabled Buildah layer cache for single-kernel akmods rebuild.")
         run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
         build_and_push_kernel_release(
             kernel_releases[0],

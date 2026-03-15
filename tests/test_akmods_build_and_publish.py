@@ -173,7 +173,9 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
                             "merge_and_push_shared_cache_image",
                         ) as merge_shared:
                             with patch.object(script, "run_cmd") as run_cmd:
-                                script.main()
+                                with patch.dict(script.os.environ, {}, clear=False):
+                                    script.main()
+                                    self.assertEqual(script.os.environ["BUILDAH_LAYERS"], "false")
 
         build_release.assert_called_once_with(
             "6.18.16-200.fc43.x86_64",

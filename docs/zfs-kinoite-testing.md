@@ -480,6 +480,30 @@ Planned follow-up:
 1. Add an operator note for safe cleanup of stale `/tmp/akmods/build` content on the self-hosted runner if disk growth becomes a recurring problem.
 2. Keep validating freshly published akmods tags by inspecting their actual layer contents when new self-hosted-runner regressions appear.
 
+## Issue #9: Buildah Layer Cache Reused Old Mounted Kernel Cache Content
+
+Problem:
+
+1. After isolating the single-kernel build root, the rebuilt akmods image still sometimes contained old kernel RPM payloads.
+2. The upstream akmods `podman build` path bind-mounts the host-side kernel cache directory into the image build.
+3. On the self-hosted runner, Buildah layer caching could still reuse an older cached image layer even though the mounted host cache directory now pointed at a different kernel-specific path.
+4. That produced a confusing mismatch: the image labels and tags said `6.19.7`, but the embedded `kmod-zfs` RPM still targeted the older kernel.
+
+Mitigation implemented:
+
+1. Updated the single-kernel rebuild path in [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py) to disable Buildah layer caching, matching the existing multi-kernel rebuild behavior.
+2. Added regression coverage in [`tests/test_akmods_build_and_publish.py`](../tests/test_akmods_build_and_publish.py) so explicit kernel-targeted rebuilds keep exporting `BUILDAH_LAYERS=false`.
+
+Residual risk:
+
+1. Build performance is a bit slower when Buildah layer caching is disabled for akmods rebuilds.
+2. Other upstream container build steps outside this repo may still make disposable-runner assumptions unless they are audited separately.
+
+Planned follow-up:
+
+1. Keep the self-hosted-runner path biased toward correctness over reuse for akmods rebuilds, because stale kernel-module content is worse than a slower rebuild.
+2. If build times become a problem later, reintroduce caching only with an explicit cache key that includes the full kernel release and build root.
+
 ## How To Test In A VM
 
 Assume VM has a secondary blank disk at `/dev/vdb`.
