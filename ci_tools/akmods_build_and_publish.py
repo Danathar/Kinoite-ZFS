@@ -356,7 +356,11 @@ def main() -> None:
         run_cmd(["just", "login"], cwd=str(AKMODS_WORKTREE), capture_output=False)
         build_and_push_kernel_release(
             kernel_releases[0],
-            shared_cache_path=True,
+            # Persistent self-hosted runners can retain stale RPMs in the old
+            # shared build root. Keep single-kernel rebuilds isolated too, then
+            # publish the Fedora-wide shared tag from that fresh per-kernel
+            # payload below.
+            shared_cache_path=False,
         )
         # Build the shared Fedora-wide cache image from the freshly built local
         # per-kernel payload instead of relying on upstream `just manifest`.

@@ -177,7 +177,7 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
 
         build_release.assert_called_once_with(
             "6.18.16-200.fc43.x86_64",
-            shared_cache_path=True,
+            shared_cache_path=False,
         )
         merge_shared.assert_called_once_with(
             kernel_releases=["6.18.16-200.fc43.x86_64"]

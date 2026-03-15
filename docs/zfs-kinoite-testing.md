@@ -455,6 +455,31 @@ Planned follow-up:
 1. If more registry-timing issues appear, add an explicit post-publish verification step that inspects the shared candidate akmods tag before starting the candidate image build.
 2. Keep converging self-hosted rebuild behavior on repo-local tested helpers instead of upstream shell paths that assume disposable runners.
 
+## Issue #8: Single-Kernel Rebuild Reused A Stale Shared Build Root
+
+Problem:
+
+1. Even after moving the shared-tag publish step onto the repo-local merge helper, the single-kernel rebuild path still wrote into the old shared upstream build root under `/tmp/akmods/build/main-<fedora>/...`.
+2. On a persistent self-hosted runner, that directory can already contain RPMs from an older kernel build.
+3. The next single-kernel rebuild could then publish a newly tagged image whose metadata said `6.19.7`, while the actual embedded RPM payload still contained `6.19.6`.
+4. The merge helper exposed that mismatch by failing closed when it could not find `kmod-zfs-<current-kernel>` in the just-built image contents.
+
+Mitigation implemented:
+
+1. Updated the single-kernel rebuild path in [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py) to use an isolated per-kernel upstream build root, the same way the multi-kernel path already does.
+2. The workflow now builds the kernel-specific payload in a fresh per-kernel cache directory and only then republishes the Fedora-wide shared tag from that known-good payload.
+3. Updated regression coverage in [`tests/test_akmods_build_and_publish.py`](../tests/test_akmods_build_and_publish.py) so future refactors keep single-kernel rebuilds on the isolated path.
+
+Residual risk:
+
+1. Old shared build-root content can still exist on disk until operators prune runner-local caches.
+2. Other upstream build steps may still assume disposable runners unless they are audited the same way.
+
+Planned follow-up:
+
+1. Add an operator note for safe cleanup of stale `/tmp/akmods/build` content on the self-hosted runner if disk growth becomes a recurring problem.
+2. Keep validating freshly published akmods tags by inspecting their actual layer contents when new self-hosted-runner regressions appear.
+
 ## How To Test In A VM
 
 Assume VM has a secondary blank disk at `/dev/vdb`.
