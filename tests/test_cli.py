@@ -19,6 +19,7 @@ class CliTests(unittest.TestCase):
         expected = {
             "main-resolve-build-inputs",
             "main-write-build-inputs-manifest",
+            "main-write-build-provenance",
             "main-check-candidate-akmods-cache",
             "configure-generated-build-context",
             "prepare-validation-build",
@@ -26,6 +27,7 @@ class CliTests(unittest.TestCase):
             "main-promote-stable",
             "main-sign-promoted-stable",
             "main-smoke-test-candidate-image",
+            "self-hosted-runner-preflight",
             "beta-compute-branch-metadata",
             "beta-publish-branch-akmods-alias",
             "akmods-clone-pinned",

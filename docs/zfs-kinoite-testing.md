@@ -74,6 +74,12 @@ This ensures akmods cache and final image build both align to the same kernel st
 
 The workflow also writes a `build-inputs-<run_id>` artifact containing all resolved inputs (base image digest, builder digest, kernel, ZFS line, and akmods ref) for audit and replay.
 
+Trusted self-hosted jobs now also run a lightweight preflight before heavy work:
+
+1. Remove stale repo-owned temp directories left behind by interrupted akmods or candidate-smoke jobs.
+2. Print workspace, `/tmp`, and container-storage usage context to the log.
+3. Fail early if free workspace space drops below the configured minimum.
+
 ### 2. Validate Existing Shared Akmods Source Cache
 
 Before rebuilding akmods, CI checks whether the shared source cache image already contains:
@@ -157,6 +163,20 @@ Promotion runs only after successful candidate akmods and candidate image jobs:
 
 If candidate fails, promotion does not run, and the previous stable tags remain unchanged.
 
+### 5b. Publish Build Provenance
+
+After successful candidate validation and any eligible promotion decision, the
+main workflow now uploads `artifacts/build-provenance.json`.
+
+That artifact records:
+
+1. Candidate image digest and digest-pinned ref.
+2. Candidate akmods digest and digest-pinned ref.
+3. Stable image and stable akmods digests when promotion succeeded.
+4. Pinned run inputs such as base image digest, builder digest, kernel list, ZFS line, and akmods fork ref.
+
+This gives operators one high-signal success artifact for rollback, replay, and incident review.
+
 ### Why This Is Safer
 
 This two-step model (candidate build, then promotion) protects stable users:
@@ -192,12 +212,15 @@ Key behavior:
 4. Copies shared akmods tags into candidate akmods alias tags.
 5. Builds/publishes candidate image.
 6. Smoke-tests the published candidate image before promotion by checking the final candidate image for ZFS userspace plus per-kernel module payloads.
-7. Promotes candidate artifacts to stable tags only on success.
-8. Re-signs the promoted stable digest after candidate-to-stable copy.
-9. Uses one local promotion action to install `skopeo`, install `cosign`, then call the two Python promotion helpers in order.
-10. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-11. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-12. Ignores markdown/docs-only changes.
+7. Keeps that smoke test cheap by scanning only the relevant OCI layer entries and respecting whiteouts, instead of unpacking a full rootfs tree.
+8. Promotes candidate artifacts to stable tags only on success.
+9. Re-signs the promoted stable digest after candidate-to-stable copy.
+10. Uses one local promotion action to install `skopeo`, install `cosign`, then call the two Python promotion helpers in order.
+11. Uploads a `build-provenance-<run_id>` artifact after successful candidate validation, with stable digests included when promotion ran.
+12. Opts GitHub JavaScript actions into Node 24 with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`.
+13. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+14. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+15. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
 
@@ -218,8 +241,10 @@ Key behavior:
 6. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
 7. Calls one shared local composite action to feed branch-specific values into the generated-workspace helper, instead of repeating the same shell/env block in every workflow.
 8. Calls one shared local composite action to run the actual BlueBuild compose step, including the one-time retry behavior used by publish-mode builds.
-9. Builds/publishes branch-tagged image.
-10. Ignores markdown/docs-only changes.
+9. Runs the same self-hosted runner preflight as `main` before heavy trusted jobs start.
+10. Opts GitHub JavaScript actions into Node 24 with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`.
+11. Builds/publishes branch-tagged image.
+12. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-pr.yml`](../.github/workflows/build-pr.yml) (PR Validation)
 
@@ -235,7 +260,8 @@ Key behavior:
 4. Reuses the same input-resolution and cache-validation logic as `main`, but without any publish side effects.
 5. Uses the same generated-workspace wrapper action as branch/main builds.
 6. Calls the same local compose wrapper action as publish workflows, but in validation mode (`push: false`, `--no-sign`).
-7. Ignores markdown/docs-only changes.
+7. Opts GitHub JavaScript actions into Node 24 with `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`.
+8. Ignores markdown/docs-only changes.
 
 ## Kernel Compatibility Risk Handling
 

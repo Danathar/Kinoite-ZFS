@@ -36,11 +36,14 @@ def command_map() -> dict[str, Callable[[], None]]:
     from ci_tools.main_sign_promoted_stable import main as main_sign_promoted_stable
     from ci_tools.main_resolve_build_inputs import main as main_resolve_build_inputs
     from ci_tools.main_smoke_test_candidate_image import main as main_smoke_test_candidate_image
+    from ci_tools.main_write_build_provenance import main as main_write_build_provenance
     from ci_tools.main_write_build_inputs_manifest import main as main_write_build_inputs_manifest
+    from ci_tools.self_hosted_runner_preflight import main as self_hosted_runner_preflight
 
     return {
         "main-resolve-build-inputs": main_resolve_build_inputs,
         "main-write-build-inputs-manifest": main_write_build_inputs_manifest,
+        "main-write-build-provenance": main_write_build_provenance,
         "main-check-candidate-akmods-cache": main_check_candidate_akmods_cache,
         "configure-generated-build-context": configure_generated_build_context,
         "prepare-validation-build": prepare_validation_build,
@@ -48,6 +51,7 @@ def command_map() -> dict[str, Callable[[], None]]:
         "main-promote-stable": main_promote_stable,
         "main-sign-promoted-stable": main_sign_promoted_stable,
         "main-smoke-test-candidate-image": main_smoke_test_candidate_image,
+        "self-hosted-runner-preflight": self_hosted_runner_preflight,
         "beta-compute-branch-metadata": beta_compute_branch_metadata,
         "beta-publish-branch-akmods-alias": beta_publish_branch_akmods_alias,
         "akmods-clone-pinned": akmods_clone_pinned,

@@ -38,9 +38,10 @@ Now read how workflow command names map to Python modules.
 2. Shared helpers: [`ci_tools/common.py`](../ci_tools/common.py)
 3. Shared main-prep wrapper action: [`.github/actions/prepare-main-build-inputs/action.yml`](../.github/actions/prepare-main-build-inputs/action.yml)
 4. Shared validation-prep wrapper action: [`.github/actions/prepare-validation-build/action.yml`](../.github/actions/prepare-validation-build/action.yml)
-5. Shared BlueBuild wrapper action: [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
-6. Shared stable-promotion wrapper action: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
-7. Shared generated-workspace wrapper action: [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
+5. Shared self-hosted preflight wrapper action: [`.github/actions/self-hosted-runner-preflight/action.yml`](../.github/actions/self-hosted-runner-preflight/action.yml)
+6. Shared BlueBuild wrapper action: [`.github/actions/run-bluebuild/action.yml`](../.github/actions/run-bluebuild/action.yml)
+7. Shared stable-promotion wrapper action: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
+8. Shared generated-workspace wrapper action: [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
 
 What to look for:
 
@@ -48,9 +49,10 @@ What to look for:
 2. Common helpers in `common.py` (`require_env`, `skopeo_*`, `write_github_outputs`).
 3. The local composite action that wraps the repeated environment-to-Python wiring for main input resolution, manifest upload, and shared-cache inspection.
 4. The local composite action that wraps the repeated environment-to-Python wiring for non-main validation prep.
-5. The local composite action that wraps the repeated BlueBuild `uses:` blocks for publish and validation builds.
-6. The local composite action that wraps the repeated install/promote/sign steps for the main promotion job.
-7. The local composite action that wraps the repeated environment-to-Python wiring for generated run-local recipe/container inputs.
+5. The local composite action that wraps the repeated self-hosted cleanup/free-space guard for trusted jobs.
+6. The local composite action that wraps the repeated BlueBuild `uses:` blocks for publish and validation builds.
+7. The local composite action that wraps the repeated install/promote/sign steps for the main promotion job.
+8. The local composite action that wraps the repeated environment-to-Python wiring for generated run-local recipe/container inputs.
 
 ### 3. Main Workflow Modules (Read In Job Order)
 
@@ -58,17 +60,20 @@ Read these in this sequence to match `build.yml`:
 
 1. Resolve base inputs and kernel: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
 2. Main-prep wrapper action that wires the first main-job setup block together: [`.github/actions/prepare-main-build-inputs/action.yml`](../.github/actions/prepare-main-build-inputs/action.yml)
-3. Write per-run manifest: [`ci_tools/main_write_build_inputs_manifest.py`](../ci_tools/main_write_build_inputs_manifest.py)
-4. Check candidate/shared akmods cache: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
-5. Clone pinned akmods source: [`ci_tools/akmods_clone_pinned.py`](../ci_tools/akmods_clone_pinned.py)
-6. Configure akmods target image path: [`ci_tools/akmods_configure_zfs_target.py`](../ci_tools/akmods_configure_zfs_target.py)
-7. Build/publish akmods image: [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py)
-8. Publish candidate akmods alias tags: [`ci_tools/main_publish_candidate_akmods_alias.py`](../ci_tools/main_publish_candidate_akmods_alias.py)
-9. Generated-workspace wrapper action that feeds environment values into the generated-workspace Python helper: [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
-10. Generate transient build inputs for candidate build: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
-11. Promotion wrapper action that installs required tools and dispatches the promotion helpers: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
-12. Promote candidate to stable tags: [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
-13. Re-sign promoted stable digest in the stable repository path: [`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
+3. Self-hosted runner preflight used before heavy trusted jobs: [`ci_tools/self_hosted_runner_preflight.py`](../ci_tools/self_hosted_runner_preflight.py)
+4. Write per-run manifest: [`ci_tools/main_write_build_inputs_manifest.py`](../ci_tools/main_write_build_inputs_manifest.py)
+5. Check candidate/shared akmods cache: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
+6. Clone pinned akmods source: [`ci_tools/akmods_clone_pinned.py`](../ci_tools/akmods_clone_pinned.py)
+7. Configure akmods target image path: [`ci_tools/akmods_configure_zfs_target.py`](../ci_tools/akmods_configure_zfs_target.py)
+8. Build/publish akmods image: [`ci_tools/akmods_build_and_publish.py`](../ci_tools/akmods_build_and_publish.py)
+9. Publish candidate akmods alias tags: [`ci_tools/main_publish_candidate_akmods_alias.py`](../ci_tools/main_publish_candidate_akmods_alias.py)
+10. Generated-workspace wrapper action that feeds environment values into the generated-workspace Python helper: [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
+11. Generate transient build inputs for candidate build: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
+12. Smoke-test the published candidate image without reconstructing the whole rootfs: [`ci_tools/main_smoke_test_candidate_image.py`](../ci_tools/main_smoke_test_candidate_image.py)
+13. Promotion wrapper action that installs required tools and dispatches the promotion helpers: [`.github/actions/promote-stable/action.yml`](../.github/actions/promote-stable/action.yml)
+14. Promote candidate to stable tags: [`ci_tools/main_promote_stable.py`](../ci_tools/main_promote_stable.py)
+15. Re-sign promoted stable digest in the stable repository path: [`ci_tools/main_sign_promoted_stable.py`](../ci_tools/main_sign_promoted_stable.py)
+16. Write success-path provenance artifact: [`ci_tools/main_write_build_provenance.py`](../ci_tools/main_write_build_provenance.py)
 
 ### 4. Branch Workflow Modules (Read In Job Order)
 
@@ -80,7 +85,8 @@ Read these in this sequence to match `build-beta.yml`:
 4. Underlying input resolver reused by that shared prep command: [`ci_tools/main_resolve_build_inputs.py`](../ci_tools/main_resolve_build_inputs.py)
 5. Underlying akmods cache checker reused by that shared prep command: [`ci_tools/main_check_candidate_akmods_cache.py`](../ci_tools/main_check_candidate_akmods_cache.py)
 6. Publish branch alias tag in candidate repo: [`ci_tools/beta_publish_branch_akmods_alias.py`](../ci_tools/beta_publish_branch_akmods_alias.py)
-7. Generate branch/PR build inputs: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
+7. Shared self-hosted runner preflight used before the trusted branch jobs: [`ci_tools/self_hosted_runner_preflight.py`](../ci_tools/self_hosted_runner_preflight.py)
+8. Generate branch/PR build inputs: [`ci_tools/configure_generated_build_context.py`](../ci_tools/configure_generated_build_context.py)
 
 ### 5. Build Inputs Used By Python Modules
 
@@ -110,7 +116,10 @@ Read tests last to confirm expected behavior:
 5. Branch metadata behavior: [`tests/test_beta_compute_branch_metadata.py`](../tests/test_beta_compute_branch_metadata.py)
 6. Shared generated-build-context behavior: [`tests/test_configure_generated_build_context.py`](../tests/test_configure_generated_build_context.py)
 7. Shared non-main validation prep behavior: [`tests/test_prepare_validation_build.py`](../tests/test_prepare_validation_build.py)
-8. Promotion signing behavior: [`tests/test_main_sign_promoted_stable.py`](../tests/test_main_sign_promoted_stable.py)
+8. Candidate image smoke-test behavior: [`tests/test_main_smoke_test_candidate_image.py`](../tests/test_main_smoke_test_candidate_image.py)
+9. Self-hosted runner preflight behavior: [`tests/test_self_hosted_runner_preflight.py`](../tests/test_self_hosted_runner_preflight.py)
+10. Build provenance behavior: [`tests/test_main_write_build_provenance.py`](../tests/test_main_write_build_provenance.py)
+11. Promotion signing behavior: [`tests/test_main_sign_promoted_stable.py`](../tests/test_main_sign_promoted_stable.py)
 
 ## Trace One Value End-To-End (`kernel_release`)
 

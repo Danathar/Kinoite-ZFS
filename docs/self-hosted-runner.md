@@ -23,6 +23,16 @@ label:
 The PR workflow in [build-pr.yml](../.github/workflows/build-pr.yml) stays on
 GitHub-hosted runners so public pull requests never execute on the VM.
 
+Before the heavy trusted jobs start, the workflows now also run one repo-owned
+preflight helper on the runner. That helper:
+
+1. removes stale repo temp directories left behind by interrupted jobs
+2. prints workspace, `/tmp`, and container-storage usage context
+3. fails early if free workspace space falls below the configured minimum
+
+That keeps disk-pressure failures closer to the start of the run instead of
+halfway through an akmods or BlueBuild job.
+
 ## What Had To Be Done For Bluefin
 
 This repo does more than just start a stock runner container.

@@ -28,6 +28,7 @@ If a term is unfamiliar, check the shared glossary first:
 | [`.github/actions/configure-generated-build-context/action.yml`](../actions/configure-generated-build-context/action.yml) | Wrap the repeated environment-to-Python wiring that generates the transient BlueBuild workspace for one run. |
 | [`.github/actions/run-bluebuild/action.yml`](../actions/run-bluebuild/action.yml) | Wrap the repeated BlueBuild compose step for publish and validation modes. |
 | [`.github/actions/promote-stable/action.yml`](../actions/promote-stable/action.yml) | Wrap the repeated install/promote/sign steps in the main stable-promotion job. |
+| [`.github/actions/self-hosted-runner-preflight/action.yml`](../actions/self-hosted-runner-preflight/action.yml) | Wrap the repeated self-hosted runner hygiene/free-space check used before trusted heavy jobs. |
 
 ## CLI Command Map
 
@@ -35,6 +36,7 @@ If a term is unfamiliar, check the shared glossary first:
 |---|---|---|
 | Resolve build inputs (latest mode or lock replay mode) | `main-resolve-build-inputs` | `ci_tools.main_resolve_build_inputs` |
 | Write build inputs manifest | `main-write-build-inputs-manifest` | `ci_tools.main_write_build_inputs_manifest` |
+| Run self-hosted runner hygiene and disk preflight | `self-hosted-runner-preflight` | `ci_tools.self_hosted_runner_preflight` |
 | Check for existing shared self-hosted zfs akmods image (metadata labels first, layer scan fallback) | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
 | Resolve PR/branch validation inputs and verify shared akmods source | `prepare-validation-build` | `ci_tools.prepare_validation_build` |
 | Generate run-local recipe/container inputs in `.generated/bluebuild/` | `configure-generated-build-context` | `ci_tools.configure_generated_build_context` |
@@ -42,6 +44,7 @@ If a term is unfamiliar, check the shared glossary first:
 | Smoke-test the published candidate image before promotion | `main-smoke-test-candidate-image` | `ci_tools.main_smoke_test_candidate_image` |
 | Promote candidate image and akmods cache to stable tags | `main-promote-stable` | `ci_tools.main_promote_stable` |
 | Sign promoted stable image digest | `main-sign-promoted-stable` | `ci_tools.main_sign_promoted_stable` |
+| Write success-path build provenance artifact | `main-write-build-provenance` | `ci_tools.main_write_build_provenance` |
 | Compute branch-safe public alias tag prefix | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |
 | Publish branch akmods alias tag in candidate repo | `beta-publish-branch-akmods-alias` | `ci_tools.beta_publish_branch_akmods_alias` |
 | Clone pinned upstream akmods tooling | `akmods-clone-pinned` | `ci_tools.akmods_clone_pinned` |

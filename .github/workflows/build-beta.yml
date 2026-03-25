@@ -22,6 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   # Keep branch validation on the same moving defaults as `main`.
   AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
   STABLE_AKMODS_REPO: kinoite-zfs-bluebuild-akmods
@@ -69,6 +70,12 @@ jobs:
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
       - uses: actions/checkout@v6
+
+      - name: Run self-hosted runner preflight
+        uses: ./.github/actions/self-hosted-runner-preflight
+        with:
+          host_root: /host-sys
+          min_free_gb: "20"
 
       - name: Resolve branch inputs and verify shared akmods source
         id: prepare
@@ -120,6 +127,11 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v6
+
+      - name: Run self-hosted runner preflight
+        uses: ./.github/actions/self-hosted-runner-preflight
+        with:
+          min_free_gb: "20"
 
       - name: Configure generated branch build workspace
         uses: ./.github/actions/configure-generated-build-context

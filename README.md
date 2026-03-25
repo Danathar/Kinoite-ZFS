@@ -148,9 +148,12 @@ If candidate fails, stable tags are not updated. That protects users from overni
 
 - [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
+  - Runs a lightweight self-hosted runner preflight before heavy trusted jobs so stale temp directories and low free-space conditions fail early instead of mid-build.
   - Copies shared akmods source tags into candidate akmods tags before candidate compose (candidate image build step) and promotion.
   - Smoke-tests the published candidate image before promotion so a successful compose still has to prove the final candidate image carries ZFS userspace plus module payloads.
+  - Keeps that smoke test cheap by scanning only the relevant OCI layer paths instead of reconstructing a full root filesystem tree.
   - Re-signs the promoted stable image digest after copy, because signatures are repository-specific and do not automatically move from `kinoite-zfs-candidate` to `kinoite-zfs`.
+  - Uploads a `build-provenance-<run_id>` artifact that records the exact candidate/stable digests and pinned inputs from successful runs.
   - Normalizes in-image signature policy after signing so both repository names are trusted.
     - “Policy entries” here means repository-specific trust rules written to:
       - `/etc/containers/policy.json` (signature verification rules)
@@ -161,17 +164,21 @@ If candidate fails, stable tags are not updated. That protects users from overni
   - Pins candidate compose to a resolved immutable base image tag per run to avoid mid-run `latest` drift.
   - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
+  - Opts GitHub JavaScript actions into Node 24 now (`FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`) so the workflows do not rely on the deprecated Node 20 path.
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
   - Uploads the generated candidate build workspace on failure or manual runs so compose/debug inputs are preserved for investigation.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
+  - Runs the same self-hosted runner preflight before the trusted branch akmods/build jobs.
   - Copies shared akmods source tags into branch-scoped compose alias tags in `kinoite-zfs-bluebuild-akmods-candidate` for compose (branch image build step).
   - Fails closed if shared akmods source tags are missing/stale (so test branches do not mutate shared cache tags).
   - Supplies workflow GHCR credentials to shared-cache inspection so repo-scoped packages do not produce false "missing cache" results.
+  - Opts GitHub JavaScript actions into Node 24 for the same runtime reason as `main`.
   - Runs on branch pushes and manual dispatch.
 - [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)
   - PR validation build only (`push: false`, unsigned).
   - Supplies workflow GHCR credentials to shared-cache inspection for the same reason as the branch flow above.
+  - Opts GitHub JavaScript actions into Node 24 as well.
 
 Markdown/docs-only changes do not trigger image builds.
 

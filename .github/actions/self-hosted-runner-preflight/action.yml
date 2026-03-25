@@ -1,0 +1,28 @@
+name: Self-Hosted Runner Preflight
+description: Run lightweight hygiene and free-space checks on the persistent self-hosted runner before heavy CI work starts.
+
+inputs:
+  host_root:
+    description: Host filesystem root path to inspect for stale temp directories.
+    required: false
+    default: /
+  min_free_gb:
+    description: Minimum free workspace space required before the job continues.
+    required: false
+    default: "20"
+  temp_retention_hours:
+    description: Age threshold used when removing stale repo-owned temp directories.
+    required: false
+    default: "24"
+
+runs:
+  using: composite
+  steps:
+    - name: Check free space and clean stale repo temp directories
+      shell: bash
+      env:
+        RUNNER_HOST_ROOT: ${{ inputs.host_root }}
+        RUNNER_MIN_FREE_GB: ${{ inputs.min_free_gb }}
+        RUNNER_TEMP_RETENTION_HOURS: ${{ inputs.temp_retention_hours }}
+      run: |
+        python3 -m ci_tools.cli self-hosted-runner-preflight

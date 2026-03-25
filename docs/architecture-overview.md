@@ -179,8 +179,10 @@ separate smoke-test step before promotion:
 
 1. Resolve the published candidate tag to its immutable digest.
 2. Pull that exact candidate image.
-3. Verify ZFS userspace is installed (`zfs`, `zpool`, and the matching RPMs).
-4. Verify every kernel shipped in `/lib/modules` still has a ZFS module payload.
+3. Scan only the OCI layer members relevant to `zfs`, `zpool`, and `lib/modules/.../extra/zfs/zfs.ko*` instead of reconstructing a full rootfs tree.
+4. Respect OCI whiteouts while computing the final visible paths from those layers.
+5. Verify ZFS userspace is installed (`zfs`, `zpool`, and the matching RPMs).
+6. Verify every kernel shipped in `/lib/modules` still has a ZFS module payload.
 
 This matters because a successful compose step is necessary but not sufficient:
 promotion should only happen after the published candidate image itself proves
@@ -210,6 +212,19 @@ That local action still calls the same Python helpers:
 
 If candidate fails, stable tags are not changed.
 
+### 4b. Build Provenance Artifact
+
+After a successful main run, the workflow now writes and uploads one compact
+JSON provenance document:
+
+1. Candidate image digest and digest-pinned ref.
+2. Candidate akmods digest and digest-pinned ref.
+3. Stable image and stable akmods digests when promotion succeeded.
+4. The pinned base image, builder image, ZFS line, akmods fork ref, and kernel set used for the run.
+
+This keeps rollback, replay, and incident review grounded in one artifact
+instead of spread across workflow logs plus ad-hoc registry inspection.
+
 ### 5. Replay Mode
 
 For repeatable troubleshooting, manual runs support lock replay using [`ci/inputs.lock.json`](../ci/inputs.lock.json).
@@ -223,6 +238,8 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 3. PR workflow (`build-pr.yml`): validation only, no push.
 4. Branch and PR workflows now share one read-only validation prep wrapper before compose, so both paths pin the same inputs and fail closed on stale shared akmods caches.
 5. `main` now uses one local main-prep wrapper before rebuild decisions, so input resolution, build-input artifact upload, and shared-cache inspection stay wired together.
+6. Trusted self-hosted jobs now run a lightweight preflight step that cleans stale repo-owned temp directories and fails early on low free workspace space.
+7. All workflows now opt GitHub JavaScript actions into Node 24 so they do not rely on the deprecated Node 20 runtime path.
 
 ## Implementation Note: Workflow Scripts
 
@@ -239,6 +256,8 @@ and also use local composite actions for the repeated workflow glue:
    [`.github/actions/prepare-validation-build/action.yml`](../.github/actions/prepare-validation-build/action.yml)
 5. Generated-workspace wrapper:
    [`.github/actions/configure-generated-build-context/action.yml`](../.github/actions/configure-generated-build-context/action.yml)
+6. Self-hosted runner preflight wrapper:
+   [`.github/actions/self-hosted-runner-preflight/action.yml`](../.github/actions/self-hosted-runner-preflight/action.yml)
 
 The behavior lives in Python modules under `ci_tools/` plus those local
 workflow helper actions.
@@ -249,6 +268,7 @@ Why this setup:
 2. Keep logic in code that is easier to read and unit-test.
 3. Keep workflow command dispatch centralized in one CLI entrypoint.
 4. Keep repeated workflow wiring in local reusable actions instead of copying the same setup/install/configure blocks across workflow files.
+5. Keep runner hygiene checks in the same repo-owned Python path as the rest of the CI behavior, so operators can test the guardrails locally too.
 
 Term note used in code/docs:
 

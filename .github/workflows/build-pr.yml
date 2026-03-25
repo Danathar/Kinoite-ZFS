@@ -14,6 +14,7 @@ permissions:
   packages: read
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   # Keep PR validation on the same moving defaults as `main`.
   AKMODS_UPSTREAM_REF: 9d13b6950811cdaae2e8ab748c85c5da35810ae3
   STABLE_AKMODS_REPO: kinoite-zfs-bluebuild-akmods
