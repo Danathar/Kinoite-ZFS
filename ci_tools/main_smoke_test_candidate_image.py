@@ -9,14 +9,18 @@ Goal: Fail before promotion when the candidate image is missing its ZFS payload.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from ci_tools.common import (
     CiToolError,
+    load_layer_files_from_oci_layout,
     normalize_owner,
     require_env,
-    run_cmd,
     skopeo_inspect_digest,
+    skopeo_copy,
     sort_kernel_releases,
+    unpack_layer_tarballs,
 )
 
 
@@ -37,17 +41,13 @@ def candidate_image_digest_ref(image_org: str, image_name: str, digest: str) -> 
     return f"ghcr.io/{image_org}/{image_name}@{digest}"
 
 
-def _podman_shell_args(image_ref: str, shell_command: str) -> list[str]:
-    return [
-        "podman",
-        "run",
-        "--rm",
-        "--entrypoint",
-        "/bin/sh",
-        image_ref,
-        "-lc",
-        shell_command,
-    ]
+def _image_kernel_releases(rootfs_dir: Path) -> list[str]:
+    modules_root = rootfs_dir / "lib" / "modules"
+    if not modules_root.exists():
+        return []
+    return sort_kernel_releases(
+        [entry.name for entry in modules_root.iterdir() if entry.is_dir()]
+    )
 
 
 def smoke_test_candidate_image(
@@ -59,7 +59,9 @@ def smoke_test_candidate_image(
     registry_actor: str,
     registry_token: str,
     digest_lookup: Callable[..., str] = skopeo_inspect_digest,
-    command_runner: Callable[..., str] = run_cmd,
+    image_copier: Callable[..., None] = skopeo_copy,
+    layer_loader: Callable[[Path], list[Path]] = load_layer_files_from_oci_layout,
+    layer_unpacker: Callable[[list[Path], Path], None] = unpack_layer_tarballs,
 ) -> str:
     """
     Validate the published candidate image, then return its digest-pinned ref.
@@ -83,40 +85,47 @@ def smoke_test_candidate_image(
         raise CiToolError(f"Failed to resolve candidate digest for {candidate_tag_ref}")
 
     candidate_ref = candidate_image_digest_ref(image_org, image_name, candidate_digest)
-    command_runner(
-        ["podman", "pull", "--quiet", "--creds", creds, candidate_ref],
-        capture_output=False,
-    )
+    with TemporaryDirectory(prefix="candidate-image-smoke-") as temp_dir:
+        root = Path(temp_dir)
+        image_dir = root / "image"
+        rootfs_dir = root / "rootfs"
+        rootfs_dir.mkdir(parents=True, exist_ok=True)
 
-    kernel_output = command_runner(
-        _podman_shell_args(
-            candidate_ref,
-            "find /lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\\n'",
+        image_copier(
+            candidate_image_tag_ref(
+                image_org=image_org,
+                image_name=image_name,
+                fedora_version=fedora_version,
+                sha_short=sha_short,
+            ),
+            f"dir:{image_dir}",
+            creds=creds,
         )
-    )
-    kernel_releases = sort_kernel_releases(kernel_output.splitlines())
-    if not kernel_releases:
-        raise CiToolError(f"No kernel directories found in candidate image {candidate_ref}")
+        layer_files = layer_loader(image_dir)
+        layer_unpacker(layer_files, rootfs_dir)
 
-    # Confirm the userland side is present too, not just stray module files.
-    command_runner(
-        _podman_shell_args(
-            candidate_ref,
-            "rpm -q zfs kmod-zfs >/dev/null && command -v zfs >/dev/null && command -v zpool >/dev/null",
-        )
-    )
+        kernel_releases = _image_kernel_releases(rootfs_dir)
+        if not kernel_releases:
+            raise CiToolError(f"No kernel directories found in candidate image {candidate_ref}")
 
-    for kernel_release in kernel_releases:
-        command_runner(
-            _podman_shell_args(
-                candidate_ref,
-                "find "
-                f"/lib/modules/{kernel_release}/extra/zfs "
-                "-maxdepth 1 -type f "
-                "\\( -name 'zfs.ko' -o -name 'zfs.ko.xz' -o -name 'zfs.ko.gz' -o -name 'zfs.ko.zst' \\) "
-                "| grep -q .",
-            )
-        )
+        # Confirm the userland side is present too, not just stray module files.
+        for command_name in ("zfs", "zpool"):
+            command_paths = [
+                rootfs_dir / "usr" / "sbin" / command_name,
+                rootfs_dir / "usr" / "bin" / command_name,
+            ]
+            if not any(path.is_file() for path in command_paths):
+                raise CiToolError(
+                    f"Candidate image {candidate_ref} is missing expected command {command_name}"
+                )
+
+        for kernel_release in kernel_releases:
+            module_dir = rootfs_dir / "lib" / "modules" / kernel_release / "extra" / "zfs"
+            if not module_dir.exists() or not any(module_dir.glob("zfs.ko*")):
+                raise CiToolError(
+                    "Candidate image is missing a ZFS module payload for kernel "
+                    f"{kernel_release}: {candidate_ref}"
+                )
 
     print(f"Candidate image smoke test passed: {candidate_ref}")
     print(f"Kernels with ZFS payloads: {' '.join(kernel_releases)}")
