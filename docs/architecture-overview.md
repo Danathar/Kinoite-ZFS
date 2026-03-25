@@ -170,16 +170,31 @@ Why this exists:
    keeps every shipped kernel directory populated until we decide whether a
    broader downstream refactor is worth it.
 
+### 3b. Candidate Image Smoke Test
+
+After the candidate image is published, the main workflow now performs a
+separate smoke-test step before promotion:
+
+1. Resolve the published candidate tag to its immutable digest.
+2. Pull that exact candidate image.
+3. Verify ZFS userspace is installed (`zfs`, `zpool`, and the matching RPMs).
+4. Verify every kernel shipped in `/lib/modules` still has a ZFS module payload.
+
+This matters because a successful compose step is necessary but not sufficient:
+promotion should only happen after the published candidate image itself proves
+it still carries the expected ZFS content.
+
 ### 4. Promotion To Stable
 
 Promotion is a separate gated job:
 
 1. Runs only after candidate jobs succeed.
-2. Retags run-scoped candidate image source to stable `latest`.
-3. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source image.
-4. Writes an immutable stable audit tag (`stable-<run>-<sha>`).
-5. Re-signs the promoted stable image digest so signature-required host rebases continue to work.
-6. Relies on the in-image policy normalization from compose time so signed host
+2. Runs only after the separate candidate smoke-test job succeeds.
+3. Retags run-scoped candidate image source to stable `latest`.
+4. Aligns stable akmods tag (`main-<fedora>`) to the candidate akmods source image.
+5. Writes an immutable stable audit tag (`stable-<run>-<sha>`).
+6. Re-signs the promoted stable image digest so signature-required host rebases continue to work.
+7. Relies on the in-image policy normalization from compose time so signed host
    switches can move between candidate and stable repository names.
 
 The promotion job now uses one local composite action for its repeated workflow

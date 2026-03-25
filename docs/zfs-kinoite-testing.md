@@ -188,12 +188,13 @@ Key behavior:
 3. Validates and (when needed) rebuilds the shared Fedora-wide akmods cache so it contains RPMs for all of the pinned base-image kernels.
 4. Copies shared akmods tags into candidate akmods alias tags.
 5. Builds/publishes candidate image.
-6. Promotes candidate artifacts to stable tags only on success.
-7. Re-signs the promoted stable digest after candidate-to-stable copy.
-8. Uses one local promotion action to install `skopeo`, install `cosign`, then call the two Python promotion helpers in order.
-9. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
-10. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
-11. Ignores markdown/docs-only changes.
+6. Smoke-tests the published candidate image before promotion by checking the final candidate image for ZFS userspace plus per-kernel module payloads.
+7. Promotes candidate artifacts to stable tags only on success.
+8. Re-signs the promoted stable digest after candidate-to-stable copy.
+9. Uses one local promotion action to install `skopeo`, install `cosign`, then call the two Python promotion helpers in order.
+10. Manual dispatch supports candidate-only runs by setting `promote_to_stable=false`.
+11. Manual dispatch supports lock replay (`use_input_lock=true`) with pinned refs from [`ci/inputs.lock.json`](../ci/inputs.lock.json).
+12. Ignores markdown/docs-only changes.
 
 ### [`.github/workflows/build-beta.yml`](../.github/workflows/build-beta.yml) (Branch)
 

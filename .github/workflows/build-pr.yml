@@ -67,3 +67,10 @@ jobs:
           mode: validate
           working_directory: .generated/bluebuild/
           registry_token: ${{ github.token }}
+
+      - name: Upload generated PR build context
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-build-context-pr-${{ github.run_id }}
+          path: .generated/bluebuild/

@@ -16,7 +16,9 @@ from unittest.mock import patch
 
 from ci_tools.main_check_candidate_akmods_cache import (
     _missing_kernel_releases,
+    AkmodsCacheStatus,
     inspect_candidate_akmods_cache,
+    write_cache_status_outputs,
 )
 
 
@@ -80,6 +82,33 @@ class MainCheckCandidateAkmodsCacheTests(unittest.TestCase):
         )
         self.assertTrue(copy_args[1].startswith("dir:"))
         self.assertEqual(copy_kwargs["creds"], "actor:token")
+
+    def test_write_cache_status_outputs_writes_structured_values(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "github-output.txt"
+            with patch.dict(
+                os.environ,
+                {
+                    "GITHUB_OUTPUT": str(output_path),
+                },
+                clear=True,
+            ):
+                write_cache_status_outputs(
+                    AkmodsCacheStatus(
+                        source_image="ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+                        image_exists=True,
+                        missing_releases=("6.18.16-200.fc43.x86_64",),
+                    )
+                )
+
+            outputs = output_path.read_text(encoding="utf-8")
+            self.assertIn("exists=false\n", outputs)
+            self.assertIn("status=stale\n", outputs)
+            self.assertIn("missing_releases=6.18.16-200.fc43.x86_64\n", outputs)
+            self.assertIn(
+                "source_image=ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43\n",
+                outputs,
+            )
 
 
 if __name__ == "__main__":

@@ -236,6 +236,39 @@ jobs:
           pr_event_number: ${{ github.event.number }}
           retry_on_failure: "true"
 
+      - name: Upload generated candidate build context
+        if: ${{ failure() || github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-build-context-candidate-${{ github.run_id }}
+          path: .generated/bluebuild/
+
+  smoke-test-candidate:
+    name: Smoke Test Candidate Image
+    needs:
+      - build-zfs-akmods
+      - bluebuild-candidate
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - kinoite-zfs-builder
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Verify published candidate image carries ZFS payloads
+        shell: bash
+        env:
+          FEDORA_VERSION: ${{ needs.build-zfs-akmods.outputs.fedora_version }}
+          CANDIDATE_IMAGE_NAME: ${{ env.CANDIDATE_IMAGE_NAME }}
+          REGISTRY_ACTOR: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m ci_tools.cli main-smoke-test-candidate-image
+
   promote-stable:
     name: Promote Candidate To Stable
     # Safety model:
@@ -246,6 +279,7 @@ jobs:
     needs:
       - build-zfs-akmods
       - bluebuild-candidate
+      - smoke-test-candidate
     # Push/schedule runs promote automatically. Manual runs can skip promotion.
     if: github.event_name != 'workflow_dispatch' || github.event.inputs.promote_to_stable == 'true'
     runs-on: ubuntu-latest

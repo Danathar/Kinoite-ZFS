@@ -47,6 +47,27 @@ class AkmodsCacheStatus:
         return self.image_exists and not self.missing_releases
 
 
+def write_cache_status_outputs(status: AkmodsCacheStatus) -> None:
+    """Write the cache result in both legacy and structured output forms."""
+
+    reusable = "true" if status.reusable else "false"
+    if not status.image_exists:
+        status_name = "missing_image"
+    elif status.reusable:
+        status_name = "reusable"
+    else:
+        status_name = "stale"
+
+    write_github_outputs(
+        {
+            "exists": reusable,
+            "status": status_name,
+            "missing_releases": " ".join(status.missing_releases),
+            "source_image": status.source_image,
+        }
+    )
+
+
 def _has_kernel_matching_rpm(root_dir: Path, kernel_release: str) -> bool:
     # We only trust cache reuse when an RPM exists for this exact kernel string.
     # If the cache only has RPMs for older kernels, that cache is "stale".
@@ -142,13 +163,13 @@ def main() -> None:
         # Source cache image is missing, so downstream build must rebuild it.
         # We write `exists=false` to GitHub step outputs so workflow `if:` rules
         # can react without parsing log text.
-        write_github_outputs({"exists": "false"})
+        write_cache_status_outputs(status)
         print(f"No existing source akmods cache image for Fedora {fedora_version}; rebuild is required.")
         return
 
     if status.reusable:
         # `exists=true` means this cache can be safely reused.
-        write_github_outputs({"exists": "true"})
+        write_cache_status_outputs(status)
         print(
             f"Found matching {status.source_image} kmods for kernels {' '.join(kernel_releases)}; "
             "akmods rebuild can be skipped."
@@ -156,7 +177,7 @@ def main() -> None:
         return
 
     # `exists=false` here means the cache exists but is stale (wrong kernel).
-    write_github_outputs({"exists": "false"})
+    write_cache_status_outputs(status)
     print(
         f"Cached {status.source_image} is present but missing kmods for kernels "
         f"{' '.join(status.missing_releases)}; "

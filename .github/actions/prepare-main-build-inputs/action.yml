@@ -78,6 +78,15 @@ outputs:
   akmods_cache_exists:
     description: True when the shared akmods cache already covers the resolved base-image kernels.
     value: ${{ steps.cache.outputs.exists }}
+  akmods_cache_status:
+    description: Structured cache result (`reusable`, `stale`, or `missing_image`).
+    value: ${{ steps.cache.outputs.status }}
+  akmods_cache_missing_releases:
+    description: Space-separated kernel releases that were missing from the shared cache image.
+    value: ${{ steps.cache.outputs.missing_releases }}
+  akmods_cache_source_image:
+    description: Shared cache image ref inspected by the prep step.
+    value: ${{ steps.cache.outputs.source_image }}
 
 runs:
   using: composite

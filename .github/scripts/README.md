@@ -39,6 +39,7 @@ If a term is unfamiliar, check the shared glossary first:
 | Resolve PR/branch validation inputs and verify shared akmods source | `prepare-validation-build` | `ci_tools.prepare_validation_build` |
 | Generate run-local recipe/container inputs in `.generated/bluebuild/` | `configure-generated-build-context` | `ci_tools.configure_generated_build_context` |
 | Publish candidate akmods alias tags from shared source | `main-publish-candidate-akmods-alias` | `ci_tools.main_publish_candidate_akmods_alias` |
+| Smoke-test the published candidate image before promotion | `main-smoke-test-candidate-image` | `ci_tools.main_smoke_test_candidate_image` |
 | Promote candidate image and akmods cache to stable tags | `main-promote-stable` | `ci_tools.main_promote_stable` |
 | Sign promoted stable image digest | `main-sign-promoted-stable` | `ci_tools.main_sign_promoted_stable` |
 | Compute branch-safe public alias tag prefix | `beta-compute-branch-metadata` | `ci_tools.beta_compute_branch_metadata` |

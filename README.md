@@ -149,6 +149,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
 - [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
   - Copies shared akmods source tags into candidate akmods tags before candidate compose (candidate image build step) and promotion.
+  - Smoke-tests the published candidate image before promotion so a successful compose still has to prove the final candidate image carries ZFS userspace plus module payloads.
   - Re-signs the promoted stable image digest after copy, because signatures are repository-specific and do not automatically move from `kinoite-zfs-candidate` to `kinoite-zfs`.
   - Normalizes in-image signature policy after signing so both repository names are trusted.
     - “Policy entries” here means repository-specific trust rules written to:
@@ -161,6 +162,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
   - Calls Python workflow helpers in `ci_tools/` directly through `python3 -m ci_tools.cli <command>`.
   - Runs on `main` pushes, nightly schedule, and manual dispatch.
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
+  - Uploads the generated candidate build workspace on failure or manual runs so compose/debug inputs are preserved for investigation.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
   - Copies shared akmods source tags into branch-scoped compose alias tags in `kinoite-zfs-bluebuild-akmods-candidate` for compose (branch image build step).

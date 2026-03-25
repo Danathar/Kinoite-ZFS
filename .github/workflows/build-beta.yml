@@ -139,3 +139,10 @@ jobs:
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
           retry_on_failure: "true"
+
+      - name: Upload generated branch build context
+        if: ${{ failure() || github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-build-context-branch-${{ github.run_id }}
+          path: .generated/bluebuild/

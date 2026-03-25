@@ -25,6 +25,7 @@ class CliTests(unittest.TestCase):
             "main-publish-candidate-akmods-alias",
             "main-promote-stable",
             "main-sign-promoted-stable",
+            "main-smoke-test-candidate-image",
             "beta-compute-branch-metadata",
             "beta-publish-branch-akmods-alias",
             "akmods-clone-pinned",
