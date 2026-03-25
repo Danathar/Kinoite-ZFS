@@ -1,7 +1,7 @@
 """
 Script: ci_tools/main_check_candidate_akmods_cache.py
 What: Checks whether akmods cache can be reused for the current base-image kernels.
-Doing: Pulls cache image, unpacks layers, checks for matching `kmod-zfs` RPMs, then writes `exists=true|false`.
+Doing: Prefers lightweight metadata labels on the shared cache image and falls back to unpacking layers when older images do not expose that metadata.
 Why: Skip rebuild when safe, but rebuild when any required module set is stale.
 Goal: Control main-workflow rebuild decisions.
 """
@@ -12,6 +12,9 @@ import tempfile
 from pathlib import Path
 
 from ci_tools.common import (
+    AKMODS_CACHE_KERNEL_RELEASES_LABEL,
+    AKMODS_CACHE_METADATA_VERSION,
+    AKMODS_CACHE_METADATA_VERSION_LABEL,
     CiToolError,
     kernel_releases_from_env,
     load_layer_files_from_oci_layout,
@@ -21,6 +24,8 @@ from ci_tools.common import (
     require_env,
     skopeo_copy,
     skopeo_exists,
+    skopeo_inspect_json,
+    sort_kernel_releases,
     unpack_layer_tarballs,
     write_github_outputs,
 )
@@ -88,6 +93,47 @@ def _missing_kernel_releases(root_dir: Path, kernel_releases: list[str]) -> list
     return [release for release in kernel_releases if not _has_kernel_matching_rpm(root_dir, release)]
 
 
+def _kernel_releases_from_metadata_labels(inspect_json: dict) -> tuple[str, ...] | None:
+    """
+    Return kernel releases advertised in shared-cache labels, if present.
+
+    Newer shared cache images publish lightweight labels that list the exact
+    kernel releases covered by the merged RPM payloads. When those labels are
+    present, the cache check can stay on the `skopeo inspect` fast path instead
+    of downloading and unpacking the whole image.
+    """
+
+    labels = inspect_json.get("Labels")
+    if not isinstance(labels, dict):
+        return None
+
+    metadata_version = str(labels.get(AKMODS_CACHE_METADATA_VERSION_LABEL) or "")
+    if metadata_version != AKMODS_CACHE_METADATA_VERSION:
+        return None
+
+    kernel_releases = [
+        value
+        for value in str(labels.get(AKMODS_CACHE_KERNEL_RELEASES_LABEL) or "").split()
+        if value
+    ]
+    if not kernel_releases:
+        return None
+
+    return tuple(sort_kernel_releases(kernel_releases))
+
+
+def _missing_required_kernel_releases(
+    required_kernel_releases: list[str],
+    present_kernel_releases: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Return required kernels that are not listed in one present-kernel set."""
+
+    present = set(present_kernel_releases)
+    return tuple(
+        release for release in required_kernel_releases if release not in present
+    )
+
+
 def inspect_candidate_akmods_cache(
     *,
     image_org: str,
@@ -112,6 +158,23 @@ def inspect_candidate_akmods_cache(
             missing_releases=tuple(kernel_releases),
         )
 
+    inspect_json = skopeo_inspect_json(
+        f"docker://{source_image}",
+        creds=resolved_creds,
+    )
+    metadata_kernel_releases = _kernel_releases_from_metadata_labels(inspect_json)
+    if metadata_kernel_releases is not None:
+        print(f"Using cache metadata labels from {source_image} for kernel coverage check.")
+        return AkmodsCacheStatus(
+            source_image=source_image,
+            image_exists=True,
+            missing_releases=_missing_required_kernel_releases(
+                kernel_releases,
+                metadata_kernel_releases,
+            ),
+        )
+
+    print(f"No cache metadata labels found on {source_image}; falling back to layer scan.")
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         akmods_dir = root / "akmods"

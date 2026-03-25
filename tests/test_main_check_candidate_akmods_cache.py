@@ -14,6 +14,11 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
+from ci_tools.common import (
+    AKMODS_CACHE_KERNEL_RELEASES_LABEL,
+    AKMODS_CACHE_METADATA_VERSION,
+    AKMODS_CACHE_METADATA_VERSION_LABEL,
+)
 from ci_tools.main_check_candidate_akmods_cache import (
     _missing_kernel_releases,
     AkmodsCacheStatus,
@@ -55,23 +60,31 @@ class MainCheckCandidateAkmodsCacheTests(unittest.TestCase):
                 "ci_tools.main_check_candidate_akmods_cache.skopeo_exists",
                 return_value=True,
             ) as skopeo_exists:
-                with patch("ci_tools.main_check_candidate_akmods_cache.skopeo_copy") as skopeo_copy:
-                    with patch(
-                        "ci_tools.main_check_candidate_akmods_cache.load_layer_files_from_oci_layout",
-                        return_value=[],
-                    ):
+                with patch(
+                    "ci_tools.main_check_candidate_akmods_cache.skopeo_inspect_json",
+                    return_value={},
+                ) as inspect_json:
+                    with patch("ci_tools.main_check_candidate_akmods_cache.skopeo_copy") as skopeo_copy:
                         with patch(
-                            "ci_tools.main_check_candidate_akmods_cache.unpack_layer_tarballs",
+                            "ci_tools.main_check_candidate_akmods_cache.load_layer_files_from_oci_layout",
+                            return_value=[],
                         ):
-                            status = inspect_candidate_akmods_cache(
-                                image_org="danathar",
-                                source_repo="kinoite-zfs-bluebuild-akmods",
-                                fedora_version="43",
-                                kernel_releases=["6.18.16-200.fc43.x86_64"],
-                            )
+                            with patch(
+                                "ci_tools.main_check_candidate_akmods_cache.unpack_layer_tarballs",
+                            ):
+                                status = inspect_candidate_akmods_cache(
+                                    image_org="danathar",
+                                    source_repo="kinoite-zfs-bluebuild-akmods",
+                                    fedora_version="43",
+                                    kernel_releases=["6.18.16-200.fc43.x86_64"],
+                                )
 
         self.assertFalse(status.reusable)
         skopeo_exists.assert_called_once_with(
+            "docker://ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+            creds="actor:token",
+        )
+        inspect_json.assert_called_once_with(
             "docker://ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
             creds="actor:token",
         )
@@ -82,6 +95,68 @@ class MainCheckCandidateAkmodsCacheTests(unittest.TestCase):
         )
         self.assertTrue(copy_args[1].startswith("dir:"))
         self.assertEqual(copy_kwargs["creds"], "actor:token")
+
+    def test_inspect_candidate_akmods_cache_uses_metadata_fast_path_when_present(self) -> None:
+        with patch(
+            "ci_tools.main_check_candidate_akmods_cache.skopeo_exists",
+            return_value=True,
+        ):
+            with patch(
+                "ci_tools.main_check_candidate_akmods_cache.skopeo_inspect_json",
+                return_value={
+                    "Labels": {
+                        AKMODS_CACHE_METADATA_VERSION_LABEL: AKMODS_CACHE_METADATA_VERSION,
+                        AKMODS_CACHE_KERNEL_RELEASES_LABEL: (
+                            "6.18.13-200.fc43.x86_64 6.18.16-200.fc43.x86_64"
+                        ),
+                    }
+                },
+            ):
+                with patch("ci_tools.main_check_candidate_akmods_cache.skopeo_copy") as skopeo_copy:
+                    with patch(
+                        "ci_tools.main_check_candidate_akmods_cache.load_layer_files_from_oci_layout"
+                    ) as layer_loader:
+                        status = inspect_candidate_akmods_cache(
+                            image_org="danathar",
+                            source_repo="kinoite-zfs-bluebuild-akmods",
+                            fedora_version="43",
+                            kernel_releases=["6.18.16-200.fc43.x86_64"],
+                            creds="actor:token",
+                        )
+
+        self.assertTrue(status.reusable)
+        skopeo_copy.assert_not_called()
+        layer_loader.assert_not_called()
+
+    def test_inspect_candidate_akmods_cache_reports_stale_metadata_without_copy(self) -> None:
+        with patch(
+            "ci_tools.main_check_candidate_akmods_cache.skopeo_exists",
+            return_value=True,
+        ):
+            with patch(
+                "ci_tools.main_check_candidate_akmods_cache.skopeo_inspect_json",
+                return_value={
+                    "Labels": {
+                        AKMODS_CACHE_METADATA_VERSION_LABEL: AKMODS_CACHE_METADATA_VERSION,
+                        AKMODS_CACHE_KERNEL_RELEASES_LABEL: "6.18.13-200.fc43.x86_64",
+                    }
+                },
+            ):
+                with patch("ci_tools.main_check_candidate_akmods_cache.skopeo_copy") as skopeo_copy:
+                    status = inspect_candidate_akmods_cache(
+                        image_org="danathar",
+                        source_repo="kinoite-zfs-bluebuild-akmods",
+                        fedora_version="43",
+                        kernel_releases=[
+                            "6.18.13-200.fc43.x86_64",
+                            "6.18.16-200.fc43.x86_64",
+                        ],
+                        creds="actor:token",
+                    )
+
+        self.assertFalse(status.reusable)
+        self.assertEqual(status.missing_releases, ("6.18.16-200.fc43.x86_64",))
+        skopeo_copy.assert_not_called()
 
     def test_write_cache_status_outputs_writes_structured_values(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

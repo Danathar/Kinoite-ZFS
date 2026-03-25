@@ -35,7 +35,7 @@ If a term is unfamiliar, check the shared glossary first:
 |---|---|---|
 | Resolve build inputs (latest mode or lock replay mode) | `main-resolve-build-inputs` | `ci_tools.main_resolve_build_inputs` |
 | Write build inputs manifest | `main-write-build-inputs-manifest` | `ci_tools.main_write_build_inputs_manifest` |
-| Check for existing shared self-hosted zfs akmods image | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
+| Check for existing shared self-hosted zfs akmods image (metadata labels first, layer scan fallback) | `main-check-candidate-akmods-cache` | `ci_tools.main_check_candidate_akmods_cache` |
 | Resolve PR/branch validation inputs and verify shared akmods source | `prepare-validation-build` | `ci_tools.prepare_validation_build` |
 | Generate run-local recipe/container inputs in `.generated/bluebuild/` | `configure-generated-build-context` | `ci_tools.configure_generated_build_context` |
 | Publish candidate akmods alias tags from shared source | `main-publish-candidate-akmods-alias` | `ci_tools.main_publish_candidate_akmods_alias` |
@@ -46,7 +46,7 @@ If a term is unfamiliar, check the shared glossary first:
 | Publish branch akmods alias tag in candidate repo | `beta-publish-branch-akmods-alias` | `ci_tools.beta_publish_branch_akmods_alias` |
 | Clone pinned upstream akmods tooling | `akmods-clone-pinned` | `ci_tools.akmods_clone_pinned` |
 | Configure target image path for the akmods build wrapper | `akmods-configure-zfs-target` | `ci_tools.akmods_configure_zfs_target` |
-| Build and publish self-hosted zfs akmods image | `akmods-build-and-publish` | `ci_tools.akmods_build_and_publish` |
+| Build and publish self-hosted zfs akmods image plus shared-cache metadata labels | `akmods-build-and-publish` | `ci_tools.akmods_build_and_publish` |
 
 ## Build Input Note
 

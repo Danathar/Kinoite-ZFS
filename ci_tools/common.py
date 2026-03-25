@@ -23,6 +23,9 @@ class CiToolError(RuntimeError):
 
 FEDORA_FROM_KERNEL_RE = re.compile(r".*fc([0-9]+).*")
 NATURAL_SORT_SPLIT_RE = re.compile(r"([0-9]+)")
+AKMODS_CACHE_METADATA_VERSION = "1"
+AKMODS_CACHE_METADATA_VERSION_LABEL = "io.github.danathar.kinoite-zfs.akmods.cache-format"
+AKMODS_CACHE_KERNEL_RELEASES_LABEL = "io.github.danathar.kinoite-zfs.akmods.kernel-releases"
 
 
 def require_env(name: str) -> str:

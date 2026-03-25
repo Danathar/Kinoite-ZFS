@@ -18,6 +18,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from ci_tools.common import (
+    AKMODS_CACHE_KERNEL_RELEASES_LABEL,
+    AKMODS_CACHE_METADATA_VERSION,
+    AKMODS_CACHE_METADATA_VERSION_LABEL,
     CiToolError,
     kernel_releases_from_env,
     load_layer_files_from_oci_layout,
@@ -241,6 +244,35 @@ def merged_cache_missing_kernel_releases(
     return missing
 
 
+def render_shared_cache_containerfile(*, kernel_releases: list[str]) -> str:
+    """
+    Render the shared-cache Containerfile with lightweight kernel metadata.
+
+    Shared cache consumers only need to know which kernel releases this image
+    covers. Recording that in labels lets cache checks avoid a full image copy
+    and layer unpack on newer images while older images continue to work via
+    the existing fallback scan path.
+    """
+
+    label_values = {
+        AKMODS_CACHE_METADATA_VERSION_LABEL: AKMODS_CACHE_METADATA_VERSION,
+        AKMODS_CACHE_KERNEL_RELEASES_LABEL: " ".join(
+            sort_kernel_releases(kernel_releases)
+        ),
+    }
+    lines = ["FROM scratch"]
+    for key, value in label_values.items():
+        lines.append(f"LABEL {key}={json.dumps(value)}")
+    lines.extend(
+        [
+            "COPY kernel-rpms /kernel-rpms",
+            "COPY rpms /rpms",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def merge_and_push_shared_cache_image(*, kernel_releases: list[str]) -> None:
     """
     Build and push one shared cache image that contains RPMs for every kernel.
@@ -287,9 +319,7 @@ def merge_and_push_shared_cache_image(*, kernel_releases: list[str]) -> None:
 
         containerfile = build_context / "Containerfile"
         containerfile.write_text(
-            "FROM scratch\n"
-            "COPY kernel-rpms /kernel-rpms\n"
-            "COPY rpms /rpms\n",
+            render_shared_cache_containerfile(kernel_releases=kernel_releases),
             encoding="utf-8",
         )
 

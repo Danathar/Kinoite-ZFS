@@ -80,6 +80,8 @@ Before rebuilding akmods, CI checks whether the shared source cache image alread
 
 1. `kmod-zfs-<exact-kernel-release>-*.rpm` for the current base kernel.
 2. The workflow now supplies GHCR credentials for this inspection step, so repo-scoped cache packages do not look "missing" just because anonymous reads are disabled.
+3. Newer shared cache images publish lightweight kernel-coverage labels, so the check can usually stay on `skopeo inspect` instead of copying and unpacking the whole cache image.
+4. Older shared cache images still work because the helper falls back to the slower layer-scan path when those labels are absent.
 
 If a matching RPM exists, akmods rebuild is skipped.
 If missing, akmods rebuild is forced.
@@ -96,7 +98,8 @@ If cache is missing/stale (or manual rebuild is requested), CI:
 4. Detects every installed kernel shipped in the pinned base image.
 5. Seeds upstream akmods cache metadata once per detected kernel release.
 6. Builds and publishes the shared Fedora-wide akmods cache so it can carry RPMs for all detected kernels.
-7. Copies those shared tags into candidate alias tags before candidate compose (candidate image build stage) and promotion.
+7. Stamps that shared cache image with lightweight kernel-coverage labels for later fast-path reuse checks.
+8. Copies those shared tags into candidate alias tags before candidate compose (candidate image build stage) and promotion.
 
 ### 4. Build Candidate Kinoite Image
 

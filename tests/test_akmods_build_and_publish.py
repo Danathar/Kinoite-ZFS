@@ -14,12 +14,18 @@ import unittest
 from unittest.mock import call, patch
 
 from ci_tools import akmods_build_and_publish as script
+from ci_tools.common import (
+    AKMODS_CACHE_KERNEL_RELEASES_LABEL,
+    AKMODS_CACHE_METADATA_VERSION,
+    AKMODS_CACHE_METADATA_VERSION_LABEL,
+)
 from ci_tools.akmods_build_and_publish import (
     build_kernel_cache_document,
     kernel_major_minor_patch,
     kernel_name_for_flavor,
     manifest_tag_for_kernel_release,
     merged_cache_missing_kernel_releases,
+    render_shared_cache_containerfile,
 )
 
 
@@ -114,6 +120,27 @@ class AkmodsBuildAndPublishTests(unittest.TestCase):
             )
 
         self.assertEqual(missing, ["6.18.16-200.fc43.x86_64"])
+
+    def test_render_shared_cache_containerfile_includes_kernel_metadata_labels(self) -> None:
+        containerfile = render_shared_cache_containerfile(
+            kernel_releases=[
+                "6.18.16-200.fc43.x86_64",
+                "6.18.13-200.fc43.x86_64",
+            ]
+        )
+
+        self.assertIn(
+            f'LABEL {AKMODS_CACHE_METADATA_VERSION_LABEL}="{AKMODS_CACHE_METADATA_VERSION}"',
+            containerfile,
+        )
+        self.assertIn(
+            (
+                f'LABEL {AKMODS_CACHE_KERNEL_RELEASES_LABEL}='
+                '"6.18.13-200.fc43.x86_64 6.18.16-200.fc43.x86_64"'
+            ),
+            containerfile,
+        )
+        self.assertTrue(containerfile.endswith("COPY rpms /rpms\n"))
 
     def test_write_kernel_cache_file_exports_isolated_upstream_build_root(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

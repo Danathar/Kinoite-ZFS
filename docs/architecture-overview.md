@@ -103,10 +103,12 @@ The workflow checks cached akmods images for `kmod-zfs` RPMs that match every ke
 1. If yes, it reuses cache.
 2. If no, it rebuilds and publishes the Fedora-wide cache again so it contains RPMs for every installed base-image kernel.
 3. Shared-cache inspection uses workflow GHCR credentials when available, so this repo can keep the cache package repo-scoped without turning auth failures into false cache misses.
-4. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
-5. In multi-kernel rebuilds, the wrapper gives each kernel its own cache path first, because upstream akmods assumes one kernel payload per cache directory.
-6. The wrapper then publishes each kernel-specific image tag and merges those local outputs into one shared Fedora-wide cache image (`main-<fedora>`).
-7. That same multi-kernel path disables Buildah layer caching so each kernel build sees its own mounted RPM cache instead of reusing stale filesystem layers from the previous kernel iteration.
+4. Newer shared cache images advertise their covered kernel releases in OCI labels, so reuse checks can usually stay on `skopeo inspect` instead of copying and unpacking the whole image.
+5. Older cache images still fall back to the layer-scan path until they are refreshed by a rebuild.
+6. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
+7. In multi-kernel rebuilds, the wrapper gives each kernel its own cache path first, because upstream akmods assumes one kernel payload per cache directory.
+8. The wrapper then publishes each kernel-specific image tag and merges those local outputs into one shared Fedora-wide cache image (`main-<fedora>`).
+9. That same multi-kernel path disables Buildah layer caching so each kernel build sees its own mounted RPM cache instead of reusing stale filesystem layers from the previous kernel iteration.
 
 ### Deferred Refactor Note
 
