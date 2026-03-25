@@ -36,7 +36,7 @@ def candidate_image_tag_ref(
 
 
 def candidate_image_digest_ref(image_org: str, image_name: str, digest: str) -> str:
-    """Return the digest-pinned candidate ref used by Podman for smoke checks."""
+    """Return the digest-pinned candidate ref used by smoke checks."""
 
     return f"ghcr.io/{image_org}/{image_name}@{digest}"
 
@@ -47,6 +47,24 @@ def _image_kernel_releases(rootfs_dir: Path) -> list[str]:
         return []
     return sort_kernel_releases(
         [entry.name for entry in modules_root.iterdir() if entry.is_dir()]
+    )
+
+
+def unpack_candidate_image_layers(layer_files: list[Path], destination: Path) -> None:
+    """
+    Extract candidate-image layers for file-presence inspection.
+
+    The published candidate image is OSTree-based, so some layer members are
+    absolute repo-object links under `sysroot/ostree/...`. Those links are not
+    needed for the userland/module checks below, so we skip them during
+    extraction instead of failing the smoke test on Python 3.12's stricter
+    tarfile defaults.
+    """
+
+    unpack_layer_tarballs(
+        layer_files,
+        destination,
+        allow_unsafe_links=True,
     )
 
 
@@ -61,13 +79,14 @@ def smoke_test_candidate_image(
     digest_lookup: Callable[..., str] = skopeo_inspect_digest,
     image_copier: Callable[..., None] = skopeo_copy,
     layer_loader: Callable[[Path], list[Path]] = load_layer_files_from_oci_layout,
-    layer_unpacker: Callable[[list[Path], Path], None] = unpack_layer_tarballs,
+    layer_unpacker: Callable[[list[Path], Path], None] = unpack_candidate_image_layers,
 ) -> str:
     """
     Validate the published candidate image, then return its digest-pinned ref.
 
     This check intentionally stays lightweight:
     - resolve the exact candidate digest from the published tag
+    - unpack the filesystem layers needed for inspection
     - verify ZFS userspace packages/commands exist
     - verify every shipped kernel directory has a ZFS module payload
     """

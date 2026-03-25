@@ -14,7 +14,7 @@ import re
 import subprocess
 import tarfile
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Callable, Literal, Mapping, Sequence
 
 
 class CiToolError(RuntimeError):
@@ -206,7 +206,33 @@ def skopeo_copy(
     run_cmd(command, capture_output=False)
 
 
-def unpack_layer_tarballs(layer_files: list[Path], destination: Path) -> None:
+def _inspection_tar_filter(
+    member: tarfile.TarInfo,
+    destination: str,
+) -> tarfile.TarInfo | None:
+    """
+    Return a safer tar member for inspection-mode extraction.
+
+    OCI layers from OSTree-based images can contain repo-object links whose
+    targets are absolute paths. Those links are not required for the lightweight
+    file-presence checks used by our smoke tests, so we skip them while keeping
+    `tarfile.data_filter` in place for all other safety checks.
+    """
+
+    try:
+        return tarfile.data_filter(member, destination)
+    except (tarfile.AbsoluteLinkError, tarfile.LinkOutsideDestinationError):
+        if member.islnk() or member.issym():
+            return None
+        raise
+
+
+def unpack_layer_tarballs(
+    layer_files: list[Path],
+    destination: Path,
+    *,
+    allow_unsafe_links: bool = False,
+) -> None:
     """
     Extract image layer tar files into one filesystem tree.
 
@@ -214,10 +240,18 @@ def unpack_layer_tarballs(layer_files: list[Path], destination: Path) -> None:
     - blocks absolute paths and parent-directory escapes
     - blocks unsafe link targets
     This is a "fail closed" safety check for untrusted tar metadata.
+
+    `allow_unsafe_links=True` is reserved for read-only image inspection. Some
+    OSTree-native images carry absolute repo-object links that are irrelevant to
+    the files we validate, so inspection callers can skip those links while
+    keeping the rest of the `data_filter` protections.
     """
     for layer_file in layer_files:
         with tarfile.open(layer_file, "r") as tar:
-            tar.extractall(destination, filter="data")
+            extract_filter: Literal["data"] | Callable[[tarfile.TarInfo, str], tarfile.TarInfo | None] = "data"
+            if allow_unsafe_links:
+                extract_filter = _inspection_tar_filter
+            tar.extractall(destination, filter=extract_filter)
 
 
 def load_layer_files_from_oci_layout(image_dir: Path) -> list[Path]:

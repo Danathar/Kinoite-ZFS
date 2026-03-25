@@ -8,13 +8,20 @@ Goal: Keep workflow I/O handling robust across future refactors.
 
 from __future__ import annotations
 
+import io
 import os
 from pathlib import Path
 import tempfile
+import tarfile
 import unittest
 from unittest.mock import patch
 
-from ci_tools.common import CiToolError, optional_registry_creds, write_github_outputs
+from ci_tools.common import (
+    CiToolError,
+    optional_registry_creds,
+    unpack_layer_tarballs,
+    write_github_outputs,
+)
 
 
 class CommonTests(unittest.TestCase):
@@ -71,6 +78,49 @@ class CommonTests(unittest.TestCase):
             written = output_path.read_text(encoding="utf-8")
             self.assertIn("single=value\n", written)
             self.assertIn("multi<<__GITHUB_OUTPUT_EOF__\nline-1\nline-2\n__GITHUB_OUTPUT_EOF__\n", written)
+
+    def test_unpack_layer_tarballs_rejects_absolute_link_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            layer_path = root / "layer.tar"
+            destination = root / "extract"
+            destination.mkdir()
+
+            with tarfile.open(layer_path, "w") as layer_tar:
+                link = tarfile.TarInfo("repo-object")
+                link.type = tarfile.SYMTYPE
+                link.linkname = "/var/lib/containers/storage"
+                layer_tar.addfile(link)
+
+            with self.assertRaises(tarfile.AbsoluteLinkError):
+                unpack_layer_tarballs([layer_path], destination)
+
+    def test_unpack_layer_tarballs_can_skip_unsafe_links_for_inspection(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            layer_path = root / "layer.tar"
+            destination = root / "extract"
+            destination.mkdir()
+
+            with tarfile.open(layer_path, "w") as layer_tar:
+                link = tarfile.TarInfo("repo-object")
+                link.type = tarfile.SYMTYPE
+                link.linkname = "/var/lib/containers/storage"
+                layer_tar.addfile(link)
+
+                payload = tarfile.TarInfo("usr/sbin/zfs")
+                payload_bytes = b"binary"
+                payload.size = len(payload_bytes)
+                layer_tar.addfile(payload, io.BytesIO(payload_bytes))
+
+            unpack_layer_tarballs(
+                [layer_path],
+                destination,
+                allow_unsafe_links=True,
+            )
+
+            self.assertFalse((destination / "repo-object").exists())
+            self.assertEqual((destination / "usr" / "sbin" / "zfs").read_bytes(), b"binary")
 
 
 if __name__ == "__main__":
