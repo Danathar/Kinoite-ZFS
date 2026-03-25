@@ -52,7 +52,7 @@ runs:
       id: publish_attempt_1
       if: ${{ inputs.mode == 'publish' }}
       continue-on-error: true
-      uses: blue-build/github-action@v1.11.0
+      uses: blue-build/github-action@v1.11.1
       with:
         recipe: ${{ inputs.recipe }}
         working_directory: ${{ inputs.working_directory }}
@@ -65,7 +65,7 @@ runs:
     - name: Build image (publish mode, retry after transient registry error)
       id: publish_retry
       if: ${{ inputs.mode == 'publish' && inputs.retry_on_failure == 'true' && steps.publish_attempt_1.outcome == 'failure' }}
-      uses: blue-build/github-action@v1.11.0
+      uses: blue-build/github-action@v1.11.1
       with:
         recipe: ${{ inputs.recipe }}
         working_directory: ${{ inputs.working_directory }}
@@ -84,7 +84,7 @@ runs:
 
     - name: Build image (validation mode)
       if: ${{ inputs.mode == 'validate' }}
-      uses: blue-build/github-action@v1.11.0
+      uses: blue-build/github-action@v1.11.1
       with:
         recipe: ${{ inputs.recipe }}
         working_directory: ${{ inputs.working_directory }}
