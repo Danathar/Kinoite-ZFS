@@ -14,7 +14,8 @@ from ci_tools.common import normalize_owner, require_env, skopeo_copy
 def main() -> None:
     # Inputs from the branch workflow step.
     # `SOURCE_AKMODS_REPO` is the shared source repo that already contains
-    # kernel-matched akmods tags (for example `akmods-zfs:main-43`).
+    # kernel-matched akmods tags (for example
+    # `kinoite-zfs-bluebuild-akmods:main-43`).
     # `DEST_AKMODS_REPO` is the public repo used by branch compose.
     # Compose step here means the branch image build stage.
     # Note: source-code repo visibility and container package visibility are

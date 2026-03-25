@@ -130,7 +130,7 @@ If you want the full technical design and workflow details, read:
   - `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
 - Shared akmods source tag used by branch alias step:
   - `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-<fedora>`
-- Branch akmods compose alias (branch-scoped public tag):
+- Branch akmods compose alias (branch-scoped compose tag):
   - `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:br-<branch>-<fedora>`
 
 Candidate and branch artifacts are isolated so test runs do not overwrite stable `ghcr.io/danathar/kinoite-zfs:latest`.
@@ -163,11 +163,13 @@ If candidate fails, stable tags are not updated. That protects users from overni
   - Uploads a `build-inputs-<run_id>` artifact capturing exact resolved build inputs.
 - [`.github/workflows/build-beta.yml`](.github/workflows/build-beta.yml)
   - Builds branch-tagged test artifacts for non-main branches.
-  - Copies shared akmods source tags into branch-scoped public alias tags in `kinoite-zfs-bluebuild-akmods-candidate` for compose (branch image build step).
+  - Copies shared akmods source tags into branch-scoped compose alias tags in `kinoite-zfs-bluebuild-akmods-candidate` for compose (branch image build step).
   - Fails closed if shared akmods source tags are missing/stale (so test branches do not mutate shared cache tags).
+  - Supplies workflow GHCR credentials to shared-cache inspection so repo-scoped packages do not produce false "missing cache" results.
   - Runs on branch pushes and manual dispatch.
 - [`.github/workflows/build-pr.yml`](.github/workflows/build-pr.yml)
   - PR validation build only (`push: false`, unsigned).
+  - Supplies workflow GHCR credentials to shared-cache inspection for the same reason as the branch flow above.
 
 Markdown/docs-only changes do not trigger image builds.
 
@@ -269,6 +271,23 @@ sudo zfs create -o mountpoint=/var/mnt/testpool testpool/data
 sudo zpool status
 sudo zfs list
 ```
+
+## Local Validation
+
+For local repo checks without pushing images:
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements-dev.txt
+./.venv/bin/python -m pytest -q
+./.venv/bin/ruff check ci_tools containerfiles/zfs-akmods tests
+./.venv/bin/mypy ci_tools tests containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py
+./.venv/bin/yamllint -d '{extends: default, rules: {line-length: disable}}' \
+  .github/actions/*.yml .github/workflows/*.yml ci/github-runner/compose.yml recipes/recipe.yml
+```
+
+These checks cover the Python helper modules, the compose-time installer helper,
+and the workflow YAML that wires the repo together.
 
 ## Signature Verification
 

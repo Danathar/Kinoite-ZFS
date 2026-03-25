@@ -8,11 +8,16 @@ Goal: Keep rebuild decisions fail-closed when any required kernel RPM is absent.
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
-from ci_tools.main_check_candidate_akmods_cache import _missing_kernel_releases
+from ci_tools.main_check_candidate_akmods_cache import (
+    _missing_kernel_releases,
+    inspect_candidate_akmods_cache,
+)
 
 
 class MainCheckCandidateAkmodsCacheTests(unittest.TestCase):
@@ -34,6 +39,47 @@ class MainCheckCandidateAkmodsCacheTests(unittest.TestCase):
             )
 
             self.assertEqual(missing, ["6.18.16-200.fc43.x86_64"])
+
+    def test_inspect_candidate_akmods_cache_uses_registry_creds_when_available(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "REGISTRY_ACTOR": "actor",
+                "REGISTRY_TOKEN": "token",
+            },
+            clear=False,
+        ):
+            with patch(
+                "ci_tools.main_check_candidate_akmods_cache.skopeo_exists",
+                return_value=True,
+            ) as skopeo_exists:
+                with patch("ci_tools.main_check_candidate_akmods_cache.skopeo_copy") as skopeo_copy:
+                    with patch(
+                        "ci_tools.main_check_candidate_akmods_cache.load_layer_files_from_oci_layout",
+                        return_value=[],
+                    ):
+                        with patch(
+                            "ci_tools.main_check_candidate_akmods_cache.unpack_layer_tarballs",
+                        ):
+                            status = inspect_candidate_akmods_cache(
+                                image_org="danathar",
+                                source_repo="kinoite-zfs-bluebuild-akmods",
+                                fedora_version="43",
+                                kernel_releases=["6.18.16-200.fc43.x86_64"],
+                            )
+
+        self.assertFalse(status.reusable)
+        skopeo_exists.assert_called_once_with(
+            "docker://ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+            creds="actor:token",
+        )
+        copy_args, copy_kwargs = skopeo_copy.call_args
+        self.assertEqual(
+            copy_args[0],
+            "docker://ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+        )
+        self.assertTrue(copy_args[1].startswith("dir:"))
+        self.assertEqual(copy_kwargs["creds"], "actor:token")
 
 
 if __name__ == "__main__":

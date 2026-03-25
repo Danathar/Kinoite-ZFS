@@ -102,10 +102,11 @@ The workflow checks cached akmods images for `kmod-zfs` RPMs that match every ke
 
 1. If yes, it reuses cache.
 2. If no, it rebuilds and publishes the Fedora-wide cache again so it contains RPMs for every installed base-image kernel.
-3. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
-4. In multi-kernel rebuilds, the wrapper gives each kernel its own cache path first, because upstream akmods assumes one kernel payload per cache directory.
-5. The wrapper then publishes each kernel-specific image tag and merges those local outputs into one shared Fedora-wide cache image (`main-<fedora>`).
-6. That same multi-kernel path disables Buildah layer caching so each kernel build sees its own mounted RPM cache instead of reusing stale filesystem layers from the previous kernel iteration.
+3. Shared-cache inspection uses workflow GHCR credentials when available, so this repo can keep the cache package repo-scoped without turning auth failures into false cache misses.
+4. During rebuild, the akmods tooling pulls OpenZFS release source from the upstream OpenZFS GitHub releases page (`https://github.com/openzfs/zfs/releases`).
+5. In multi-kernel rebuilds, the wrapper gives each kernel its own cache path first, because upstream akmods assumes one kernel payload per cache directory.
+6. The wrapper then publishes each kernel-specific image tag and merges those local outputs into one shared Fedora-wide cache image (`main-<fedora>`).
+7. That same multi-kernel path disables Buildah layer caching so each kernel build sees its own mounted RPM cache instead of reusing stale filesystem layers from the previous kernel iteration.
 
 ### Deferred Refactor Note
 
@@ -137,7 +138,8 @@ Within that generated workspace, the workflow:
 
 1. Pin `base-image` + `image-version` to the resolved immutable base tag for this run.
 2. Use the candidate-repo Fedora-wide akmods cache tag (`main-<fedora>`), which can carry RPMs for more than one installed kernel.
-3. Normalize signature trust policy entries after the signing module so both
+3. Keep the canonical checked-in default `AKMODS_IMAGE_TEMPLATE` aligned with this repo's stable cache namespace, while the generated workspace rewrites it for candidate and branch-specific tags as needed.
+4. Normalize signature trust policy entries after the signing module so both
    stable and candidate repo names are trusted in the final image:
    - `ghcr.io/danathar/kinoite-zfs`
    - `ghcr.io/danathar/kinoite-zfs-candidate`
@@ -155,7 +157,7 @@ two install paths on purpose:
 2. Additional kernel-specific `kmod-zfs` RPM payloads are unpacked directly into
    the image root and then `depmod -a <kernel>` runs for each base kernel.
 3. The compose-time RPM/kernel mapping now lives in
-   [containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py](/var/home/dbaggett/git/zfs_migration/containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py)
+   [`containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py`](../containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py)
    instead of one long inline shell block, so the multi-kernel workaround can be
    unit-tested separately from the Containerfile wrapper.
 

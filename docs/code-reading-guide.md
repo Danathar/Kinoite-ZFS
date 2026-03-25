@@ -45,7 +45,7 @@ Now read how workflow command names map to Python modules.
 What to look for:
 
 1. Command map in `cli.py` (string command -> Python function).
-2. Common helpers in `common.py` (`require_env`, `skopeo_*`, `write_github_output`).
+2. Common helpers in `common.py` (`require_env`, `skopeo_*`, `write_github_outputs`).
 3. The local composite action that wraps the repeated environment-to-Python wiring for main input resolution, manifest upload, and shared-cache inspection.
 4. The local composite action that wraps the repeated environment-to-Python wiring for non-main validation prep.
 5. The local composite action that wraps the repeated BlueBuild `uses:` blocks for publish and validation builds.

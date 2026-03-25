@@ -132,5 +132,10 @@ runs:
         KERNEL_RELEASE: ${{ steps.resolve.outputs.kernel_release }}
         KERNEL_RELEASES: ${{ steps.resolve.outputs.kernel_releases }}
         AKMODS_REPO: ${{ inputs.shared_akmods_repo }}
+        # Shared akmods packages can stay repo-scoped/private; use workflow
+        # credentials for cache inspection instead of relying on anonymous GHCR
+        # reads.
+        REGISTRY_ACTOR: ${{ github.actor }}
+        REGISTRY_TOKEN: ${{ github.token }}
       run: |
         python3 -m ci_tools.cli main-check-candidate-akmods-cache

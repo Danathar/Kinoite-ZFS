@@ -43,7 +43,7 @@ class ChooseBaseImageTagTests(unittest.TestCase):
         self.assertEqual(tag, "latest-20260227.1")
         self.assertEqual(
             checked,
-            ["latest-20260227.1", "latest-20260227.1", "43-20260227.1"],
+            ["latest-20260227.1", "43-20260227.1"],
         )
 
     def test_rejects_unexpected_version_label(self) -> None:

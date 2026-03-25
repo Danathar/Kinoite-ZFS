@@ -52,7 +52,7 @@ This is intentionally designed for iterative validation before adopting any appr
 
 1. OS image: `ghcr.io/danathar/kinoite-zfs:br-<branch>-<fedora>` (BlueBuild branch tag pattern)
 2. Shared akmods source tag: `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-<fedora>`
-3. Branch-scoped public compose alias (the alias tag read by the branch compose step): `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:br-<branch>-<fedora>`
+3. Branch-scoped compose alias (the alias tag read by the branch compose step): `ghcr.io/danathar/kinoite-zfs-bluebuild-akmods-candidate:br-<branch>-<fedora>`
 
 Branch artifacts are isolated at the image tag level and at the branch alias tag level in candidate repo, so test images do not overwrite stable image tags.
 
@@ -79,6 +79,7 @@ The workflow also writes a `build-inputs-<run_id>` artifact containing all resol
 Before rebuilding akmods, CI checks whether the shared source cache image already contains:
 
 1. `kmod-zfs-<exact-kernel-release>-*.rpm` for the current base kernel.
+2. The workflow now supplies GHCR credentials for this inspection step, so repo-scoped cache packages do not look "missing" just because anonymous reads are disabled.
 
 If a matching RPM exists, akmods rebuild is skipped.
 If missing, akmods rebuild is forced.
@@ -113,17 +114,18 @@ Within that generated workspace, CI then:
 
 1. Pins `base-image`/`image-version` to the resolved immutable base tag from input resolution.
 2. Pulls the akmods cache image for the resolved kernel release.
-3. Runs the helper at
-   [containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py](/var/home/dbaggett/git/zfs_migration/containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py)
+3. Uses the checked-in default `AKMODS_IMAGE_TEMPLATE` only as a stable-cache fallback; the generated workspace rewrites it to candidate or branch alias tags for CI runs.
+4. Runs the helper at
+   [`containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py`](../containerfiles/zfs-akmods/install_zfs_from_akmods_cache.py)
    so the multi-kernel decision logic stays outside the inline Containerfile text.
-4. The Containerfile now passes that helper a declarative `AKMODS_IMAGE_TEMPLATE`
+5. The Containerfile now passes that helper a declarative `AKMODS_IMAGE_TEMPLATE`
    value, and the helper itself resolves the Fedora-specific suffix from the
    build root instead of relying on an inline bash wrapper.
-5. That helper extracts ZFS RPMs from image layers.
-6. The helper installs shared ZFS userspace RPMs and one primary `kmod-zfs` RPM via `rpm-ostree install`.
-7. If the base image ships fallback kernels too, the helper unpacks the remaining kernel-specific `kmod-zfs` RPM payloads directly into the image root.
-8. The helper verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
-9. The helper runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
+6. That helper extracts ZFS RPMs from image layers.
+7. The helper installs shared ZFS userspace RPMs and one primary `kmod-zfs` RPM via `rpm-ostree install`.
+8. If the base image ships fallback kernels too, the helper unpacks the remaining kernel-specific `kmod-zfs` RPM payloads directly into the image root.
+9. The helper verifies `/lib/modules/<kernel>/extra/zfs/zfs.ko` exists for each base kernel.
+10. The helper runs `depmod -a <kernel>` to ensure module dependency metadata is generated in build context.
 
 If module files do not match kernel directories, candidate build fails immediately.
 
@@ -202,12 +204,12 @@ Triggers:
 
 Key behavior:
 
-1. Computes branch-safe public alias tag prefix.
+1. Computes branch-safe compose alias tag prefix.
 2. Uses one shared local validation-prep action to:
    - resolve the same pinned inputs `main` uses
    - verify the shared akmods source tag `kinoite-zfs-bluebuild-akmods:main-<fedora>`
 3. Fails closed if that shared source tag is missing/stale (branch runs do not rebuild shared cache tags).
-4. Copies a branch-scoped alias tag into `kinoite-zfs-bluebuild-akmods-candidate` so compose can pull from a public path.
+4. Copies a branch-scoped alias tag into `kinoite-zfs-bluebuild-akmods-candidate` so compose can read a branch-isolated tag without touching the shared stable cache tag.
 5. That local validation-prep action still calls the shared Python command `prepare-validation-build`, so the actual input-resolution and cache-validation behavior stays centralized.
 6. Uses the shared generated-build-context command to create a branch-local build workspace that consumes that branch-scoped alias tag.
 7. Calls one shared local composite action to feed branch-specific values into the generated-workspace helper, instead of repeating the same shell/env block in every workflow.

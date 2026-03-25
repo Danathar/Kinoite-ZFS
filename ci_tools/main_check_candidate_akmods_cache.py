@@ -17,6 +17,7 @@ from ci_tools.common import (
     load_layer_files_from_oci_layout,
     normalize_owner,
     optional_env,
+    optional_registry_creds,
     require_env,
     skopeo_copy,
     skopeo_exists,
@@ -72,6 +73,7 @@ def inspect_candidate_akmods_cache(
     source_repo: str,
     fedora_version: str,
     kernel_releases: list[str],
+    creds: str | None = None,
 ) -> AkmodsCacheStatus:
     """
     Inspect one shared akmods cache image and report whether it is reusable.
@@ -81,7 +83,8 @@ def inspect_candidate_akmods_cache(
     """
 
     source_image = f"ghcr.io/{image_org}/{source_repo}:main-{fedora_version}"
-    if not skopeo_exists(f"docker://{source_image}"):
+    resolved_creds = creds if creds is not None else optional_registry_creds()
+    if not skopeo_exists(f"docker://{source_image}", creds=resolved_creds):
         return AkmodsCacheStatus(
             source_image=source_image,
             image_exists=False,
@@ -92,7 +95,11 @@ def inspect_candidate_akmods_cache(
         root = Path(temp_dir)
         akmods_dir = root / "akmods"
         # `skopeo copy ... dir:<path>` saves image layers so we can inspect files.
-        skopeo_copy(f"docker://{source_image}", f"dir:{akmods_dir}")
+        skopeo_copy(
+            f"docker://{source_image}",
+            f"dir:{akmods_dir}",
+            creds=resolved_creds,
+        )
 
         layer_files = load_layer_files_from_oci_layout(akmods_dir)
         # Extract all filesystem layers into one temp tree for file checks.

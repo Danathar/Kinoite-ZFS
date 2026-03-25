@@ -112,6 +112,7 @@ def choose_base_image_tag(
     if source_tag:
         candidate_tags.append(f"{source_tag}-{version_suffix}")
     candidate_tags.extend([f"latest-{version_suffix}", f"{fedora_version}-{version_suffix}"])
+    candidate_tags = list(dict.fromkeys(candidate_tags))
 
     # Try each candidate tag and keep the first one that resolves to the same digest.
     # Digest match is the key safety check: tag text can move, digest does not.

@@ -60,7 +60,7 @@ class PrepareValidationBuildTests(unittest.TestCase):
                 {
                     "GITHUB_OUTPUT": output_path,
                     "GITHUB_REPOSITORY_OWNER": "Danathar",
-                    "AKMODS_REPO": "akmods-zfs",
+                    "AKMODS_REPO": "kinoite-zfs-bluebuild-akmods",
                 },
                 clear=False,
             ):
@@ -71,7 +71,7 @@ class PrepareValidationBuildTests(unittest.TestCase):
                     with patch(
                         "ci_tools.prepare_validation_build.inspect_candidate_akmods_cache",
                         return_value=AkmodsCacheStatus(
-                            source_image="ghcr.io/danathar/akmods-zfs:main-43",
+                            source_image="ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
                             image_exists=True,
                             missing_releases=(),
                         ),
@@ -86,7 +86,7 @@ class PrepareValidationBuildTests(unittest.TestCase):
 
             inspect_cache.assert_called_once_with(
                 image_org="danathar",
-                source_repo="akmods-zfs",
+                source_repo="kinoite-zfs-bluebuild-akmods",
                 fedora_version="43",
                 kernel_releases=["6.18.13-200.fc43.x86_64", "6.18.16-200.fc43.x86_64"],
             )
@@ -101,7 +101,7 @@ class PrepareValidationBuildTests(unittest.TestCase):
                 {
                     "GITHUB_OUTPUT": output_path,
                     "GITHUB_REPOSITORY_OWNER": "Danathar",
-                    "AKMODS_REPO": "akmods-zfs",
+                    "AKMODS_REPO": "kinoite-zfs-bluebuild-akmods",
                 },
                 clear=False,
             ):
@@ -112,7 +112,7 @@ class PrepareValidationBuildTests(unittest.TestCase):
                     with patch(
                         "ci_tools.prepare_validation_build.inspect_candidate_akmods_cache",
                         return_value=AkmodsCacheStatus(
-                            source_image="ghcr.io/danathar/akmods-zfs:main-43",
+                            source_image="ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
                             image_exists=True,
                             missing_releases=("6.18.16-200.fc43.x86_64",),
                         ),
@@ -120,7 +120,10 @@ class PrepareValidationBuildTests(unittest.TestCase):
                         with self.assertRaises(CiToolError) as context:
                             main()
 
-            self.assertIn("ghcr.io/danathar/akmods-zfs:main-43", str(context.exception))
+            self.assertIn(
+                "ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+                str(context.exception),
+            )
             self.assertIn("rebuild_akmods=true", str(context.exception))
 
 

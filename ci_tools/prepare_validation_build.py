@@ -18,8 +18,9 @@ def _shared_cache_failure_message(*, source_image: str, missing_releases: tuple[
     Build one readable failure message for read-only validation workflows.
 
     The branch and PR paths intentionally do not rebuild or overwrite the shared
-    `akmods-zfs:main-<fedora>` tag. If that shared source is missing or stale,
-    the correct repair action is to refresh it from the main workflow.
+    `kinoite-zfs-bluebuild-akmods:main-<fedora>` tag. If that shared source is
+    missing or stale, the correct repair action is to refresh it from the main
+    workflow.
     """
 
     kernels_text = " ".join(missing_releases)

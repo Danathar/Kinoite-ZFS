@@ -38,6 +38,29 @@ def optional_env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
+def optional_registry_creds(
+    *,
+    actor_var: str = "REGISTRY_ACTOR",
+    token_var: str = "REGISTRY_TOKEN",
+) -> str | None:
+    """
+    Return `actor:token` credentials when registry env vars are available.
+
+    GitHub Actions always exposes `GITHUB_ACTOR`, so we use that as a fallback
+    actor source when only `REGISTRY_TOKEN` is wired through a composite action.
+    """
+
+    actor = optional_env(actor_var).strip() or optional_env("GITHUB_ACTOR").strip()
+    token = optional_env(token_var).strip()
+    if not token:
+        return None
+    if not actor:
+        raise CiToolError(
+            f"Missing registry actor for {token_var}; set {actor_var} or GITHUB_ACTOR."
+        )
+    return f"{actor}:{token}"
+
+
 def kernel_releases_from_env(
     *,
     kernel_releases_var: str = "KERNEL_RELEASES",
@@ -111,7 +134,14 @@ def write_github_outputs(values: Mapping[str, str]) -> None:
     output_file = require_env("GITHUB_OUTPUT")
     with open(output_file, "a", encoding="utf-8") as handle:
         for key, value in values.items():
-            handle.write(f"{key}={value}\n")
+            if "\n" not in value and "\r" not in value:
+                handle.write(f"{key}={value}\n")
+                continue
+
+            delimiter = "__GITHUB_OUTPUT_EOF__"
+            while delimiter in value:
+                delimiter += "_X"
+            handle.write(f"{key}<<{delimiter}\n{value}\n{delimiter}\n")
 
 
 def normalize_owner(owner: str) -> str:

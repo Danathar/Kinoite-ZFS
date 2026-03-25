@@ -92,5 +92,9 @@ runs:
         DEFAULT_ZFS_MINOR_VERSION: ${{ inputs.default_zfs_minor_version }}
         DEFAULT_AKMODS_REF: ${{ inputs.default_akmods_ref }}
         AKMODS_REPO: ${{ inputs.akmods_repo }}
+        # Validation should inspect the same repo-scoped GHCR cache that main
+        # uses, even when that package is not anonymously readable.
+        REGISTRY_ACTOR: ${{ github.actor }}
+        REGISTRY_TOKEN: ${{ github.token }}
       run: |
         python3 -m ci_tools.cli prepare-validation-build

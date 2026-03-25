@@ -64,7 +64,10 @@ class InstallZfsFromAkmodsCacheTests(unittest.TestCase):
             run_cmd=lambda _args: "43\n",
         )
 
-        self.assertEqual(image_ref, "ghcr.io/danathar/akmods-zfs:main-43")
+        self.assertEqual(
+            image_ref,
+            "ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-43",
+        )
 
     def test_load_layer_files_from_oci_layout_reads_manifest_layers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

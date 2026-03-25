@@ -23,7 +23,9 @@ LAYOUT_DIR = Path("/tmp/akmods-zfs")
 EXTRACT_ROOT = Path("/tmp")
 RPM_SEARCH_ROOT = EXTRACT_ROOT / "rpms" / "kmods" / "zfs"
 MODULES_ROOT = Path("/lib/modules")
-DEFAULT_AKMODS_IMAGE_TEMPLATE = "ghcr.io/danathar/akmods-zfs:main-{fedora}"
+DEFAULT_AKMODS_IMAGE_TEMPLATE = (
+    "ghcr.io/danathar/kinoite-zfs-bluebuild-akmods:main-{fedora}"
+)
 
 
 @dataclass(frozen=True)
@@ -114,6 +116,8 @@ def resolve_akmods_image(
     2. `AKMODS_IMAGE_TEMPLATE` lets CI declare which repo/tag-prefix to use.
     3. The helper fills in `{fedora}` itself so the Containerfile does not need
        an inline shell wrapper just to compute the Fedora-specific suffix.
+    4. When neither env var is set, fall back to this repo's dedicated stable
+       akmods cache namespace.
     """
 
     explicit_image = environ.get("AKMODS_IMAGE", "").strip()
