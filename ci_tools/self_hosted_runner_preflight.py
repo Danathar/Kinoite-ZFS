@@ -22,6 +22,10 @@ STALE_TEMP_PREFIXES = (
     "candidate-image-smoke-",
 )
 BYTES_PER_GIB = 1024**3
+PODMAN_UNAVAILABLE_ERROR_PATTERNS = (
+    "cannot clone: Operation not permitted",
+    "cannot re-exec process",
+)
 
 
 @dataclass(frozen=True)
@@ -133,6 +137,15 @@ def _bool_from_env(value: str, *, default: bool) -> bool:
     raise CiToolError(f"Expected boolean value, got: {value}")
 
 
+def _podman_prune_unavailable_reason(output: str) -> str:
+    """Return a skip reason when Podman cannot run in this job context."""
+
+    for pattern in PODMAN_UNAVAILABLE_ERROR_PATTERNS:
+        if pattern in output:
+            return output.strip()
+    return ""
+
+
 def prune_unused_podman_images(
     *,
     workspace: Path,
@@ -178,7 +191,17 @@ def prune_unused_podman_images(
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
         stdout = (exc.stdout or "").strip()
-        if "unknown flag: --build-cache" in f"{stderr}\n{stdout}":
+        combined_output = f"{stderr}\n{stdout}"
+        unavailable_reason = _podman_prune_unavailable_reason(combined_output)
+        if unavailable_reason:
+            return PodmanPruneSummary(
+                command=tuple(command),
+                removed_references=0,
+                reclaimed_bytes=0,
+                skipped_reason=unavailable_reason,
+            )
+
+        if "unknown flag: --build-cache" in combined_output:
             fallback_command = [part for part in command if part != "--build-cache"]
             print(
                 "Podman image prune does not support --build-cache; "
@@ -191,7 +214,7 @@ def prune_unused_podman_images(
                     text=True,
                     capture_output=True,
                 )
-            except (subprocess.CalledProcessError, OSError) as fallback_exc:
+            except subprocess.CalledProcessError as fallback_exc:
                 fallback_stderr = getattr(fallback_exc, "stderr", "") or ""
                 fallback_stdout = getattr(fallback_exc, "stdout", "") or ""
                 details = (
@@ -199,6 +222,20 @@ def prune_unused_podman_images(
                     or str(fallback_stdout).strip()
                     or str(fallback_exc)
                 )
+                unavailable_reason = _podman_prune_unavailable_reason(details)
+                if unavailable_reason:
+                    return PodmanPruneSummary(
+                        command=tuple(fallback_command),
+                        removed_references=0,
+                        reclaimed_bytes=0,
+                        skipped_reason=unavailable_reason,
+                    )
+                raise CiToolError(
+                    "Failed to prune unused Podman images: "
+                    f"{' '.join(fallback_command)}\n{details}"
+                ) from fallback_exc
+            except OSError as fallback_exc:
+                details = str(fallback_exc)
                 raise CiToolError(
                     "Failed to prune unused Podman images: "
                     f"{' '.join(fallback_command)}\n{details}"

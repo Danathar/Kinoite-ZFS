@@ -220,6 +220,76 @@ class SelfHostedRunnerPreflightTests(unittest.TestCase):
             self.assertEqual(summary.removed_references, 1)
             self.assertEqual(summary.reclaimed_bytes, 5 * BYTES_PER_GIB)
 
+    def test_podman_image_prune_skips_when_podman_cannot_run_in_job_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            commands: list[list[str]] = []
+
+            def fake_run(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                if "--build-cache" in command:
+                    raise subprocess.CalledProcessError(
+                        125,
+                        command,
+                        stderr="Error: unknown flag: --build-cache\n",
+                    )
+                raise subprocess.CalledProcessError(
+                    125,
+                    command,
+                    stderr=(
+                        'time="2026-04-20T14:31:01Z" level=warning '
+                        'msg="\\"/\\" is not a shared mount"\n'
+                        "cannot clone: Operation not permitted\n"
+                        "Error: cannot re-exec process\n"
+                    ),
+                )
+
+            with (
+                patch("ci_tools.self_hosted_runner_preflight.shutil.which", return_value="/usr/bin/podman"),
+                patch("ci_tools.self_hosted_runner_preflight.subprocess.run", side_effect=fake_run),
+                patch(
+                    "ci_tools.self_hosted_runner_preflight.shutil.disk_usage",
+                    return_value=shutil._ntuple_diskusage(
+                        total=100 * BYTES_PER_GIB,
+                        used=90 * BYTES_PER_GIB,
+                        free=10 * BYTES_PER_GIB,
+                    ),
+                ),
+            ):
+                summary = prune_unused_podman_images(
+                    workspace=workspace,
+                    older_than_hours=24,
+                )
+
+            self.assertEqual(
+                commands,
+                [
+                    [
+                        "podman",
+                        "image",
+                        "prune",
+                        "--all",
+                        "--force",
+                        "--build-cache",
+                        "--filter",
+                        "until=24h",
+                    ],
+                    [
+                        "podman",
+                        "image",
+                        "prune",
+                        "--all",
+                        "--force",
+                        "--filter",
+                        "until=24h",
+                    ],
+                ],
+            )
+            self.assertEqual(summary.command, tuple(commands[1]))
+            self.assertEqual(summary.removed_references, 0)
+            self.assertEqual(summary.reclaimed_bytes, 0)
+            self.assertIn("cannot re-exec process", summary.skipped_reason)
+
     def test_run_preflight_aggressively_prunes_when_old_images_do_not_free_enough(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
