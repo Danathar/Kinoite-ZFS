@@ -238,7 +238,7 @@ This lets you rebuild with saved values instead of moving `latest` tags.
 3. PR workflow (`build-pr.yml`): validation only, no push.
 4. Branch and PR workflows now share one read-only validation prep wrapper before compose, so both paths pin the same inputs and fail closed on stale shared akmods caches.
 5. `main` now uses one local main-prep wrapper before rebuild decisions, so input resolution, build-input artifact upload, and shared-cache inspection stay wired together.
-6. Trusted self-hosted jobs now run a lightweight preflight step that cleans stale repo-owned temp directories and fails early on low free workspace space.
+6. Trusted self-hosted jobs now run a lightweight preflight step that cleans stale repo-owned temp directories, prunes unused Podman images, and fails early on low free workspace space.
 7. All workflows now opt GitHub JavaScript actions into Node 24 so they do not rely on the deprecated Node 20 runtime path.
 
 ## Implementation Note: Workflow Scripts

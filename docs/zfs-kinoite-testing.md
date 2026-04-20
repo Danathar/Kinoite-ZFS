@@ -77,8 +77,10 @@ The workflow also writes a `build-inputs-<run_id>` artifact containing all resol
 Trusted self-hosted jobs now also run a lightweight preflight before heavy work:
 
 1. Remove stale repo-owned temp directories left behind by interrupted akmods or candidate-smoke jobs.
-2. Print workspace, `/tmp`, and container-storage usage context to the log.
-3. Fail early if free workspace space drops below the configured minimum.
+2. Prune unused Podman images older than the configured retention window.
+3. Prune all unused Podman images if disk space is still below the configured minimum.
+4. Print workspace, `/tmp`, and container-storage usage context to the log.
+5. Fail early if free workspace space still drops below the configured minimum.
 
 ### 2. Validate Existing Shared Akmods Source Cache
 

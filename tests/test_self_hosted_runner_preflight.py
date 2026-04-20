@@ -11,11 +11,16 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from ci_tools.self_hosted_runner_preflight import cleanup_stale_temp_dirs, run_preflight
+from ci_tools.self_hosted_runner_preflight import (
+    BYTES_PER_GIB,
+    cleanup_stale_temp_dirs,
+    run_preflight,
+)
 
 
 class SelfHostedRunnerPreflightTests(unittest.TestCase):
@@ -62,7 +67,176 @@ class SelfHostedRunnerPreflightTests(unittest.TestCase):
                     host_root=host_root,
                     min_free_gib=1,
                     retention_hours=24,
+                    prune_podman_images=False,
                     now_timestamp=2_000_000.0,
                 )
 
             self.assertLess(summary.free_bytes, summary.required_free_bytes)
+
+    def test_run_preflight_prunes_old_unused_podman_images(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            host_root = Path(temp_dir)
+            commands: list[list[str]] = []
+
+            def fake_run(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout="image-one\nimage-two\n",
+                    stderr="",
+                )
+
+            disk_usage_values = [
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=90 * BYTES_PER_GIB,
+                    free=10 * BYTES_PER_GIB,
+                ),
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=86 * BYTES_PER_GIB,
+                    free=14 * BYTES_PER_GIB,
+                ),
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=86 * BYTES_PER_GIB,
+                    free=14 * BYTES_PER_GIB,
+                ),
+            ]
+
+            with (
+                patch("ci_tools.self_hosted_runner_preflight.shutil.which", return_value="/usr/bin/podman"),
+                patch("ci_tools.self_hosted_runner_preflight.subprocess.run", side_effect=fake_run),
+                patch(
+                    "ci_tools.self_hosted_runner_preflight.shutil.disk_usage",
+                    side_effect=disk_usage_values,
+                ),
+            ):
+                summary = run_preflight(
+                    workspace=workspace,
+                    host_root=host_root,
+                    min_free_gib=12,
+                    retention_hours=24,
+                    prune_podman_images=True,
+                    podman_image_retention_hours=6,
+                    aggressive_podman_prune_on_low_space=True,
+                    now_timestamp=2_000_000.0,
+                )
+
+            self.assertEqual(
+                commands,
+                [
+                    [
+                        "podman",
+                        "image",
+                        "prune",
+                        "--all",
+                        "--force",
+                        "--build-cache",
+                        "--filter",
+                        "until=6h",
+                    ]
+                ],
+            )
+            self.assertEqual(summary.free_bytes, 14 * BYTES_PER_GIB)
+            self.assertEqual(len(summary.podman_prunes), 1)
+            self.assertEqual(summary.podman_prunes[0].removed_references, 2)
+            self.assertEqual(summary.podman_prunes[0].reclaimed_bytes, 4 * BYTES_PER_GIB)
+
+    def test_run_preflight_aggressively_prunes_when_old_images_do_not_free_enough(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            host_root = Path(temp_dir)
+            commands: list[list[str]] = []
+            stdout_values = iter(["", "image-one\n"])
+
+            def fake_run(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+                commands.append(command)
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout=next(stdout_values),
+                    stderr="",
+                )
+
+            disk_usage_values = [
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=90 * BYTES_PER_GIB,
+                    free=10 * BYTES_PER_GIB,
+                ),
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=90 * BYTES_PER_GIB,
+                    free=10 * BYTES_PER_GIB,
+                ),
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=90 * BYTES_PER_GIB,
+                    free=10 * BYTES_PER_GIB,
+                ),
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=90 * BYTES_PER_GIB,
+                    free=10 * BYTES_PER_GIB,
+                ),
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=70 * BYTES_PER_GIB,
+                    free=30 * BYTES_PER_GIB,
+                ),
+                shutil._ntuple_diskusage(
+                    total=100 * BYTES_PER_GIB,
+                    used=70 * BYTES_PER_GIB,
+                    free=30 * BYTES_PER_GIB,
+                ),
+            ]
+
+            with (
+                patch("ci_tools.self_hosted_runner_preflight.shutil.which", return_value="/usr/bin/podman"),
+                patch("ci_tools.self_hosted_runner_preflight.subprocess.run", side_effect=fake_run),
+                patch(
+                    "ci_tools.self_hosted_runner_preflight.shutil.disk_usage",
+                    side_effect=disk_usage_values,
+                ),
+            ):
+                summary = run_preflight(
+                    workspace=workspace,
+                    host_root=host_root,
+                    min_free_gib=20,
+                    retention_hours=24,
+                    prune_podman_images=True,
+                    podman_image_retention_hours=24,
+                    aggressive_podman_prune_on_low_space=True,
+                    now_timestamp=2_000_000.0,
+                )
+
+            self.assertEqual(
+                commands,
+                [
+                    [
+                        "podman",
+                        "image",
+                        "prune",
+                        "--all",
+                        "--force",
+                        "--build-cache",
+                        "--filter",
+                        "until=24h",
+                    ],
+                    [
+                        "podman",
+                        "image",
+                        "prune",
+                        "--all",
+                        "--force",
+                        "--build-cache",
+                    ],
+                ],
+            )
+            self.assertEqual(summary.free_bytes, 30 * BYTES_PER_GIB)
+            self.assertEqual(len(summary.podman_prunes), 2)
+            self.assertEqual(summary.podman_prunes[0].removed_references, 0)
+            self.assertEqual(summary.podman_prunes[1].removed_references, 1)

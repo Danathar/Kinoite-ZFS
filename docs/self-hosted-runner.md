@@ -27,8 +27,11 @@ Before the heavy trusted jobs start, the workflows now also run one repo-owned
 preflight helper on the runner. That helper:
 
 1. removes stale repo temp directories left behind by interrupted jobs
-2. prints workspace, `/tmp`, and container-storage usage context
-3. fails early if free workspace space falls below the configured minimum
+2. prunes unused Podman images older than the configured retention window
+3. prunes all unused Podman images if disk space is still below the configured
+   minimum
+4. prints workspace, `/tmp`, and container-storage usage context
+5. fails early if free workspace space still falls below the configured minimum
 
 That keeps disk-pressure failures closer to the start of the run instead of
 halfway through an akmods or BlueBuild job.
@@ -255,6 +258,29 @@ Follow logs:
 ```bash
 ci/github-runner/manage.sh logs
 ```
+
+Check disk pressure from build images:
+
+```bash
+df -h ~/.local/share/kinoite-zfs-runner/work /var/lib/containers
+sudo podman system df
+```
+
+Clean old unused Podman images while keeping very recent cache:
+
+```bash
+sudo podman image prune --all --force --build-cache --filter until=24h
+```
+
+If the VM is already under hard disk pressure, clean all unused Podman images:
+
+```bash
+sudo podman image prune --all --force --build-cache
+```
+
+That is the manual version of what the preflight does automatically. The prune
+only removes images not used by containers, so it should not interrupt a running
+container, but run it while no workflow job is active when possible.
 
 Stop the container:
 

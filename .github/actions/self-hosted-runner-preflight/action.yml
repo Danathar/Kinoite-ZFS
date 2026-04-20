@@ -14,15 +14,30 @@ inputs:
     description: Age threshold used when removing stale repo-owned temp directories.
     required: false
     default: "24"
+  prune_podman_images:
+    description: Whether to prune unused Podman images before enforcing the free-space threshold.
+    required: false
+    default: "true"
+  podman_image_retention_hours:
+    description: Age threshold used for the first unused Podman image prune pass.
+    required: false
+    default: "24"
+  aggressive_podman_prune_on_low_space:
+    description: Whether to prune all unused Podman images if retained images still leave too little free space.
+    required: false
+    default: "true"
 
 runs:
   using: composite
   steps:
-    - name: Check free space and clean stale repo temp directories
+    - name: Check free space and clean stale runner state
       shell: bash
       env:
         RUNNER_HOST_ROOT: ${{ inputs.host_root }}
         RUNNER_MIN_FREE_GB: ${{ inputs.min_free_gb }}
         RUNNER_TEMP_RETENTION_HOURS: ${{ inputs.temp_retention_hours }}
+        RUNNER_PRUNE_PODMAN_IMAGES: ${{ inputs.prune_podman_images }}
+        RUNNER_PODMAN_IMAGE_RETENTION_HOURS: ${{ inputs.podman_image_retention_hours }}
+        RUNNER_AGGRESSIVE_PODMAN_PRUNE_ON_LOW_SPACE: ${{ inputs.aggressive_podman_prune_on_low_space }}
       run: |
         python3 -m ci_tools.cli self-hosted-runner-preflight

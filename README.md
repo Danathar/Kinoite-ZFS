@@ -148,7 +148,7 @@ If candidate fails, stable tags are not updated. That protects users from overni
 
 - [`.github/workflows/build.yml`](.github/workflows/build.yml)
   - Builds candidate artifacts first, then promotes them to stable tags on success.
-  - Runs a lightweight self-hosted runner preflight before heavy trusted jobs so stale temp directories and low free-space conditions fail early instead of mid-build.
+  - Runs a lightweight self-hosted runner preflight before heavy trusted jobs so stale temp directories, unused Podman images, and low free-space conditions are handled before mid-build failures.
   - Copies shared akmods source tags into candidate akmods tags before candidate compose (candidate image build step) and promotion.
   - Smoke-tests the published candidate image before promotion so a successful compose still has to prove the final candidate image carries ZFS userspace plus module payloads.
   - Keeps that smoke test cheap by scanning only the relevant OCI layer paths instead of reconstructing a full root filesystem tree.

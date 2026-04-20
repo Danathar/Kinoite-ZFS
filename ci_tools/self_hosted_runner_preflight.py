@@ -1,7 +1,7 @@
 """
 Script: ci_tools/self_hosted_runner_preflight.py
 What: Performs lightweight hygiene and disk preflight checks on self-hosted runners.
-Doing: Removes stale repo-owned temp directories, prints storage context, and fails early when free workspace space is below a configured threshold.
+Doing: Removes stale repo-owned temp directories, prunes unused Podman images, prints storage context, and fails early when free workspace space is below a configured threshold.
 Why: Persistent self-hosted runners accumulate state that can turn later builds flaky or slow.
 Goal: Catch disk-pressure issues before heavy jobs start and keep stale temp leftovers from piling up.
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
+import subprocess
 import time
 
 from ci_tools.common import CiToolError, optional_env, require_env, run_cmd
@@ -32,6 +33,16 @@ class CleanupSummary:
 
 
 @dataclass(frozen=True)
+class PodmanPruneSummary:
+    """Summary of one Podman image-prune pass."""
+
+    command: tuple[str, ...]
+    removed_references: int
+    reclaimed_bytes: int
+    skipped_reason: str = ""
+
+
+@dataclass(frozen=True)
 class RunnerPreflightSummary:
     """Result of the self-hosted runner preflight check."""
 
@@ -40,6 +51,7 @@ class RunnerPreflightSummary:
     free_bytes: int
     required_free_bytes: int
     cleanup: CleanupSummary
+    podman_prunes: tuple[PodmanPruneSummary, ...]
 
 
 def format_bytes(value: int) -> str:
@@ -108,12 +120,89 @@ def cleanup_stale_temp_dirs(
     )
 
 
+def _bool_from_env(value: str, *, default: bool) -> bool:
+    """Parse one GitHub Actions string boolean."""
+
+    normalized = value.strip().lower()
+    if not normalized:
+        return default
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise CiToolError(f"Expected boolean value, got: {value}")
+
+
+def prune_unused_podman_images(
+    *,
+    workspace: Path,
+    older_than_hours: int | None,
+) -> PodmanPruneSummary:
+    """
+    Remove unused Podman images and report the approximate reclaimed space.
+
+    Persistent self-hosted runners keep `/var/lib/containers` between jobs. The
+    images are safe to prune here because this only removes image references not
+    used by containers. The free-space delta is measured from the workspace
+    filesystem because the runner workspace and container storage are expected
+    to live on the same VM disk.
+    """
+
+    if shutil.which("podman") is None:
+        return PodmanPruneSummary(
+            command=(),
+            removed_references=0,
+            reclaimed_bytes=0,
+            skipped_reason="podman is not installed",
+        )
+
+    command = [
+        "podman",
+        "image",
+        "prune",
+        "--all",
+        "--force",
+        "--build-cache",
+    ]
+    if older_than_hours is not None:
+        command.extend(["--filter", f"until={older_than_hours}h"])
+
+    before_free = shutil.disk_usage(workspace).free
+    try:
+        result = subprocess.run(
+            command,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").strip()
+        stdout = (exc.stdout or "").strip()
+        details = stderr or stdout or str(exc)
+        raise CiToolError(
+            f"Failed to prune unused Podman images: {' '.join(command)}\n{details}"
+        ) from exc
+
+    after_free = shutil.disk_usage(workspace).free
+    removed_references = len(
+        [line for line in result.stdout.splitlines() if line.strip()]
+    )
+    return PodmanPruneSummary(
+        command=tuple(command),
+        removed_references=removed_references,
+        reclaimed_bytes=max(0, after_free - before_free),
+    )
+
+
 def run_preflight(
     *,
     workspace: Path,
     host_root: Path,
     min_free_gib: int,
     retention_hours: int,
+    prune_podman_images: bool = True,
+    podman_image_retention_hours: int = 24,
+    aggressive_podman_prune_on_low_space: bool = True,
     now_timestamp: float | None = None,
 ) -> RunnerPreflightSummary:
     """Run the cleanup-plus-free-space check and return a summary object."""
@@ -125,14 +214,38 @@ def run_preflight(
         now_timestamp=now_timestamp,
     )
 
-    free_bytes = shutil.disk_usage(workspace).free
     required_free_bytes = min_free_gib * BYTES_PER_GIB
+    podman_prunes: list[PodmanPruneSummary] = []
+
+    if prune_podman_images:
+        podman_prunes.append(
+            prune_unused_podman_images(
+                workspace=workspace,
+                older_than_hours=podman_image_retention_hours,
+            )
+        )
+
+    free_bytes = shutil.disk_usage(workspace).free
+    if (
+        prune_podman_images
+        and aggressive_podman_prune_on_low_space
+        and free_bytes < required_free_bytes
+    ):
+        podman_prunes.append(
+            prune_unused_podman_images(
+                workspace=workspace,
+                older_than_hours=None,
+            )
+        )
+        free_bytes = shutil.disk_usage(workspace).free
+
     return RunnerPreflightSummary(
         workspace_path=str(workspace),
         host_tmp_path=str(host_tmp_path),
         free_bytes=free_bytes,
         required_free_bytes=required_free_bytes,
         cleanup=cleanup,
+        podman_prunes=tuple(podman_prunes),
     )
 
 
@@ -158,12 +271,26 @@ def main() -> None:
     host_root = Path(optional_env("RUNNER_HOST_ROOT", "/")).resolve()
     min_free_gib = int(optional_env("RUNNER_MIN_FREE_GB", "20"))
     retention_hours = int(optional_env("RUNNER_TEMP_RETENTION_HOURS", "24"))
+    prune_podman_images = _bool_from_env(
+        optional_env("RUNNER_PRUNE_PODMAN_IMAGES", "true"),
+        default=True,
+    )
+    podman_image_retention_hours = int(
+        optional_env("RUNNER_PODMAN_IMAGE_RETENTION_HOURS", "24")
+    )
+    aggressive_podman_prune_on_low_space = _bool_from_env(
+        optional_env("RUNNER_AGGRESSIVE_PODMAN_PRUNE_ON_LOW_SPACE", "true"),
+        default=True,
+    )
 
     summary = run_preflight(
         workspace=workspace,
         host_root=host_root,
         min_free_gib=min_free_gib,
         retention_hours=retention_hours,
+        prune_podman_images=prune_podman_images,
+        podman_image_retention_hours=podman_image_retention_hours,
+        aggressive_podman_prune_on_low_space=aggressive_podman_prune_on_low_space,
     )
 
     print(f"Runner workspace path: {summary.workspace_path}")
@@ -185,6 +312,17 @@ def main() -> None:
         )
     else:
         print("No stale repo-owned temp directories needed cleanup.")
+
+    for podman_prune in summary.podman_prunes:
+        if podman_prune.skipped_reason:
+            print(f"Skipped Podman image pruning: {podman_prune.skipped_reason}.")
+            continue
+        print(
+            "Pruned unused Podman images with "
+            f"`{' '.join(podman_prune.command)}`: "
+            f"{podman_prune.removed_references} references removed, "
+            f"approximately {format_bytes(podman_prune.reclaimed_bytes)} reclaimed."
+        )
 
     _print_runner_storage_context(workspace=workspace, host_root=host_root)
 
