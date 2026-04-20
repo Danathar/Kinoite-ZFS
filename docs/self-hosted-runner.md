@@ -280,7 +280,9 @@ sudo podman image prune --all --force --build-cache
 
 That is the manual version of what the preflight does automatically. The prune
 only removes images not used by containers, so it should not interrupt a running
-container, but run it while no workflow job is active when possible.
+container, but run it while no workflow job is active when possible. If your
+Podman version does not support `--build-cache`, rerun the same command without
+that flag.
 
 Stop the container:
 

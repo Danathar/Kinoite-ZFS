@@ -178,9 +178,40 @@ def prune_unused_podman_images(
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
         stdout = (exc.stdout or "").strip()
-        details = stderr or stdout or str(exc)
+        if "unknown flag: --build-cache" in f"{stderr}\n{stdout}":
+            fallback_command = [part for part in command if part != "--build-cache"]
+            print(
+                "Podman image prune does not support --build-cache; "
+                "retrying without it."
+            )
+            try:
+                result = subprocess.run(
+                    fallback_command,
+                    check=True,
+                    text=True,
+                    capture_output=True,
+                )
+            except (subprocess.CalledProcessError, OSError) as fallback_exc:
+                fallback_stderr = getattr(fallback_exc, "stderr", "") or ""
+                fallback_stdout = getattr(fallback_exc, "stdout", "") or ""
+                details = (
+                    str(fallback_stderr).strip()
+                    or str(fallback_stdout).strip()
+                    or str(fallback_exc)
+                )
+                raise CiToolError(
+                    "Failed to prune unused Podman images: "
+                    f"{' '.join(fallback_command)}\n{details}"
+                ) from fallback_exc
+            command = fallback_command
+        else:
+            details = stderr or stdout or str(exc)
+            raise CiToolError(
+                f"Failed to prune unused Podman images: {' '.join(command)}\n{details}"
+            ) from exc
+    except OSError as exc:
         raise CiToolError(
-            f"Failed to prune unused Podman images: {' '.join(command)}\n{details}"
+            f"Failed to prune unused Podman images: {' '.join(command)}\n{exc}"
         ) from exc
 
     after_free = shutil.disk_usage(workspace).free
