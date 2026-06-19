@@ -36,7 +36,7 @@ jobs:
       image: ghcr.io/ublue-os/devcontainer:latest
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Resolve PR inputs and verify shared akmods source
         id: prepare
@@ -52,7 +52,7 @@ jobs:
     needs: prepare-pr-build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Configure generated PR build workspace
         uses: ./.github/actions/configure-generated-build-context
