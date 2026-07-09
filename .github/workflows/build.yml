@@ -113,7 +113,7 @@ jobs:
       # Required for current akmods build tooling.
       options: "--privileged --volume /:/host-sys --volume /var/lib/containers:/var/lib/containers --security-opt seccomp=unconfined --security-opt label=disable --user 0:0"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Run self-hosted runner preflight
         uses: ./.github/actions/self-hosted-runner-preflight
@@ -218,7 +218,7 @@ jobs:
       packages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Run self-hosted runner preflight
         uses: ./.github/actions/self-hosted-runner-preflight
@@ -275,7 +275,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Run self-hosted runner preflight
         uses: ./.github/actions/self-hosted-runner-preflight
@@ -312,7 +312,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Promote candidate image, align stable akmods, and sign stable digest
         uses: ./.github/actions/promote-stable
@@ -339,7 +339,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install skopeo
         shell: bash
